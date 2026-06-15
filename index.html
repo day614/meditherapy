@@ -665,6 +665,17 @@ select.fi{cursor:pointer}
             <div class="uc-file-count" id="certFileCount"></div>
           </div>
         </div>
+        <!-- 링크 -->
+        <div class="fg full">
+          <label class="fl">슬랙 링크 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--taupe)">(최대 30개)</span></label>
+          <div id="editLinkList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:6px">
+            <input id="editLinkName" placeholder="링크 이름 (예: Slack 스레드)" class="fi" style="flex:1;font-size:.82rem">
+            <input id="editLinkUrl" placeholder="URL 붙여넣기" class="fi" style="flex:2;font-size:.82rem">
+            <button type="button" onclick="addEditLink()" style="padding:8px 14px;background:var(--acc);color:#fff;border:none;border-radius:var(--r-sm);cursor:pointer;font-size:.82rem;font-weight:600;white-space:nowrap">+ 추가</button>
+          </div>
+          <div id="editLinkCount" style="font-size:.72rem;color:var(--muted);margin-top:4px"></div>
+        </div>
       </div>
     </div>
     <div class="mfoot">
@@ -976,6 +987,15 @@ async function saveSuppliersViaGet(matId, suppliers) {
   } catch(e) { console.warn('거래처 저장 오류:', e); }
 }
 
+async function saveLinksViaGet(matId, links) {
+  if (!links || !links.length) return;
+  try {
+    const param = encodeURIComponent(JSON.stringify(links));
+    const url = GAS_URL + '?action=saveLinks&id=' + encodeURIComponent(matId) + '&links=' + param;
+    await fetch(url);
+  } catch(e) { console.warn('링크 저장 오류:', e); }
+}
+
 // ── 로딩 오버레이 ─────────────────────────────────────────
 function showLoading(msg='불러오는 중…'){
   document.getElementById('loadingMsg').textContent = msg;
@@ -1277,6 +1297,7 @@ async function uploadToUC(file){
 
 // ── 자재 CT 파일 ──────────────────────────────────────────
 let matFiles=[];
+let editLinks=[];
 
 async function handleMatFiles(input){
   const files=Array.from(input.files);
@@ -1597,6 +1618,41 @@ function filt(catId, subId, el){
   render();
 }
 
+async function addEditLink(){
+  const name = document.getElementById('editLinkName').value.trim();
+  const url  = document.getElementById('editLinkUrl').value.trim();
+  if(!url){ toast('⚠ URL을 입력해주세요.'); return; }
+  if(editLinks.length >= 30){ toast('⚠ 최대 30개까지 추가 가능합니다.'); return; }
+  editLinks.push({ name: name||url, url });
+  document.getElementById('editLinkName').value = '';
+  document.getElementById('editLinkUrl').value = '';
+  drawEditLinks();
+}
+function delEditLink(i){ editLinks.splice(i,1); drawEditLinks(); }
+function drawEditLinks(){
+  const list = document.getElementById('editLinkList');
+  const cnt  = document.getElementById('editLinkCount');
+  if(!list) return;
+  list.innerHTML = editLinks.map((lk,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:7px 11px">
+      <span style="flex:1;font-size:.81rem;color:var(--text);word-break:break-all">${lk.name}</span>
+      <span style="font-size:.72rem;color:var(--muted);flex-shrink:0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lk.url}</span>
+      <button onclick="delEditLink(${i})" style="background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:.82rem;padding:2px 6px;border-radius:4px">✕</button>
+    </div>`).join('');
+  if(cnt) cnt.textContent = editLinks.length ? `${editLinks.length}/30개` : '';
+}
+
+function addEditLink(){
+  const name = document.getElementById('editLinkName').value.trim();
+  const url  = document.getElementById('editLinkUrl').value.trim();
+  if(!url){ toast('⚠ URL을 입력해주세요.'); return; }
+  if(editLinks.length >= 30){ toast('⚠ 최대 30개까지 추가 가능합니다.'); return; }
+  editLinks.push({ name: name||url, url });
+  document.getElementById('editLinkName').value = '';
+  document.getElementById('editLinkUrl').value = '';
+  drawEditLinks();
+}
+
 async function addDetLink(matId){
   const name = document.getElementById('newLinkName').value.trim();
   const url  = document.getElementById('newLinkUrl').value.trim();
@@ -1644,7 +1700,7 @@ function setView(v){
 let eid=null;
 
 function openAdd(){
-  eid=null; imgs=[]; matFiles=[]; certFiles=[];
+  eid=null; imgs=[]; matFiles=[]; certFiles=[]; editLinks=[];
   supList = [{ name:'', contact:'', capa:'', vendorId:null }];
   renderSupBlocks();
   document.getElementById('addT').textContent='새 자재 등록';
@@ -1664,6 +1720,8 @@ function openEdit(id){
   imgs = (m.imgs || []).map(img => typeof img === 'object' ? (img.src || img) : img).filter(Boolean);
   matFiles  = m.ctFiles   ? JSON.parse(JSON.stringify(m.ctFiles))   : [];
   certFiles = m.certFiles ? JSON.parse(JSON.stringify(m.certFiles)) : [];
+  editLinks = m.links ? JSON.parse(JSON.stringify(m.links)) : [];
+  drawEditLinks();
   // 기존 다중 업체 or 단일 업체 호환
   if (m.suppliers && m.suppliers.length) {
     const raw = typeof m.suppliers === 'string' ? JSON.parse(m.suppliers) : m.suppliers;
@@ -1762,11 +1820,11 @@ async function saveMat(){
   // G.mats 먼저 업데이트
   if(eid){
     const i=G.mats.findIndex(m=>String(m.id)===String(eid));
-    if(i>=0) G.mats[i]={...G.mats[i],...d, imgs:finalImgs};
+    if(i>=0) G.mats[i]={...G.mats[i],...d, imgs:finalImgs, links:editLinks};
   } else {
     const nid = USE_SHEETS ? 'id_'+Date.now() : G.nid++;
     d.id = nid;
-    G.mats.push({...d, imgs:finalImgs});
+    G.mats.push({...d, imgs:finalImgs, links:editLinks});
   }
 
   // 모달 닫고 즉시 화면 반영
@@ -1785,6 +1843,7 @@ async function saveMat(){
         saveCtFilesViaGet(matId, d.ctFiles),
         saveCertFilesViaGet(matId, d.certFiles),
         saveSuppliersViaGet(matId, d.suppliers),
+        saveLinksViaGet(matId, editLinks),
       ]);
     } catch(e){ toast('⚠ 서버 저장 실패.'); return; }
   } else {
