@@ -1028,7 +1028,9 @@ async function initData(){
         try { ctFiles = m.ctFiles ? (Array.isArray(m.ctFiles) ? m.ctFiles : JSON.parse(m.ctFiles)) : []; } catch(e){ ctFiles=[]; }
         let certFiles = [];
         try { certFiles = m.certFiles ? (Array.isArray(m.certFiles) ? m.certFiles : JSON.parse(m.certFiles)) : []; } catch(e){ certFiles=[]; }
-        return { ...m, price: m.price ? Number(m.price) : null, imgs, suppliers, ctFiles, certFiles };
+        let links = [];
+        try { links = m.links ? (Array.isArray(m.links) ? m.links : JSON.parse(m.links)) : []; } catch(e){ links=[]; }
+        return { ...m, price: m.price ? Number(m.price) : null, imgs, suppliers, ctFiles, certFiles, links };
       });
       const ids = G.mats.map(m => parseInt(m.id)||0);
       G.nid = ids.length ? Math.max(...ids) + 1 : 1;
@@ -1595,6 +1597,39 @@ function filt(catId, subId, el){
   render();
 }
 
+async function addDetLink(matId){
+  const name = document.getElementById('newLinkName').value.trim();
+  const url  = document.getElementById('newLinkUrl').value.trim();
+  if(!url){ toast('⚠ URL을 입력해주세요.'); return; }
+  const m = G.mats.find(x=>String(x.id)===String(matId));
+  if(!m) return;
+  if(!m.links) m.links = [];
+  if(m.links.length >= 30){ toast('⚠ 최대 30개까지 추가 가능합니다.'); return; }
+  m.links.push({ name: name||url, url });
+  showLoading('링크 저장 중…');
+  try {
+    const param = encodeURIComponent(JSON.stringify(m.links));
+    await fetch(GAS_URL + '?action=saveLinks&id=' + encodeURIComponent(matId) + '&links=' + param);
+    toast('✓ 링크가 저장됐어요.');
+    openDet(matId);
+  } catch(e){ toast('⚠ 저장 실패'); }
+  hideLoading();
+}
+
+async function delDetLink(matId, idx){
+  const m = G.mats.find(x=>String(x.id)===String(matId));
+  if(!m || !m.links) return;
+  m.links.splice(idx, 1);
+  showLoading('링크 삭제 중…');
+  try {
+    const param = encodeURIComponent(JSON.stringify(m.links));
+    await fetch(GAS_URL + '?action=saveLinks&id=' + encodeURIComponent(matId) + '&links=' + param);
+    toast('✓ 링크가 삭제됐어요.');
+    openDet(matId);
+  } catch(e){ toast('⚠ 삭제 실패'); }
+  hideLoading();
+}
+
 function sort(k){ sAsc=sKey===k?!sAsc:true; sKey=k; render(); }
 function setView(v){
   view=v;
@@ -1847,7 +1882,27 @@ function openDet(id){
             </div>`).join('')}
         </div>`;
     })()}
-    ${!isA?`<div class="vlock">🔒 뷰어 권한 — 수정이 필요하면 관리자에게 문의하세요.</div>`:''}`;
+    ${!isA?`<div class="vlock">🔒 뷰어 권한 — 수정이 필요하면 관리자에게 문의하세요.</div>`:''}
+    ${(()=>{
+      const links = m.links && m.links.length ? m.links : [];
+      const canAdd = isA && links.length < 30;
+      if(!links.length && !isA) return '';
+      return `<div class="stitle">링크${isA?' <span style="font-size:.65rem;color:var(--muted)">(${links.length}/30)</span>':''}</div>
+        <div id="detLinkList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
+          ${links.map((lk,i)=>`
+            <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 12px">
+              <a href="${lk.url}" target="_blank" style="flex:1;font-size:.82rem;color:var(--blue);text-decoration:none;word-break:break-all">${lk.name||lk.url}</a>
+              ${isA?`<button onclick="delDetLink('${m.id}',${i})" style="background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:.85rem;padding:2px 6px;border-radius:4px" title="삭제">✕</button>`:''}
+            </div>`).join('')}
+        </div>
+        ${isA&&canAdd?`
+          <div style="display:flex;gap:6px">
+            <input id="newLinkName" placeholder="링크 이름 (예: Slack 스레드)" class="fi" style="flex:1;font-size:.8rem;padding:7px 10px">
+            <input id="newLinkUrl" placeholder="URL" class="fi" style="flex:2;font-size:.8rem;padding:7px 10px">
+            <button onclick="addDetLink('${m.id}')" style="padding:7px 14px;background:var(--acc);color:#fff;border:none;border-radius:var(--r-sm);cursor:pointer;font-size:.8rem;font-weight:600;white-space:nowrap">+ 추가</button>
+          </div>`:
+          (isA&&!canAdd?`<div style="font-size:.75rem;color:var(--muted)">최대 30개까지 추가 가능</div>`:'')}`;
+    })()}`;
 
   document.getElementById('detEdit').classList.toggle('hidden',!isA);
   document.getElementById('detEdit').onclick=()=>{closeOv('detOv');openEdit(''+id);};
