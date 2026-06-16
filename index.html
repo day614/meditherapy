@@ -2147,24 +2147,29 @@ function drawCodeRuleEd(){
     <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:.78rem;font-weight:600;color:var(--text)">규칙 ${i+1}</span>
-        <button onclick="delCodeRule(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.82rem;padding:2px 6px;border-radius:4px">✕ 삭제</button>
+        <button onclick="delCodeRule(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.82rem;padding:2px 8px;border-radius:4px">✕ 삭제</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div>
           <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">카테고리</label>
-          <select style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--surface)" id="crCat-${i}">
+          <select onchange="liveUpdateRule(${i},'catId',this.value)"
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--surface)">
             <option value="">카테고리 선택</option>
             ${cats.map(c=>`<option value="${c.id}"${c.id===r.catId?' selected':''}>${c.emoji} ${c.name}</option>`).join('')}
           </select>
         </div>
         <div>
           <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">접두사 (예: BO, TU, PU)</label>
-          <input value="${r.prefix||''}" id="crPfx-${i}" maxlength="5" placeholder="예: BO"
+          <input value="${r.prefix||''}" oninput="liveUpdateRule(${i},'prefix',this.value.toUpperCase())" maxlength="5" placeholder="예: BO"
             style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:.9rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:var(--surface)">
         </div>
       </div>
     </div>`).join('')
     : '<p style="font-size:.78rem;color:var(--muted);padding:8px 0">등록된 규칙이 없습니다.</p>';
+}
+function liveUpdateRule(i, field, val){
+  if(!G.cfg.codeRules || !G.cfg.codeRules[i]) return;
+  G.cfg.codeRules[i][field] = val;
 }
 function addCodeRule(){
   if(!G.cfg.codeRules) G.cfg.codeRules=[];
@@ -2173,11 +2178,9 @@ function addCodeRule(){
 }
 function delCodeRule(i){ G.cfg.codeRules.splice(i,1); drawCodeRuleEd(); }
 function saveCodeRules(){
-  if(!G.cfg.codeRules) return;
-  G.cfg.codeRules=G.cfg.codeRules.map((r,i)=>({
-    catId:(document.getElementById('crCat-'+i)||{}).value||r.catId,
-    prefix:((document.getElementById('crPfx-'+i)||{}).value||r.prefix).toUpperCase().trim(),
-  })).filter(r=>r.catId&&r.prefix);
+  if(!G.cfg.codeRules) G.cfg.codeRules=[];
+  // 빈 규칙만 제거 (catId와 prefix 둘 다 없는 경우)
+  G.cfg.codeRules = G.cfg.codeRules.filter(r=>r.catId||r.prefix);
 }
 function getCodeRule(catId){
   if(!G.cfg.codeRules) return null;
