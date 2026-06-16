@@ -646,7 +646,7 @@ select.fi{cursor:pointer}
           <!-- 코드 규칙 없는 경우 직접 입력 -->
           <div id="codeManualWrap">
             <input class="fi" id="fcManual" placeholder="직접 입력 (예: BO-100-001)">
-            <div style="font-size:.72rem;color:var(--muted);margin-top:4px">카테고리에 코드 규칙이 설정되어 있으면 자동으로 채번됩니다.</div>
+            <div style="font-size:.72rem;color:var(--acc);margin-top:5px">💡 코드 규칙이 설정된 카테고리를 선택하면 용량 입력 후 자동 채번됩니다.</div>
           </div>
         </div>
         <div class="fg full">
@@ -1337,6 +1337,7 @@ async function uploadToUC(file){
 // ── 자재 CT 파일 ──────────────────────────────────────────
 let matFiles=[];
 let editLinks=[];
+let lastCatId='';
 
 async function handleMatFiles(input){
   const files=Array.from(input.files);
@@ -1745,6 +1746,15 @@ function openAdd(){
   document.getElementById('addT').textContent='새 자재 등록';
   populateCatSel(null);
   refreshSub(null);
+  // 마지막 카테고리 자동 선택
+  if(lastCatId){
+    const fcat = document.getElementById('fcat');
+    if(fcat && [...fcat.options].some(o=>o.value===lastCatId)){
+      fcat.value = lastCatId;
+      refreshSub(null);
+      onCatChangeCode();
+    }
+  }
   ['fn','fc','fmat','fpr','fmoq','flt','fcert','fnotes'].forEach(id=>{
     const e=document.getElementById(id); if(e){ e.value=''; if(e.dataset) e.dataset.vid=''; }
   });
@@ -1877,6 +1887,7 @@ async function saveMat(){
   }
 
   // 모달 닫고 즉시 화면 반영
+  lastCatId = document.getElementById('fcat').value; // 마지막 카테고리 기억
   closeOv('addOv');
   renderSidebar();
   render();
