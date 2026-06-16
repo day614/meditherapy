@@ -560,9 +560,10 @@ select.fi{cursor:pointer}
       <span id="sC" style="display:none"></span>
       <!-- 검색+토글 항상 표시 -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px">
-        <div class="sbox" style="flex:1;max-width:360px">
+        <div class="sbox" style="flex:1;max-width:360px;position:relative">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="m10 10 2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          <input id="sq" placeholder="자재명, 코드, 공급사…" oninput="currentPage=1;render()">
+          <input id="sq" placeholder="자재명, 코드, 공급사…" oninput="currentPage=1;render();document.getElementById('sqClear').style.display=this.value?'flex':'none'" style="flex:1;padding-right:28px">
+          <button id="sqClear" onclick="document.getElementById('sq').value='';document.getElementById('sqClear').style.display='none';currentPage=1;render()" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:.9rem;width:18px;height:18px;align-items:center;justify-content:center;border-radius:50%;padding:0;line-height:1">✕</button>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <select id="perPageSel" onchange="perPage=parseInt(this.value);currentPage=1;render()" style="height:36px;padding:0 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text-secondary);font-family:inherit;font-size:.8rem;cursor:pointer;outline:none">
@@ -2718,13 +2719,28 @@ function supFilter(idx) {
   dl.style.display = 'block';
 }
 
+function syncSupList() {
+  supList.forEach((s, i) => {
+    const vidEl  = document.getElementById('supVid-' + i);
+    const nameEl = document.getElementById('supQ-'   + i);
+    const conEl  = document.getElementById('fcon-'   + i);
+    const capaEl = document.getElementById('fcapa-'  + i);
+    if (vidEl)  s.vendorId = vidEl.value  || null;
+    if (nameEl) s.name     = nameEl.value.trim();
+    if (conEl)  s.contact  = conEl.value.trim();
+    if (capaEl) s.capa     = capaEl.value.trim();
+  });
+}
+
 function addSupBlock() {
   if (supList.length >= 3) return;
+  syncSupList(); // 현재 입력값 먼저 저장
   supList.push({ name:'', contact:'', capa:'', vendorId:null });
   renderSupBlocks();
 }
 
 function removeSupBlock(i) {
+  syncSupList(); // 현재 입력값 먼저 저장
   supList.splice(i, 1);
   renderSupBlocks();
 }
