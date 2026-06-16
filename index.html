@@ -613,24 +613,42 @@ select.fi{cursor:pointer}
     <div class="mbody">
       <div class="fgrid">
         <div class="fg"><label class="fl">자재명 *</label><input class="fi" id="fn"></div>
-        <div class="fg"><label class="fl">자재 코드</label>
-          <div id="codeAutoWrap" style="display:none;margin-bottom:6px">
-            <div style="display:flex;align-items:center;gap:6px">
-              <span id="codePfxLabel" style="font-size:.9rem;font-weight:700;color:var(--text);min-width:30px"></span>
-              <span style="color:var(--muted)">-</span>
-              <input class="fi" id="fCodeSize" type="number" min="0" placeholder="용량" oninput="autoFillCode()" style="width:80px">
-              <span style="color:var(--muted)">-</span>
-              <span id="codeSeqLabel" style="font-size:.9rem;font-weight:700;color:var(--acc);min-width:36px">001</span>
-              <button type="button" onclick="autoFillCode()" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:.75rem;color:var(--muted)">↺</button>
+        <div class="fg"><label class="fl">카테고리 *</label><select class="fs" id="fcat" onchange="refreshSub();onCatChangeCode()"></select></div>
+        <div class="fg"><label class="fl">소분류</label><select class="fs" id="fsub"></select></div>
+        <div class="fg full"><label class="fl">자재 코드</label>
+          <!-- 코드 규칙 있는 카테고리 선택 시 -->
+          <div id="codeAutoWrap" style="display:none">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">접두사</div>
+                <span id="codePfxLabel" style="display:inline-block;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);font-size:.9rem;font-weight:700;color:var(--text);min-width:40px;text-align:center"></span>
+              </div>
+              <div style="color:var(--muted);font-size:1.1rem;align-self:flex-end;padding-bottom:6px">-</div>
+              <div>
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">용량 (숫자만)</div>
+                <input class="fi" id="fCodeSize" type="number" min="0" placeholder="예: 100" oninput="autoFillCode()" style="width:90px">
+              </div>
+              <div style="color:var(--muted);font-size:1.1rem;align-self:flex-end;padding-bottom:6px">-</div>
+              <div>
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">순번 (자동)</div>
+                <span id="codeSeqLabel" style="display:inline-block;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);font-size:.9rem;font-weight:700;color:var(--acc);min-width:48px;text-align:center">001</span>
+              </div>
+              <div style="align-self:flex-end;padding-bottom:2px">
+                <button type="button" onclick="autoFillCode()" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:.75rem;color:var(--muted)">↺ 재계산</button>
+              </div>
+            </div>
+            <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
+              <span style="font-size:.75rem;color:var(--muted)">생성될 코드:</span>
+              <span id="codePreview" style="font-size:.85rem;font-weight:700;color:var(--text);letter-spacing:.03em"></span>
             </div>
             <input type="hidden" id="fc">
           </div>
+          <!-- 코드 규칙 없는 경우 직접 입력 -->
           <div id="codeManualWrap">
             <input class="fi" id="fcManual" placeholder="직접 입력 (예: BO-100-001)">
+            <div style="font-size:.72rem;color:var(--muted);margin-top:4px">카테고리에 코드 규칙이 설정되어 있으면 자동으로 채번됩니다.</div>
           </div>
         </div>
-        <div class="fg"><label class="fl">카테고리 *</label><select class="fs" id="fcat" onchange="refreshSub();onCatChangeCode()"></select></div>
-        <div class="fg"><label class="fl">소분류</label><select class="fs" id="fsub"></select></div>
         <div class="fg full">
           <label class="fl">거래처 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--taupe)">(최대 3개 · 첫 번째가 주요 거래처)</span></label>
           <div id="supBlocks"></div>
@@ -2152,7 +2170,7 @@ function drawCodeRuleEd(){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div>
           <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">카테고리</label>
-          <select onchange="liveUpdateRule(${i},'catId',this.value)"
+          <select id="crCat-${i}" onchange="liveUpdateRule(${i},'catId',this.value)"
             style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--surface)">
             <option value="">카테고리 선택</option>
             ${cats.map(c=>`<option value="${c.id}"${c.id===r.catId?' selected':''}>${c.emoji} ${c.name}</option>`).join('')}
@@ -2160,7 +2178,7 @@ function drawCodeRuleEd(){
         </div>
         <div>
           <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">접두사 (예: BO, TU, PU)</label>
-          <input value="${r.prefix||''}" oninput="liveUpdateRule(${i},'prefix',this.value.toUpperCase())" maxlength="5" placeholder="예: BO"
+          <input id="crPfx-${i}" value="${r.prefix||''}" oninput="liveUpdateRule(${i},'prefix',this.value.toUpperCase())" maxlength="5" placeholder="예: BO"
             style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:.9rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:var(--surface)">
         </div>
       </div>
@@ -2173,14 +2191,37 @@ function liveUpdateRule(i, field, val){
 }
 function addCodeRule(){
   if(!G.cfg.codeRules) G.cfg.codeRules=[];
+  // 현재 DOM에 입력된 값 먼저 G.cfg에 반영
+  G.cfg.codeRules.forEach((r,i)=>{
+    const catEl=document.getElementById('crCat-'+i);
+    const pfxEl=document.getElementById('crPfx-'+i);
+    if(catEl) r.catId=catEl.value;
+    if(pfxEl) r.prefix=pfxEl.value.toUpperCase().trim();
+  });
   G.cfg.codeRules.push({catId:'',prefix:''});
   drawCodeRuleEd();
 }
-function delCodeRule(i){ G.cfg.codeRules.splice(i,1); drawCodeRuleEd(); }
+function delCodeRule(i){
+  if(!G.cfg.codeRules) return;
+  // 삭제 전에도 현재 DOM값 저장
+  G.cfg.codeRules.forEach((r,j)=>{
+    const catEl=document.getElementById('crCat-'+j);
+    const pfxEl=document.getElementById('crPfx-'+j);
+    if(catEl) r.catId=catEl.value;
+    if(pfxEl) r.prefix=pfxEl.value.toUpperCase().trim();
+  });
+  G.cfg.codeRules.splice(i,1);
+  drawCodeRuleEd();
+}
 function saveCodeRules(){
   if(!G.cfg.codeRules) G.cfg.codeRules=[];
-  // 빈 규칙만 제거 (catId와 prefix 둘 다 없는 경우)
-  G.cfg.codeRules = G.cfg.codeRules.filter(r=>r.catId||r.prefix);
+  G.cfg.codeRules.forEach((r,i)=>{
+    const catEl=document.getElementById('crCat-'+i);
+    const pfxEl=document.getElementById('crPfx-'+i);
+    if(catEl) r.catId=catEl.value;
+    if(pfxEl) r.prefix=pfxEl.value.toUpperCase().trim();
+  });
+  G.cfg.codeRules=G.cfg.codeRules.filter(r=>r.catId||r.prefix);
 }
 function getCodeRule(catId){
   if(!G.cfg.codeRules) return null;
@@ -2208,7 +2249,13 @@ function autoFillCode(){
   const rule   = getCodeRule(catId);
   if(!rule) return;
   const size   = document.getElementById('fCodeSize').value.trim();
-  if(!size){ document.getElementById('codeSeqLabel').textContent='001'; document.getElementById('fc').value=''; return; }
+  const preview = document.getElementById('codePreview');
+  if(!size){
+    document.getElementById('codeSeqLabel').textContent='001';
+    document.getElementById('fc').value='';
+    if(preview) preview.textContent=rule.prefix+'-???-001';
+    return;
+  }
   const prefix = rule.prefix;
   const pat    = new RegExp(`^${prefix}-${size}-(\\d+)$`,'i');
   let maxSeq   = 0;
@@ -2216,8 +2263,10 @@ function autoFillCode(){
     if(m.code){ const mt=m.code.match(pat); if(mt) maxSeq=Math.max(maxSeq,parseInt(mt[1],10)); }
   });
   const seq = String(maxSeq+1).padStart(3,'0');
+  const code = `${prefix}-${size}-${seq}`;
   document.getElementById('codeSeqLabel').textContent = seq;
-  document.getElementById('fc').value = `${prefix}-${size}-${seq}`;
+  document.getElementById('fc').value = code;
+  if(preview) preview.textContent = code;
 }
 
 function drawCatEd(){
