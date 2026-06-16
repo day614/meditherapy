@@ -614,30 +614,19 @@ select.fi{cursor:pointer}
       <div class="fgrid">
         <div class="fg"><label class="fl">자재명 *</label><input class="fi" id="fn"></div>
         <div class="fg"><label class="fl">자재 코드</label>
-          <div id="codeSizeWrap" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:8px">
-            <div style="font-size:.75rem;color:var(--muted);margin-bottom:10px">카테고리 코드 규칙이 설정되어 있습니다. 용량을 입력하면 자동으로 채번됩니다.</div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <div>
-                <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:3px">용량 / 사이즈</label>
-                <div style="display:flex;align-items:center;gap:4px">
-                  <input class="fi" id="fCodeSize" type="number" min="0" placeholder="예: 100" oninput="autoFillCode()"
-                    style="width:90px;font-size:.9rem">
-                  <span style="font-size:.78rem;color:var(--muted)">ml</span>
-                </div>
-              </div>
-              <div style="align-self:flex-end;padding-bottom:2px;color:var(--muted);font-size:1rem">→</div>
-              <div>
-                <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:3px">자동 생성 코드</label>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <input class="fi" id="fc" readonly placeholder="용량 입력 후 자동 생성"
-                    style="width:140px;font-size:.9rem;font-weight:600;background:var(--cream);cursor:default">
-                  <button type="button" onclick="autoFillCode()" style="padding:8px 10px;background:var(--acc);color:#fff;border:none;border-radius:var(--r-sm);cursor:pointer;font-size:.75rem;white-space:nowrap">↺ 재채번</button>
-                </div>
-              </div>
+          <div id="codeAutoWrap" style="display:none;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span id="codePfxLabel" style="font-size:.9rem;font-weight:700;color:var(--text);min-width:30px"></span>
+              <span style="color:var(--muted)">-</span>
+              <input class="fi" id="fCodeSize" type="number" min="0" placeholder="용량" oninput="autoFillCode()" style="width:80px">
+              <span style="color:var(--muted)">-</span>
+              <span id="codeSeqLabel" style="font-size:.9rem;font-weight:700;color:var(--acc);min-width:36px">001</span>
+              <button type="button" onclick="autoFillCode()" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:.75rem;color:var(--muted)">↺</button>
             </div>
+            <input type="hidden" id="fc">
           </div>
           <div id="codeManualWrap">
-            <input class="fi" id="fcManual" placeholder="직접 입력 (예: PKG-2025-001)">
+            <input class="fi" id="fcManual" placeholder="직접 입력 (예: BO-100-001)">
           </div>
         </div>
         <div class="fg"><label class="fl">카테고리 *</label><select class="fs" id="fcat" onchange="refreshSub();onCatChangeCode()"></select></div>
@@ -1743,10 +1732,11 @@ function openAdd(){
   });
   const curEl=document.getElementById('fprcur'); if(curEl) curEl.value='₩';
   drawImgGrid();
-  document.getElementById('codeSizeWrap').style.display='none';
+  document.getElementById('codeAutoWrap').style.display='none';
   document.getElementById('codeManualWrap').style.display='block';
   document.getElementById('fCodeSize') && (document.getElementById('fCodeSize').value='');
   document.getElementById('fcManual') && (document.getElementById('fcManual').value='');
+  document.getElementById('fc') && (document.getElementById('fc').value='');
   openOv('addOv');
 }
 
@@ -1811,9 +1801,9 @@ async function saveMat(){
   }
   supList = finalSupList;
 
-  const codeEl = document.getElementById('codeSizeWrap');
-  const isAutoCode = codeEl && codeEl.style.display !== 'none';
-  const code = isAutoCode
+  const autoW = document.getElementById('codeAutoWrap');
+  const isAuto = autoW && autoW.style.display !== 'none';
+  const code = isAuto
     ? (document.getElementById('fc')||{value:''}).value.trim()
     : (document.getElementById('fcManual')||{value:''}).value.trim();
 
@@ -2194,31 +2184,37 @@ function getCodeRule(catId){
   return G.cfg.codeRules.find(r=>r.catId===catId)||null;
 }
 function onCatChangeCode(){
-  const catId=document.getElementById('fcat').value;
-  const rule=getCodeRule(catId);
-  const wrap=document.getElementById('codeSizeWrap');
-  const manual=document.getElementById('codeManualWrap');
+  const catId = document.getElementById('fcat').value;
+  const rule   = getCodeRule(catId);
+  const autoW  = document.getElementById('codeAutoWrap');
+  const manW   = document.getElementById('codeManualWrap');
   if(rule){
-    wrap.style.display='block';
-    manual.style.display='none';
-    autoFillCode();
+    autoW.style.display = 'block';
+    manW.style.display  = 'none';
+    document.getElementById('codePfxLabel').textContent = rule.prefix;
+    document.getElementById('fCodeSize').value = '';
+    document.getElementById('codeSeqLabel').textContent = '001';
+    document.getElementById('fc').value = '';
   } else {
-    wrap.style.display='none';
-    manual.style.display='block';
+    autoW.style.display = 'none';
+    manW.style.display  = 'block';
   }
 }
 function autoFillCode(){
-  const catId=document.getElementById('fcat').value;
-  const rule=getCodeRule(catId);
+  const catId = document.getElementById('fcat').value;
+  const rule   = getCodeRule(catId);
   if(!rule) return;
-  const size=(document.getElementById('fCodeSize').value.trim()||'00').replace(/[^0-9a-zA-Z]/g,'');
-  const prefix=rule.prefix;
-  const pat=new RegExp(`^${prefix}-${size}-(\\d+)$`,'i');
-  let maxSeq=0;
+  const size   = document.getElementById('fCodeSize').value.trim();
+  if(!size){ document.getElementById('codeSeqLabel').textContent='001'; document.getElementById('fc').value=''; return; }
+  const prefix = rule.prefix;
+  const pat    = new RegExp(`^${prefix}-${size}-(\\d+)$`,'i');
+  let maxSeq   = 0;
   G.mats.forEach(m=>{
     if(m.code){ const mt=m.code.match(pat); if(mt) maxSeq=Math.max(maxSeq,parseInt(mt[1],10)); }
   });
-  document.getElementById('fc').value=`${prefix}-${size}-${String(maxSeq+1).padStart(3,'0')}`;
+  const seq = String(maxSeq+1).padStart(3,'0');
+  document.getElementById('codeSeqLabel').textContent = seq;
+  document.getElementById('fc').value = `${prefix}-${size}-${seq}`;
 }
 
 function drawCatEd(){
