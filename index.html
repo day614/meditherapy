@@ -828,7 +828,6 @@ select.fi{cursor:pointer}
       <div class="stabs">
         <button class="stab on" onclick="swStab('g',this)">일반</button>
         <button class="stab"    onclick="swStab('c',this)">카테고리</button>
-        <button class="stab"    onclick="swStab('r',this)">코드 규칙</button>
         <button class="stab"    onclick="swStab('s',this)">보안</button>
       </div>
       <div class="sp on" id="sg">
@@ -860,14 +859,12 @@ select.fi{cursor:pointer}
         </div>
       </div>
       <div class="sp" id="sc">
-        <p style="font-size:.75rem;color:var(--muted);margin-bottom:12px">카테고리별 소분류를 자유롭게 설정하세요.</p>
+        <p style="font-size:.75rem;color:var(--muted);margin-bottom:12px">카테고리별 소분류와 자재 코드 접두사를 설정하세요.</p>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;display:flex;gap:16px">
+          <span>이모지</span><span style="flex:1">카테고리명</span><span style="width:52px;text-align:center">코드</span><span>소분류</span>
+        </div>
         <div id="catEd"></div>
         <button class="addcat" onclick="addCat()">＋ 카테고리 추가</button>
-      </div>
-      <div class="sp" id="sr">
-        <p style="font-size:.75rem;color:var(--muted);margin-bottom:14px">카테고리별 자재 코드 접두사를 설정하세요.<br>등록 시 <b>PREFIX-사이즈-순번</b> 형식으로 자동 채번됩니다.</p>
-        <div id="codeRuleEd" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
-        <button class="addcat" onclick="addCodeRule()">＋ 규칙 추가</button>
       </div>
       <div class="sp" id="ss">
         <div class="psec">
@@ -2130,7 +2127,7 @@ function openSettings(){
   if(prev) prev.innerHTML = c.logoData
     ? `<img src="${c.logoData}" style="width:100%;height:100%;object-fit:contain">`
     : '✦';
-  drawSwatches(); drawCatEd(); drawCodeRuleEd();
+  drawSwatches(); drawCatEd();
   swStab('g',document.querySelector('.stab'));
   openOv('setOv');
 }
@@ -2236,8 +2233,10 @@ function saveCodeRules(){
   G.cfg.codeRules=G.cfg.codeRules.filter(r=>r.catId||r.prefix);
 }
 function getCodeRule(catId){
-  if(!G.cfg.codeRules) return null;
-  return G.cfg.codeRules.find(r=>r.catId===catId)||null;
+  if(!catId) return null;
+  const cat=(G.cfg.categories||[]).find(c=>c.id===catId);
+  if(!cat||!cat.codePrefix) return null;
+  return { catId: cat.id, prefix: cat.codePrefix };
 }
 function onCatChangeCode(){
   const catId = document.getElementById('fcat').value;
@@ -2287,6 +2286,10 @@ function drawCatEd(){
       <div class="cbhdr">
         <input class="cemoji" id="ce-${cat.id}" value="${cat.emoji}" maxlength="2">
         <input class="cname" id="cn-${cat.id}" value="${cat.name}" placeholder="카테고리명">
+        <input id="cp-${cat.id}" value="${cat.codePrefix||''}" maxlength="5" placeholder="코드"
+          title="자재 코드 접두사 (예: BO, TU, PU)"
+          style="width:52px;padding:6px 7px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:.8rem;font-weight:700;text-transform:uppercase;text-align:center;background:var(--bg);color:var(--acc);letter-spacing:.05em"
+          oninput="this.value=this.value.toUpperCase()">
         <button class="cexp" onclick="toggleSubEd('sl-${cat.id}')">소분류 ▾</button>
         <button class="cdel" onclick="delCat('${cat.id}')">✕</button>
       </div>
@@ -2325,6 +2328,7 @@ async function saveCfg(){
     id:cat.id,
     emoji:(document.getElementById('ce-'+cat.id)||{}).value||cat.emoji,
     name:(document.getElementById('cn-'+cat.id)||{}).value||cat.name,
+    codePrefix:((document.getElementById('cp-'+cat.id)||{}).value||cat.codePrefix||'').toUpperCase().trim(),
     subs:(cat.subs||[]).map(s=>({id:s.id,name:(document.getElementById('sn-'+s.id)||{}).value||s.name})).filter(s=>s.name.trim()),
   })).filter(c=>c.name.trim());
   const sn=document.getElementById('csn').value.trim(); if(sn) G.cfg.siteName=sn;
