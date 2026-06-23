@@ -1747,15 +1747,17 @@ function openAdd(){
   document.getElementById('addT').textContent='새 자재 등록';
   populateCatSel(null);
   refreshSub(null);
-  // 마지막 카테고리 자동 선택
-  if(lastCatId){
-    const fcat = document.getElementById('fcat');
-    if(fcat && [...fcat.options].some(o=>o.value===lastCatId)){
-      fcat.value = lastCatId;
-      refreshSub(null);
-      onCatChangeCode();
+  // 마지막 카테고리 자동 선택 (DOM 업데이트 후 실행)
+  setTimeout(()=>{
+    if(lastCatId){
+      const fcat=document.getElementById('fcat');
+      if(fcat && [...fcat.options].some(o=>o.value===lastCatId)){
+        fcat.value=lastCatId;
+        refreshSub(null);
+        onCatChangeCode();
+      }
     }
-  }
+  },0);
   ['fn','fc','fmat','fpr','fmoq','flt','fcert','fnotes'].forEach(id=>{
     const e=document.getElementById(id); if(e){ e.value=''; if(e.dataset) e.dataset.vid=''; }
   });
