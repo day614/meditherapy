@@ -326,7 +326,7 @@ select.fi{cursor:pointer}
 .dhead{display:flex;gap:22px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--border)}
 .dimg{width:200px;flex-shrink:0}
 .dmain{width:100%;aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;background:var(--bg);cursor:zoom-in;border:1px solid var(--border)}
-.dmain img{width:100%;height:100%;object-fit:cover}
+.dmain img{width:100%;height:100%;object-fit:contain}
 .dthumbrow{display:flex;gap:5px;margin-top:7px}
 .dthumb{width:42px;height:42px;border-radius:7px;overflow:hidden;cursor:pointer;opacity:.5;transition:opacity .15s;border:1.5px solid transparent}
 .dthumb.on{opacity:1;border-color:var(--acc)}
@@ -458,7 +458,9 @@ select.fi{cursor:pointer}
 
 #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:10px;overflow:hidden}
 #lightbox.on{display:flex}
-#lbImg{max-width:90vw;max-height:80vh;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-drag:none}
+#lbImgWrap{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;max-width:90vw;max-height:80vh;cursor:grab}
+#lbImgWrap.grabbing{cursor:grabbing}
+#lbImg{max-width:90vw;max-height:80vh;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-drag:none;transform-origin:center center;transition:transform .1s ease;touch-action:none}
 .lb-close{position:absolute;top:16px;right:20px;background:none;border:none;color:#fff;font-size:2rem;cursor:pointer;line-height:1;opacity:.8;z-index:1}
 .lb-close:hover{opacity:1}
 .lb-arr{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:2rem;cursor:pointer;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s;z-index:1}
@@ -919,7 +921,7 @@ select.fi{cursor:pointer}
 <div id="lightbox" onclick="lbBgClick(event)">
   <button class="lb-close" onclick="closeLb()">×</button>
   <button class="lb-arr hidden" id="lbPrev" onclick="lbMove(-1)">‹</button>
-  <img id="lbImg" src="" alt="">
+  <div id="lbImgWrap"><img id="lbImg" src="" alt=""></div>
   <button class="lb-arr hidden" id="lbNext" onclick="lbMove(1)">›</button>
   <div class="lb-counter" id="lbCounter"></div>
   <div class="lb-thumbs-row hidden" id="lbThumbs"></div>
@@ -1758,7 +1760,7 @@ function openAdd(){
   document.getElementById('fcManual') && (document.getElementById('fcManual').value='');
   document.getElementById('fc') && (document.getElementById('fc').value='');
   openOv('addOv');
-  setTimeout(()=>{ const m=document.querySelector('#addOv .modal'); if(m) m.scrollTop=0; },0);
+  setTimeout(()=>{ const b=document.getElementById('addBox'); if(b) b.scrollTop=0; },50);
 }
 
 function openEdit(id){
@@ -2030,34 +2032,110 @@ function swDet(i,mid){
 }
 
 // ════════════════ LIGHTBOX ═════════════════════════════════
-let lbMat=null, lbIdx=0;
+let lbMat=null, lbIdx=0, lbZoom=1, lbPanX=0, lbPanY=0;
+
+function applyZoom(){
+  const img=document.getElementById('lbImg');
+  if(img) img.style.transform=`scale(${lbZoom}) translate(${lbPanX/lbZoom}px,${lbPanY/lbZoom}px)`;
+}
 
 function openLb(matId, startIdx){
   const m=G.mats.find(x=>String(x.id)===String(matId));
   if(!m||!m.imgs||!m.imgs.length) return;
   lbMat=m; lbIdx=startIdx||0;
+  lbZoom=1; lbPanX=0; lbPanY=0;
   drawLb();
   document.getElementById('lightbox').classList.add('on');
   document.addEventListener('keydown', lbKey);
-  // 터치 스와이프
-  const lb=document.getElementById('lightbox');
-  lb._tsX=null;
-  lb._onTouchStart=e=>{ lb._tsX=e.touches[0].clientX; };
-  lb._onTouchEnd=e=>{
-    if(lb._tsX===null) return;
-    const dx=e.changedTouches[0].clientX - lb._tsX;
-    if(Math.abs(dx)>40){ lbMove(dx<0?1:-1); }
-    lb._tsX=null;
-  };
-  // 마우스 휠
-  lb._onWheel=e=>{
+
+  const lb  = document.getElementById('lightbox');
+  const img = document.getElementById('lbImg');
+  const wrap= document.getElementById('lbImgWrap');
+
+  // 줌 리셋
+  const resetZoom = ()=>{ lbZoom=1; lbPanX=0; lbPanY=0; applyZoom(); };
+
+  // 휠 줌
+  lb._onWheel = e => {
     e.preventDefault();
-    if(e.deltaY>0||e.deltaX>0) lbMove(1);
-    else lbMove(-1);
+    if(lbMat.imgs.length > 1 && lbZoom === 1){
+      // 줌 1배일 때 스크롤로 이미지 이동
+      if(e.deltaY>0||e.deltaX>0) lbMove(1);
+      else lbMove(-1);
+    } else {
+      const delta = e.deltaY > 0 ? -0.15 : 0.15;
+      lbZoom = Math.min(5, Math.max(1, lbZoom + delta));
+      if(lbZoom===1){ lbPanX=0; lbPanY=0; }
+      applyZoom();
+    }
   };
-  lb.addEventListener('touchstart', lb._onTouchStart);
+
+  // 드래그 패닝
+  let drag=false, dragSX=0, dragSY=0, dragPX=0, dragPY=0;
+  lb._onMD = e => {
+    if(lbZoom<=1) return;
+    drag=true; dragSX=e.clientX; dragSY=e.clientY; dragPX=lbPanX; dragPY=lbPanY;
+    wrap.classList.add('grabbing');
+  };
+  lb._onMM = e => {
+    if(!drag) return;
+    lbPanX = dragPX + (e.clientX-dragSX);
+    lbPanY = dragPY + (e.clientY-dragSY);
+    applyZoom();
+  };
+  lb._onMU = ()=>{ drag=false; wrap.classList.remove('grabbing'); };
+
+  // 터치 스와이프 & 핀치
+  let ts=null, tp=null;
+  lb._onTouchStart = e => {
+    if(e.touches.length===1){
+      ts = {x:e.touches[0].clientX, y:e.touches[0].clientY, px:lbPanX, py:lbPanY};
+      tp = null;
+    } else if(e.touches.length===2){
+      ts = null;
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      tp = {dist:Math.hypot(dx,dy), zoom:lbZoom};
+    }
+  };
+  lb._onTouchMove = e => {
+    e.preventDefault();
+    if(e.touches.length===2 && tp){
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      const dist=Math.hypot(dx,dy);
+      lbZoom = Math.min(5, Math.max(1, tp.zoom * dist/tp.dist));
+      applyZoom();
+    } else if(e.touches.length===1 && ts){
+      if(lbZoom>1){
+        lbPanX = ts.px + (e.touches[0].clientX - ts.x);
+        lbPanY = ts.py + (e.touches[0].clientY - ts.y);
+        applyZoom();
+      }
+    }
+  };
+  lb._onTouchEnd = e => {
+    if(e.touches.length===0 && ts && lbZoom<=1){
+      const dx=e.changedTouches[0].clientX - ts.x;
+      if(Math.abs(dx)>40){ lbMove(dx<0?1:-1); }
+    }
+    if(lbZoom<=1){ lbPanX=0; lbPanY=0; }
+    tp=null;
+  };
+
+  // 더블클릭 줌 토글
+  lb._onDblClick = e => {
+    if(e.target===img){ lbZoom = lbZoom>1 ? 1 : 2.5; lbPanX=0; lbPanY=0; applyZoom(); }
+  };
+
+  lb.addEventListener('wheel',      lb._onWheel,     {passive:false});
+  lb.addEventListener('mousedown',  lb._onMD);
+  lb.addEventListener('mousemove',  lb._onMM);
+  lb.addEventListener('mouseup',    lb._onMU);
+  lb.addEventListener('touchstart', lb._onTouchStart,{passive:false});
+  lb.addEventListener('touchmove',  lb._onTouchMove, {passive:false});
   lb.addEventListener('touchend',   lb._onTouchEnd);
-  lb.addEventListener('wheel',      lb._onWheel, {passive:false});
+  lb.addEventListener('dblclick',   lb._onDblClick);
 }
 
 function drawLb(){
@@ -2082,6 +2160,7 @@ function drawLb(){
 function lbMove(dir){
   const imgs=lbMat.imgs;
   lbIdx=Math.max(0,Math.min(imgs.length-1,lbIdx+dir));
+  lbZoom=1; lbPanX=0; lbPanY=0; applyZoom();
   drawLb();
 }
 
@@ -2091,10 +2170,14 @@ function closeLb(){
   const lb=document.getElementById('lightbox');
   lb.classList.remove('on');
   document.removeEventListener('keydown', lbKey);
-  if(lb._onTouchStart) lb.removeEventListener('touchstart', lb._onTouchStart);
-  if(lb._onTouchEnd)   lb.removeEventListener('touchend',   lb._onTouchEnd);
-  if(lb._onWheel)      lb.removeEventListener('wheel',      lb._onWheel);
-  lbMat=null;
+  ['_onWheel','_onMD','_onMM','_onMU','_onTouchStart','_onTouchMove','_onTouchEnd','_onDblClick'].forEach(fn=>{
+    if(lb[fn]){
+      const evMap={_onWheel:'wheel',_onMD:'mousedown',_onMM:'mousemove',_onMU:'mouseup',
+        _onTouchStart:'touchstart',_onTouchMove:'touchmove',_onTouchEnd:'touchend',_onDblClick:'dblclick'};
+      lb.removeEventListener(evMap[fn], lb[fn]);
+    }
+  });
+  lbMat=null; lbZoom=1; lbPanX=0; lbPanY=0;
 }
 
 function lbBgClick(e){
@@ -2671,7 +2754,7 @@ async function saveVendor(){
 
 async function delVendor(id){
   if(!confirm('이 업체를 삭제하시겠습니까?')) return;
-  vendors=vendors.filter(v=>v.id!==id);
+  vendors=vendors.filter(v=>String(v.id)!==String(id));
   if(USE_SHEETS){
     showLoading('삭제 중…');
     try{ await gasPost({action:'deleteVendor', id}); } catch(e){ toast('⚠ 서버 삭제 실패'); }
