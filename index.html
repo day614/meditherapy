@@ -1758,7 +1758,7 @@ function openAdd(){
   document.getElementById('fcManual') && (document.getElementById('fcManual').value='');
   document.getElementById('fc') && (document.getElementById('fc').value='');
   openOv('addOv');
-  setTimeout(()=>{ const mb=document.querySelector('#addOv .mbody'); if(mb) mb.scrollTop=0; },0);
+  setTimeout(()=>{ const m=document.querySelector('#addOv .modal'); if(m) m.scrollTop=0; },0);
 }
 
 function openEdit(id){
