@@ -456,11 +456,11 @@ select.fi{cursor:pointer}
 .pg-dot{padding:0 4px;color:var(--text-tertiary);font-size:.82rem}
 .hidden{display:none!important}
 
-#lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:10px;overflow:hidden}
+#lightbox{display:none;position:fixed;inset:0;background:#000;z-index:9999;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden}
 #lightbox.on{display:flex}
-#lbImgWrap{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;max-width:90vw;max-height:80vh;cursor:grab}
+#lbImgWrap{position:relative;display:flex;align-items:center;justify-content:center;flex:1;width:100%;overflow:hidden;cursor:default}
 #lbImgWrap.grabbing{cursor:grabbing}
-#lbImg{max-width:90vw;max-height:80vh;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-drag:none;transform-origin:center center;transition:transform .1s ease;touch-action:none}
+#lbImg{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;user-select:none;-webkit-user-drag:none;transform-origin:center center;transition:transform .1s ease;touch-action:none}
 .lb-close{position:absolute;top:16px;right:20px;background:none;border:none;color:#fff;font-size:2rem;cursor:pointer;line-height:1;opacity:.8;z-index:1}
 .lb-close:hover{opacity:1}
 .lb-arr{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:2rem;cursor:pointer;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s;z-index:1}
@@ -1598,7 +1598,7 @@ function render(){
         <td style="width:200px;min-width:200px;font-size:.82rem;color:var(--text-secondary)">${m.cert||'—'}</td>
         <td style="width:180px;min-width:180px;font-size:.82rem;color:var(--text-secondary)">${m.material||'—'}</td>
         <td style="width:110px;min-width:110px"><div style="font-size:.82rem;font-weight:500;color:var(--text)">${m.supplier||'—'}</div>${m.contact?`<div style="font-size:.72rem;color:var(--text-tertiary);margin-top:1px">${m.contact}</div>`:''}</td>
-        <td style="width:80px;font-size:.85rem;font-weight:600;color:var(--text)">${m.price?((m.currency||'₩')+Number(m.price).toLocaleString()):'—'}</td>
+        <td style="width:80px;font-size:.85rem;font-weight:600;color:var(--text)">${m.price?((['₩','$','¥'].includes(m.currency)?m.currency:'₩')+Number(m.price).toLocaleString()):'—'}</td>
         <td style="width:80px;font-size:.82rem;color:var(--text-secondary)">${m.moq?Number(String(m.moq).replace(/[^0-9]/g,'')).toLocaleString()||m.moq:'—'}</td>
         <td style="width:60px;text-align:right">${isA?`<button class="abt" onclick="event.stopPropagation();openEdit('${m.id}')" title="수정">✎</button><button class="abt" onclick="event.stopPropagation();delMat('${m.id}')" title="삭제">✕</button>`:''}</td>
       </tr>`;
@@ -1613,7 +1613,7 @@ function render(){
       return `<div class="gcard" onclick="openDet('${m.id}')"><div class="gcimg">${th}</div>
         <div class="gcbody"><div class="gcname">${m.name}</div><div class="gccode">${m.code||'—'}</div>
         <div style="font-size:.75rem;color:var(--text-tertiary);margin-top:4px">${m.supplier||''}</div>
-        <div class="gcmeta"><div class="gcprice">${m.price?((m.currency||'₩')+Number(m.price).toLocaleString()):'—'}</div></div></div></div>`;
+        <div class="gcmeta"><div class="gcprice">${m.price?((['₩','$','¥'].includes(m.currency)?m.currency:'₩')+Number(m.price).toLocaleString()):'—'}</div></div></div></div>`;
     }).join('');
   }
 }
@@ -1787,7 +1787,9 @@ function openEdit(id){
   document.getElementById('fcManual') && (document.getElementById('fcManual').value=m.code||'');
   document.getElementById('fmat').value=m.material||'';
   document.getElementById('fpr').value=m.price||'';
-  const curEl=document.getElementById('fprcur'); if(curEl) curEl.value=m.currency||'₩';
+  const validCur = ['₩','$','¥'];
+  const curEl=document.getElementById('fprcur');
+  if(curEl) curEl.value = validCur.includes(m.currency) ? m.currency : '₩';
   document.getElementById('fmoq').value=m.moq||'';
   document.getElementById('flt').value=m.lead||'';
   document.getElementById('fcert').value=m.cert||'';
@@ -1960,7 +1962,7 @@ function openDet(id){
               </div>`).join('');
           })()}
           <div style="grid-column:1/-1"><div class="dfl">소재/성분</div><div class="dfv" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${m.material||'—'}</div></div>
-          <div><div class="dfl">단가</div><div class="dfv">${m.price?((m.currency||'₩')+Number(m.price).toLocaleString()):'—'}</div></div>
+          <div><div class="dfl">단가</div><div class="dfv">${m.price?((['₩','$','¥'].includes(m.currency)?m.currency:'₩')+Number(m.price).toLocaleString()):'—'}</div></div>
           <div><div class="dfl">MOQ</div><div class="dfv">${m.moq?Number(String(m.moq).replace(/[^0-9]/g,'')).toLocaleString()||m.moq:'—'}</div></div>
           <div><div class="dfl">리드타임</div><div class="dfv">${m.lead||'—'}</div></div>
         </div>
