@@ -497,6 +497,7 @@ select.fi{cursor:pointer}
   main{padding:14px}
 }
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -505,25 +506,23 @@ select.fi{cursor:pointer}
   <div class="lbox">
     <div class="llogo" id="LL">✦ Material Archive</div>
     <img id="loginLogo" src="" alt="logo" style="display:none;height:60px;width:auto;margin:0 auto 8px;border-radius:8px;object-fit:contain">
-    <div class="lsub"  id="LS">구매팀 소재 데이터베이스</div>
-    <div class="ltabs">
-      <button class="ltab on"  onclick="swTab('admin',this)">관리자</button>
-      <button class="ltab"     onclick="swTab('viewer',this)">뷰어</button>
+    <div class="lsub" id="LS">구매팀 소재 데이터베이스</div>
+
+    <!-- Google 로그인 -->
+    <div id="gSignInWrap" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin:20px 0 8px">
+      <div id="googleBtn"></div>
+      <div style="font-size:.72rem;color:var(--muted)">Google 계정으로 로그인하세요</div>
     </div>
-    <div id="aForm">
+
+    <!-- 뷰어 코드 (Google 미설정 or 코드 로그인 유지) -->
+    <div style="width:100%;border-top:1px solid var(--border);padding-top:14px;margin-top:6px">
+      <div style="font-size:.72rem;color:var(--muted);text-align:center;margin-bottom:10px">또는 뷰어 코드로 입장</div>
       <div class="lf">
-        <label>아이디</label><input type="text" id="aId" value="admin">
-        <label>비밀번호</label><input type="password" id="aPw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')login('admin')">
+        <input type="password" id="vCode" placeholder="뷰어 코드 입력" onkeydown="if(event.key==='Enter')loginByCode()">
       </div>
-      <button class="lbtn" onclick="login('admin')">관리자 로그인</button>
+      <button class="lbtn" onclick="loginByCode()" style="margin-top:8px">뷰어로 입장</button>
     </div>
-    <div id="vForm" class="hidden">
-      <div class="lf">
-        <label>뷰어 코드</label><input type="password" id="vCode" placeholder="접근 코드" onkeydown="if(event.key==='Enter')login('viewer')">
-      </div>
-      <button class="lbtn" onclick="login('viewer')">뷰어로 입장</button>
-      <div class="vhint">🔗 링크와 함께 받은 뷰어 코드를 입력하면 자재 정보를 열람할 수 있습니다.</div>
-    </div>
+
     <div class="lerr" id="lerr"></div>
   </div>
 </div>
@@ -873,14 +872,24 @@ select.fi{cursor:pointer}
       </div>
       <div class="sp" id="ss">
         <div class="psec">
-          <h4>관리자 계정</h4>
-          <div class="fg" style="margin-bottom:10px"><label class="fl">아이디</label><input class="fi" id="cai"></div>
-          <div class="fg"><label class="fl">비밀번호</label><input class="fi" type="password" id="cap" placeholder="변경 시에만 입력"></div>
+          <h4>Google 로그인 설정</h4>
+          <p class="sdesc" style="margin-bottom:10px">Google Cloud에서 발급한 OAuth 클라이언트 ID를 입력하세요.</p>
+          <div class="fg"><label class="fl">클라이언트 ID</label><input class="fi" id="cGoogleId" placeholder="숫자...apps.googleusercontent.com"></div>
         </div>
         <div class="psec">
-          <h4>뷰어 접근 코드</h4>
-          <p class="sdesc" style="margin-bottom:10px">링크와 함께 공유할 코드입니다.</p>
-          <div class="fg"><input class="fi" id="cvc"></div>
+          <h4>관리자 이메일</h4>
+          <p class="sdesc" style="margin-bottom:10px">로그인 시 관리자 권한을 부여할 Google 이메일 (줄바꿈으로 구분)</p>
+          <textarea class="fi" id="cAdminEmails" rows="4" placeholder="admin@meditherapy.co.kr&#10;day@meditherapy.co.kr" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:.82rem;line-height:1.6"></textarea>
+        </div>
+        <div class="psec">
+          <h4>뷰어 이메일</h4>
+          <p class="sdesc" style="margin-bottom:10px">뷰어 권한을 부여할 Google 이메일 (줄바꿈으로 구분)<br>비워두면 Google 계정 보유자 모두 뷰어 입장 가능</p>
+          <textarea class="fi" id="cViewerEmails" rows="3" placeholder="viewer@example.com&#10;(비워두면 모든 Google 계정 허용)" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:.82rem;line-height:1.6"></textarea>
+        </div>
+        <div class="psec">
+          <h4>뷰어 접근 코드 (선택)</h4>
+          <p class="sdesc" style="margin-bottom:10px">Google 계정 없이 코드로 입장할 수 있는 뷰어 코드 (비워두면 비활성화)</p>
+          <div class="fg"><input class="fi" id="cvc" placeholder="예: view1234"></div>
         </div>
       </div>
     </div>
@@ -1152,43 +1161,63 @@ function swTab(t,el){
   document.getElementById('vForm').classList.toggle('hidden', t!=='viewer');
   document.getElementById('lerr').textContent='';
 }
-async function login(t){
-  const err=document.getElementById('lerr');
-  // G가 없으면 config 먼저 로드
-  if(!G || !G.cfg){
-    showLoading('설정 불러오는 중…');
-    try {
-      if(USE_SHEETS){
-        const cfgRes = await gasGet('getConfig');
-        const savedCfg = cfgRes.ok && cfgRes.data ? cfgRes.data : null;
-        G = { cfg: savedCfg || JSON.parse(JSON.stringify(DC)), mats:[], nid:1 };
-      } else {
-        try{ const lc=JSON.parse(localStorage.getItem(KEY)); G=lc||{cfg:JSON.parse(JSON.stringify(DC)),mats:[],nid:1}; }catch(e){ G={cfg:JSON.parse(JSON.stringify(DC)),mats:[],nid:1}; }
-      }
-    } catch(e){ G={cfg:JSON.parse(JSON.stringify(DC)),mats:[],nid:1}; }
-    hideLoading();
-  }
-  const cfg = G.cfg;
-  if(t==='admin'){
-    if(document.getElementById('aId').value.trim()===cfg.adminId &&
-       document.getElementById('aPw').value===cfg.adminPw){
-      role='admin'; sessionStorage.setItem('ma_role','admin'); go();
-    } else { err.textContent='아이디 또는 비밀번호가 올바르지 않습니다.'; }
+// ── Google OAuth 로그인 ────────────────────────────────────
+function initGoogleLogin(){
+  const clientId = G && G.cfg && G.cfg.googleClientId ? G.cfg.googleClientId : '';
+  const btn = document.getElementById('googleBtn');
+  if(!clientId){ if(btn) btn.innerHTML='<div style="font-size:.75rem;color:var(--muted);text-align:center">설정에서 Google 클라이언트 ID를 등록하세요</div>'; return; }
+  if(typeof google === 'undefined'){ setTimeout(initGoogleLogin, 300); return; }
+  try {
+    google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential, auto_select: false });
+    google.accounts.id.renderButton(btn, { theme:'outline', size:'large', text:'signin_with', locale:'ko', width:280 });
+  } catch(e){ console.warn('Google 초기화 오류:', e); }
+}
+function parseJwt(token){
+  try { return JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); } catch(e){ return null; }
+}
+async function handleGoogleCredential(response){
+  const payload = parseJwt(response.credential);
+  if(!payload||!payload.email){ showLErr('이메일을 가져올 수 없습니다.'); return; }
+  if(!G||!G.cfg){ showLoading('설정 로드 중…'); await loadCfgOnly(); hideLoading(); }
+  const email = payload.email.toLowerCase();
+  const cfg   = G.cfg;
+  const adminEmails  = (cfg.adminEmails||'').split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
+  const viewerEmails = (cfg.viewerEmails||'').split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
+  if(adminEmails.includes(email)){
+    role='admin'; sessionStorage.setItem('ma_role','admin'); sessionStorage.setItem('ma_email',email); go();
+  } else if(!viewerEmails.length || viewerEmails.includes(email)){
+    role='viewer'; sessionStorage.setItem('ma_role','viewer'); sessionStorage.setItem('ma_email',email); go();
   } else {
-    if(document.getElementById('vCode').value===cfg.viewerCode){
-      role='viewer'; sessionStorage.setItem('ma_role','viewer'); go();
-    } else { err.textContent='접근 코드가 올바르지 않습니다.'; }
+    showLErr('접근 권한이 없는 계정입니다.\n('+email+')');
   }
 }
+async function loginByCode(){
+  if(!G||!G.cfg){ showLoading('설정 로드 중…'); await loadCfgOnly(); hideLoading(); }
+  const code = (document.getElementById('vCode')||{}).value||'';
+  if(!G.cfg.viewerCode){ showLErr('뷰어 코드가 설정되지 않았습니다.'); return; }
+  if(code===G.cfg.viewerCode){ role='viewer'; sessionStorage.setItem('ma_role','viewer'); go(); }
+  else { showLErr('코드가 올바르지 않습니다.'); }
+}
+async function loadCfgOnly(){
+  try {
+    if(USE_SHEETS){
+      const r=await gasGet('getConfig');
+      G={cfg:(r.ok&&r.data)?r.data:JSON.parse(JSON.stringify(DC)),mats:[],nid:1};
+    } else {
+      try{ const lc=JSON.parse(localStorage.getItem(KEY)); G=lc||{cfg:JSON.parse(JSON.stringify(DC)),mats:[],nid:1}; }catch(e){ G={cfg:JSON.parse(JSON.stringify(DC)),mats:[],nid:1}; }
+    }
+  } catch(e){ G={cfg:JSON.parse(JSON.stringify(DC)),mats:[],nid:1}; }
+}
+function showLErr(msg){ const el=document.getElementById('lerr'); if(el){el.textContent=msg;el.style.display='block';} }
 function logout(){
-  role=null;
-  G=null;
-  sessionStorage.removeItem('ma_role');
+  role=null; G=null;
+  sessionStorage.removeItem('ma_role'); sessionStorage.removeItem('ma_email');
+  if(typeof google!=='undefined') try{ google.accounts.id.disableAutoSelect(); }catch(e){}
   document.getElementById('appWrap').style.display='none';
   document.getElementById('loginWrap').style.display='flex';
-  document.getElementById('aPw').value='';
-  document.getElementById('vCode').value='';
-  document.getElementById('lerr').textContent='';
+  const vc=document.getElementById('vCode'); if(vc) vc.value='';
+  const err=document.getElementById('lerr'); if(err) err.textContent='';
+  setTimeout(initGoogleLogin, 100);
 }
 async function go(){
   document.getElementById('loginWrap').style.display='none';
@@ -2212,9 +2241,10 @@ function openSettings(){
   document.getElementById('csn').value=c.siteName;
   document.getElementById('css').value=c.siteSub;
   document.getElementById('cmt').value=c.mainTitle;
-  document.getElementById('cai').value=c.adminId;
-  document.getElementById('cap').value='';
-  document.getElementById('cvc').value=c.viewerCode;
+  document.getElementById('cGoogleId').value    = c.googleClientId || '';
+  document.getElementById('cAdminEmails').value  = c.adminEmails   || '';
+  document.getElementById('cViewerEmails').value = c.viewerEmails  || '';
+  document.getElementById('cvc').value = c.viewerCode || '';
   // 로고 미리보기
   const prev = document.getElementById('logoPreview');
   if(prev) prev.innerHTML = c.logoData
@@ -2427,9 +2457,10 @@ async function saveCfg(){
   const sn=document.getElementById('csn').value.trim(); if(sn) G.cfg.siteName=sn;
   G.cfg.siteSub=document.getElementById('css').value.trim();
   const mt=document.getElementById('cmt').value.trim(); if(mt) G.cfg.mainTitle=mt;
-  const ai=document.getElementById('cai').value.trim(); if(ai) G.cfg.adminId=ai;
-  const ap=document.getElementById('cap').value; if(ap) G.cfg.adminPw=ap;
-  const vc=document.getElementById('cvc').value.trim(); if(vc) G.cfg.viewerCode=vc;
+  G.cfg.googleClientId = document.getElementById('cGoogleId').value.trim();
+  G.cfg.adminEmails    = document.getElementById('cAdminEmails').value.trim();
+  G.cfg.viewerEmails   = document.getElementById('cViewerEmails').value.trim();
+  const vc=document.getElementById('cvc').value.trim(); G.cfg.viewerCode=vc;
   saveCodeRules();
   // ★ await로 저장 완료 후 닫기 + localStorage 캐시도 항상 업데이트
   showLoading('설정 저장 중…');
@@ -2924,6 +2955,10 @@ function toast(msg){
   if(savedRole === 'admin' || savedRole === 'viewer'){
     role = savedRole;
     await go();
+  } else {
+    // Google 로그인 버튼 초기화
+    await loadCfgOnly();
+    initGoogleLogin();
   }
 })();
 </script>
