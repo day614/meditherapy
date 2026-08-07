@@ -1165,7 +1165,7 @@ function swTab(t,el){
 }
 // ── Google OAuth 로그인 ────────────────────────────────────
 function initGoogleLogin(){
-  const clientId = G && G.cfg && G.cfg.googleClientId ? G.cfg.googleClientId : '';
+  const clientId = (G && G.cfg && G.cfg.googleClientId) || DC.googleClientId || '';
   const btn = document.getElementById('googleBtn');
   if(!clientId){ if(btn) btn.innerHTML='<div style="font-size:.75rem;color:var(--muted);text-align:center">설정에서 Google 클라이언트 ID를 등록하세요</div>'; return; }
   if(typeof google === 'undefined'){ setTimeout(initGoogleLogin, 300); return; }
