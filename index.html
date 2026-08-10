@@ -876,11 +876,6 @@ select.fi{cursor:pointer}
       </div>
       <div class="sp" id="ss">
         <div class="psec">
-          <h4>Google 로그인 설정</h4>
-          <p class="sdesc" style="margin-bottom:10px">Google Cloud에서 발급한 OAuth 클라이언트 ID를 입력하세요.</p>
-          <div class="fg"><label class="fl">클라이언트 ID</label><input class="fi" id="cGoogleId" placeholder="숫자...apps.googleusercontent.com"></div>
-        </div>
-        <div class="psec">
           <h4>관리자 이메일</h4>
           <p class="sdesc" style="margin-bottom:10px">로그인 시 관리자 권한을 부여할 Google 이메일 (줄바꿈으로 구분)</p>
           <textarea class="fi" id="cAdminEmails" rows="4" placeholder="admin@meditherapy.co.kr&#10;day@meditherapy.co.kr" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:.82rem;line-height:1.6"></textarea>
@@ -888,7 +883,7 @@ select.fi{cursor:pointer}
         <div class="psec">
           <h4>뷰어 이메일</h4>
           <p class="sdesc" style="margin-bottom:10px">뷰어 권한을 부여할 Google 이메일 (줄바꿈으로 구분)<br>비워두면 Google 계정 보유자 모두 뷰어 입장 가능</p>
-          <textarea class="fi" id="cViewerEmails" rows="3" placeholder="viewer@example.com&#10;(비워두면 모든 Google 계정 허용)" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:.82rem;line-height:1.6"></textarea>
+          <textarea class="fi" id="cViewerEmails" rows="3" placeholder="(비워두면 모든 Google 계정 허용)" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;font-size:.82rem;line-height:1.6"></textarea>
         </div>
         <div class="psec">
           <h4>뷰어 접근 코드 (선택)</h4>
@@ -1890,15 +1885,16 @@ async function saveMat(){
 
   const finalImgs = await processImgsForSave();
 
+  const _email = sessionStorage.getItem('ma_email')||'';
+  const _user  = _email ? _email.split('@')[0] : '';
+
   const d={
     name, code,
     catId, subId:document.getElementById('fsub').value||null,
-    // 하위 호환: 첫 번째 업체를 기본 필드에도 저장
     supplier: primarySup.name,
     contact:  primarySup.contact,
     capa:     primarySup.capa,
     vendorId: primarySup.vendorId,
-    // 다중 업체 전체
     suppliers: JSON.stringify(supList),
     material:document.getElementById('fmat').value.trim(),
     price:document.getElementById('fpr').value?Number(document.getElementById('fpr').value):null,
@@ -1908,8 +1904,10 @@ async function saveMat(){
     cert:document.getElementById('fcert').value.trim(),
     notes:document.getElementById('fnotes').value.trim(),
     imgs: finalImgs,
-    ctFiles: matFiles.map(f=>({name:f.name, size:f.size, url:f.url})),
-    certFiles: certFiles.map(f=>({name:f.name, size:f.size, url:f.url})),
+    ctFiles: certFiles.map ? matFiles.map(f=>({name:f.name, size:f.size, url:f.url})) : [],
+    certFiles: certFiles.map ? certFiles.map(f=>({name:f.name, size:f.size, url:f.url})) : [],
+    // 신규 등록 시만 createdBy 기록 (수정 시 기존 값 유지)
+    createdBy: eid ? (G.mats.find(m=>String(m.id)===String(eid))||{}).createdBy||_user : _user,
   };
 
   // G.mats 먼저 업데이트
@@ -2004,6 +2002,7 @@ function openDet(id){
           <div><div class="dfl">단가</div><div class="dfv">${m.price?((['₩','$','¥'].includes(m.currency)?m.currency:'₩')+Number(m.price).toLocaleString()):'—'}</div></div>
           <div><div class="dfl">MOQ</div><div class="dfv">${m.moq?Number(String(m.moq).replace(/[^0-9]/g,'')).toLocaleString()||m.moq:'—'}</div></div>
           <div><div class="dfl">리드타임</div><div class="dfv">${m.lead||'—'}</div></div>
+          ${m.createdBy?`<div><div class="dfl">등록자</div><div class="dfv" style="color:var(--muted);font-size:.8rem">${m.createdBy}</div></div>`:''}
         </div>
       </div>
     </div>
@@ -2251,7 +2250,6 @@ function openSettings(){
   document.getElementById('csn').value=c.siteName;
   document.getElementById('css').value=c.siteSub;
   document.getElementById('cmt').value=c.mainTitle;
-  document.getElementById('cGoogleId').value    = c.googleClientId || '';
   document.getElementById('cAdminEmails').value  = c.adminEmails   || '';
   document.getElementById('cViewerEmails').value = c.viewerEmails  || '';
   document.getElementById('cvc').value = c.viewerCode || '';
@@ -2467,7 +2465,6 @@ async function saveCfg(){
   const sn=document.getElementById('csn').value.trim(); if(sn) G.cfg.siteName=sn;
   G.cfg.siteSub=document.getElementById('css').value.trim();
   const mt=document.getElementById('cmt').value.trim(); if(mt) G.cfg.mainTitle=mt;
-  G.cfg.googleClientId = document.getElementById('cGoogleId').value.trim();
   G.cfg.adminEmails    = document.getElementById('cAdminEmails').value.trim();
   G.cfg.viewerEmails   = document.getElementById('cViewerEmails').value.trim();
   const vc=document.getElementById('cvc').value.trim(); G.cfg.viewerCode=vc;
