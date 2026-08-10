@@ -1169,6 +1169,7 @@ function swTab(t,el){
 }
 // ── Google OAuth 로그인 ────────────────────────────────────
 const GOOGLE_CLIENT_ID = '387099938132-2kd3pnre0fnlruj80ucqcfllfl6m67vc.apps.googleusercontent.com';
+const ADMIN_EMAILS = ['day@meditherapy.co.kr']; // 관리자 이메일 (소문자)
 
 // HTML 속성 방식으로 Google 버튼 렌더링 - initGoogleLogin 불필요
 function initGoogleLogin(){ /* HTML data 속성 방식 사용 - 자동 초기화됨 */ }
@@ -1178,11 +1179,19 @@ function parseJwt(token){
 async function handleGoogleCredential(response){
   const payload = parseJwt(response.credential);
   if(!payload||!payload.email){ showLErr('이메일을 가져올 수 없습니다.'); return; }
-  if(!G||!G.cfg){ showLoading('설정 로드 중…'); await loadCfgOnly(); hideLoading(); }
   const email = payload.email.toLowerCase();
-  const cfg   = (G && G.cfg) ? G.cfg : DC;
-  const adminEmails  = (cfg.adminEmails||DC.adminEmails||'').split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
-  const viewerEmails = (cfg.viewerEmails||DC.viewerEmails||'').split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
+
+  // 1. 하드코딩된 관리자 목록 우선 확인
+  if(ADMIN_EMAILS.includes(email)){
+    role='admin'; sessionStorage.setItem('ma_role','admin'); sessionStorage.setItem('ma_email',email); go(); return;
+  }
+
+  // 2. GAS 설정에서 추가 이메일 확인
+  if(!G||!G.cfg){ await loadCfgOnly(); }
+  const cfg = (G && G.cfg) || DC;
+  const adminEmails  = (cfg.adminEmails||'').split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
+  const viewerEmails = (cfg.viewerEmails||'').split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
+
   if(adminEmails.includes(email)){
     role='admin'; sessionStorage.setItem('ma_role','admin'); sessionStorage.setItem('ma_email',email); go();
   } else if(!viewerEmails.length || viewerEmails.includes(email)){
