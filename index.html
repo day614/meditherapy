@@ -1628,7 +1628,7 @@ function render(){
           <div style="font-size:.82rem;font-weight:600;color:var(--text)">${cat.name}</div>
           ${sub?`<div style="font-size:.72rem;color:var(--text-tertiary);margin-top:2px">${sub.name}</div>`:''}
         </td>
-        <td style="width:300px;min-width:300px"><div class="mcell"><div class="mthumb">${th}</div><div><div class="mname" style="white-space:normal;word-break:break-word">${m.name}</div><div class="mcode">${m.code||''}</div></div></div></td>
+        <td style="width:300px;min-width:300px"><div class="mcell"><div class="mthumb">${th}</div><div><div class="mname" style="white-space:normal;word-break:break-word">${m.name}</div><div class="mcode">${m.code||''}</div>${m.createdBy?`<div style="font-size:.7rem;color:var(--muted);margin-top:2px">👤 ${m.createdBy}</div>`:''}</div></div></td>
         <td style="width:200px;min-width:200px;font-size:.82rem;color:var(--text-secondary)">${m.cert||'—'}</td>
         <td style="width:180px;min-width:180px;font-size:.82rem;color:var(--text-secondary)">${m.material||'—'}</td>
         <td style="width:110px;min-width:110px"><div style="font-size:.82rem;font-weight:500;color:var(--text)">${m.supplier||'—'}</div>${m.contact?`<div style="font-size:.72rem;color:var(--text-tertiary);margin-top:1px">${m.contact}</div>`:''}</td>
@@ -1645,7 +1645,7 @@ function render(){
       const cat=getCat(m.catId);
       const th=m.imgs&&m.imgs[0]?`<img src="${m.imgs[0]}">`:`<span style="font-size:2rem;opacity:.2">◻</span>`;
       return `<div class="gcard" onclick="openDet('${m.id}')"><div class="gcimg">${th}</div>
-        <div class="gcbody"><div class="gcname">${m.name}</div><div class="gccode">${m.code||'—'}</div>
+        <div class="gcbody"><div class="gcname">${m.name}</div><div class="gccode">${m.code||'—'}</div>${m.createdBy?`<div style="font-size:.7rem;color:var(--muted);margin-top:2px">👤 ${m.createdBy}</div>`:''}
         <div style="font-size:.75rem;color:var(--text-tertiary);margin-top:4px">${m.supplier||''}</div>
         <div class="gcmeta"><div class="gcprice">${m.price?((['₩','$','¥'].includes(m.currency)?m.currency:'₩')+Number(m.price).toLocaleString()):'—'}</div></div></div></div>`;
     }).join('');
