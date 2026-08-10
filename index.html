@@ -965,7 +965,7 @@ const DC = {
   siteName:'Material Archive', siteSub:'구매팀 소재 데이터베이스', mainTitle:'소재 아카이브',
   accent:'#B5785A', adminId:'admin', adminPw:'1234', viewerCode:'',
   googleClientId:'387099938132-2kd3pnre0fnlruj80ucqcfllfl6m67vc.apps.googleusercontent.com',
-  adminEmails:'', viewerEmails:'',
+  adminEmails:'day@meditherapy.co.kr', viewerEmails:'',
   categories:[
     {id:'c1',name:'용기',  emoji:'🧴', subs:[{id:'s1a',name:'유리'},{id:'s1b',name:'플라스틱'},{id:'s1c',name:'에어리스'}]},
     {id:'c2',name:'펌프',  emoji:'💊', subs:[{id:'s2a',name:'에어리스펌프'},{id:'s2b',name:'일반펌프'}]},
@@ -1180,9 +1180,9 @@ async function handleGoogleCredential(response){
   if(!payload||!payload.email){ showLErr('이메일을 가져올 수 없습니다.'); return; }
   if(!G||!G.cfg){ showLoading('설정 로드 중…'); await loadCfgOnly(); hideLoading(); }
   const email = payload.email.toLowerCase();
-  const cfg   = G.cfg;
-  const adminEmails  = (cfg.adminEmails||'').split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
-  const viewerEmails = (cfg.viewerEmails||'').split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
+  const cfg   = (G && G.cfg) ? G.cfg : DC;
+  const adminEmails  = (cfg.adminEmails||DC.adminEmails||'').split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
+  const viewerEmails = (cfg.viewerEmails||DC.viewerEmails||'').split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
   if(adminEmails.includes(email)){
     role='admin'; sessionStorage.setItem('ma_role','admin'); sessionStorage.setItem('ma_email',email); go();
   } else if(!viewerEmails.length || viewerEmails.includes(email)){
