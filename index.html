@@ -1164,15 +1164,38 @@ function swTab(t,el){
   document.getElementById('lerr').textContent='';
 }
 // ── Google OAuth 로그인 ────────────────────────────────────
+const GOOGLE_CLIENT_ID = '387099938132-2kd3pnre0fnlruj80ucqcfllfl6m67vc.apps.googleusercontent.com';
+
 function initGoogleLogin(){
-  const clientId = (G && G.cfg && G.cfg.googleClientId) || DC.googleClientId || '';
+  const clientId = GOOGLE_CLIENT_ID;
   const btn = document.getElementById('googleBtn');
-  if(!clientId){ if(btn) btn.innerHTML='<div style="font-size:.75rem;color:var(--muted);text-align:center">설정에서 Google 클라이언트 ID를 등록하세요</div>'; return; }
-  if(typeof google === 'undefined'){ setTimeout(initGoogleLogin, 300); return; }
+  if(!btn) return;
+  if(!clientId){
+    btn.innerHTML='<div style="font-size:.75rem;color:var(--muted);text-align:center">클라이언트 ID 미설정</div>';
+    return;
+  }
+  if(typeof google === 'undefined' || !google.accounts){
+    setTimeout(initGoogleLogin, 200);
+    return;
+  }
   try {
-    google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential, auto_select: false });
-    google.accounts.id.renderButton(btn, { theme:'outline', size:'large', text:'signin_with', locale:'ko', width:280 });
-  } catch(e){ console.warn('Google 초기화 오류:', e); }
+    google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleGoogleCredential,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    });
+    google.accounts.id.renderButton(btn, {
+      theme: 'outline',
+      size: 'large',
+      text: 'signin_with',
+      locale: 'ko',
+      width: 280,
+    });
+  } catch(e){
+    console.warn('Google 버튼 렌더링 오류:', e);
+    btn.innerHTML='<div style="font-size:.75rem;color:red">Google 로그인 초기화 실패: '+e.message+'</div>';
+  }
 }
 function parseJwt(token){
   try { return JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); } catch(e){ return null; }
@@ -2958,9 +2981,10 @@ function toast(msg){
     role = savedRole;
     await go();
   } else {
-    // Google 로그인 버튼 초기화
-    await loadCfgOnly();
+    // Google 버튼 즉시 표시 (로딩 기다리지 않음)
     initGoogleLogin();
+    // config는 백그라운드 로드 (handleGoogleCredential에서 사용)
+    loadCfgOnly().catch(()=>{});
   }
 })();
 </script>
