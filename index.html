@@ -508,19 +508,23 @@ select.fi{cursor:pointer}
     <img id="loginLogo" src="" alt="logo" style="display:none;height:60px;width:auto;margin:0 auto 8px;border-radius:8px;object-fit:contain">
     <div class="lsub" id="LS">구매팀 소재 데이터베이스</div>
 
-    <!-- Google 로그인 -->
-    <div id="gSignInWrap" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin:20px 0 8px">
-      <div id="googleBtn"></div>
-      <div style="font-size:.72rem;color:var(--muted)">Google 계정으로 로그인하세요</div>
-    </div>
-
-    <!-- 뷰어 코드 (Google 미설정 or 코드 로그인 유지) -->
-    <div style="width:100%;border-top:1px solid var(--border);padding-top:14px;margin-top:6px">
-      <div style="font-size:.72rem;color:var(--muted);text-align:center;margin-bottom:10px">또는 뷰어 코드로 입장</div>
-      <div class="lf">
-        <input type="password" id="vCode" placeholder="뷰어 코드 입력" onkeydown="if(event.key==='Enter')loginByCode()">
+    <div style="margin:24px 0 8px;display:flex;flex-direction:column;align-items:center;gap:12px">
+      <!-- Google One Tap & 버튼 (HTML 속성 방식 - 가장 안정적) -->
+      <div id="g_id_onload"
+           data-client_id="387099938132-2kd3pnre0fnlruj80ucqcfllfl6m67vc.apps.googleusercontent.com"
+           data-callback="handleGoogleCredential"
+           data-auto_select="false"
+           data-cancel_on_tap_outside="true">
       </div>
-      <button class="lbtn" onclick="loginByCode()" style="margin-top:8px">뷰어로 입장</button>
+      <div class="g_id_signin"
+           data-type="standard"
+           data-size="large"
+           data-theme="outline"
+           data-text="signin_with"
+           data-locale="ko"
+           data-width="280">
+      </div>
+      <div style="font-size:.72rem;color:var(--muted)">Google 계정으로 로그인하세요</div>
     </div>
 
     <div class="lerr" id="lerr"></div>
@@ -1166,37 +1170,8 @@ function swTab(t,el){
 // ── Google OAuth 로그인 ────────────────────────────────────
 const GOOGLE_CLIENT_ID = '387099938132-2kd3pnre0fnlruj80ucqcfllfl6m67vc.apps.googleusercontent.com';
 
-function initGoogleLogin(){
-  const clientId = GOOGLE_CLIENT_ID;
-  const btn = document.getElementById('googleBtn');
-  if(!btn) return;
-  if(!clientId){
-    btn.innerHTML='<div style="font-size:.75rem;color:var(--muted);text-align:center">클라이언트 ID 미설정</div>';
-    return;
-  }
-  if(typeof google === 'undefined' || !google.accounts){
-    setTimeout(initGoogleLogin, 200);
-    return;
-  }
-  try {
-    google.accounts.id.initialize({
-      client_id: clientId,
-      callback: handleGoogleCredential,
-      auto_select: false,
-      cancel_on_tap_outside: true,
-    });
-    google.accounts.id.renderButton(btn, {
-      theme: 'outline',
-      size: 'large',
-      text: 'signin_with',
-      locale: 'ko',
-      width: 280,
-    });
-  } catch(e){
-    console.warn('Google 버튼 렌더링 오류:', e);
-    btn.innerHTML='<div style="font-size:.75rem;color:red">Google 로그인 초기화 실패: '+e.message+'</div>';
-  }
-}
+// HTML 속성 방식으로 Google 버튼 렌더링 - initGoogleLogin 불필요
+function initGoogleLogin(){ /* HTML data 속성 방식 사용 - 자동 초기화됨 */ }
 function parseJwt(token){
   try { return JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); } catch(e){ return null; }
 }
@@ -1241,6 +1216,7 @@ function logout(){
   document.getElementById('appWrap').style.display='none';
   document.getElementById('loginWrap').style.display='flex';
   const vc=document.getElementById('vCode'); if(vc) vc.value='';
+  const ap=document.getElementById('aPw'); if(ap) ap.value='';
   const err=document.getElementById('lerr'); if(err) err.textContent='';
   setTimeout(initGoogleLogin, 100);
 }
