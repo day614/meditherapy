@@ -1048,6 +1048,13 @@ async function saveLinksViaGet(matId, links) {
   } catch(e) { console.warn('링크 저장 오류:', e); }
 }
 
+async function saveCreatedByViaGet(matId, createdBy) {
+  if (!createdBy) return;
+  try {
+    await fetch(GAS_URL + '?action=saveCreatedBy&id=' + encodeURIComponent(matId) + '&createdBy=' + encodeURIComponent(createdBy));
+  } catch(e) { console.warn('등록자 저장 오류:', e); }
+}
+
 // ── 로딩 오버레이 ─────────────────────────────────────────
 function showLoading(msg='불러오는 중…'){
   document.getElementById('loadingMsg').textContent = msg;
@@ -1938,6 +1945,7 @@ async function saveMat(){
         saveCertFilesViaGet(matId, d.certFiles),
         saveSuppliersViaGet(matId, d.suppliers),
         saveLinksViaGet(matId, editLinks),
+        saveCreatedByViaGet(matId, d.createdBy),
       ]);
     } catch(e){ toast('⚠ 서버 저장 실패.'); return; }
   } else {
