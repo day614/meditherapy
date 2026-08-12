@@ -1156,7 +1156,7 @@ function delMImgsLocal(id){ localStorage.removeItem(IKEY+id); }
 // ── saveG (config 저장) ──────────────────────────────────
 async function saveG(){
   if(USE_SHEETS){
-    try{ await gasPost({action:'saveConfig', data: G.cfg}); } catch(e){ console.warn(e); }
+    try{ await fetch(GAS_URL + '?action=saveConfigGet&data=' + encodeURIComponent(JSON.stringify(G.cfg))); } catch(e){ console.warn(e); }
   } else {
     const slim={cfg:G.cfg, mats:G.mats.map(m=>({...m,imgs:undefined})), nid:G.nid};
     try{ localStorage.setItem(KEY, JSON.stringify(slim)); } catch(e){}
@@ -1170,11 +1170,11 @@ async function saveVendors(){
 }
 async function saveVendorToSheets(data){
   if(!USE_SHEETS){ localStorage.setItem(VKEY, JSON.stringify(vendors)); return; }
-  try{ await gasPost({action:'saveVendor', data}); } catch(e){ toast('⚠ 업체 저장 실패'); }
+  try{ await fetch(GAS_URL + '?action=saveVendorGet&data=' + encodeURIComponent(JSON.stringify(data))); } catch(e){ toast('⚠ 업체 저장 실패'); }
 }
 async function deleteVendorFromSheets(id){
   if(!USE_SHEETS){ localStorage.setItem(VKEY, JSON.stringify(vendors)); return; }
-  try{ await gasPost({action:'deleteVendor', id}); } catch(e){ toast('⚠ 업체 삭제 실패'); }
+  try{ await fetch(GAS_URL + '?action=deleteVendorGet&id=' + encodeURIComponent(id)); } catch(e){ toast('⚠ 업체 삭제 실패'); }
 }
 
 // ════════════════ AUTH ═════════════════════════════════════
@@ -1956,7 +1956,9 @@ async function saveMat(){
   const matId = eid || d.id;
   if(USE_SHEETS){
     try{
-      await gasPost({action:'saveMaterial', data:{...d, id:matId, imgs:[], ctFiles:[], certFiles:[], suppliers:null}});
+      const coreData = {...d, id:matId, imgs:[], ctFiles:[], certFiles:[], suppliers:null, links:[]};
+      const encoded = encodeURIComponent(JSON.stringify(coreData));
+      await fetch(GAS_URL + '?action=saveMaterialCore&data=' + encoded);
       await Promise.all([
         saveImgsViaGet(matId, finalImgs),
         saveCtFilesViaGet(matId, d.ctFiles),
@@ -1979,7 +1981,7 @@ async function delMat(id){
   G.mats=G.mats.filter(m=>String(m.id)!==String(id));
   if(USE_SHEETS){
     showLoading('삭제 중…');
-    try{ await gasPost({action:'deleteMaterial', id}); } catch(e){ toast('⚠ 서버 삭제 실패'); }
+    try{ await fetch(GAS_URL + '?action=deleteMaterialGet&id=' + encodeURIComponent(id)); } catch(e){ toast('⚠ 서버 삭제 실패'); }
     hideLoading();
   } else { delMImgsLocal(id); saveG(); }
   render(); toast('🗑 삭제되었습니다.');
@@ -2652,7 +2654,7 @@ async function processVendorRows(rows){
     showLoading(`업체 저장 중… 0/${newVendors.length}`);
     for(let i=0;i<newVendors.length;i++){
       document.getElementById('loadingMsg').textContent=`업체 저장 중… ${i+1}/${newVendors.length}`;
-      try{ await gasPost({action:'saveVendor', data:newVendors[i]}); }catch(e){}
+      try{ await fetch(GAS_URL + '?action=saveVendorGet&data=' + encodeURIComponent(JSON.stringify(newVendors[i]))); }catch(e){}
       vendors.push(newVendors[i]);
     }
     hideLoading();
@@ -2801,7 +2803,7 @@ async function saveVendor(){
     const slim=vendors.map(v=>({...v,files:undefined}));
     if(USE_SHEETS){
       showLoading('저장 중…');
-      try{ await gasPost({action:'saveVendor', data:{...vendors[i],files:undefined}}); } catch(e){ toast('⚠ 서버 저장 실패'); }
+      try{ await fetch(GAS_URL + '?action=saveVendorGet&data=' + encodeURIComponent(JSON.stringify({...vendors[i],files:undefined}))); } catch(e){ toast('⚠ 서버 저장 실패'); }
       hideLoading();
     } else { try{ localStorage.setItem(VKEY, JSON.stringify(slim)); }catch(e){} }
     toast('✓ 업체 정보가 수정되었습니다.');
@@ -2814,7 +2816,7 @@ async function saveVendor(){
     const slim=vendors.map(v=>({...v,files:undefined}));
     if(USE_SHEETS){
       showLoading('저장 중…');
-      try{ await gasPost({action:'saveVendor', data:{...nv,files:undefined}}); } catch(e){ toast('⚠ 서버 저장 실패'); }
+      try{ await fetch(GAS_URL + '?action=saveVendorGet&data=' + encodeURIComponent(JSON.stringify({...nv,files:undefined}))); } catch(e){ toast('⚠ 서버 저장 실패'); }
       hideLoading();
     } else { try{ localStorage.setItem(VKEY, JSON.stringify(slim)); }catch(e){} }
     toast('✓ 업체가 등록되었습니다.');
@@ -2828,7 +2830,7 @@ async function delVendor(id){
   vendors=vendors.filter(v=>String(v.id)!==String(id));
   if(USE_SHEETS){
     showLoading('삭제 중…');
-    try{ await gasPost({action:'deleteVendor', id}); } catch(e){ toast('⚠ 서버 삭제 실패'); }
+    try{ await fetch(GAS_URL + '?action=deleteVendorGet&id=' + encodeURIComponent(id)); } catch(e){ toast('⚠ 서버 삭제 실패'); }
     hideLoading();
   } else { localStorage.setItem(VKEY, JSON.stringify(vendors)); }
   renderVendorTable(); toast('🗑 삭제되었습니다.');
