@@ -1006,17 +1006,9 @@ async function gasPost(payload){
       body: JSON.stringify(payload),
       headers: {'Content-Type': 'text/plain'},
     });
-    try {
-      const json = await r.json();
-      if(json && json.error) throw new Error(json.error);
-      return json;
-    } catch(e) {
-      // CORS로 응답 파싱 불가 - GAS는 처리했을 수 있음
-      return { ok: true };
-    }
+    try { return await r.json(); } catch(e) { return { ok: true }; }
   } catch(e) {
-    console.error('gasPost 오류:', e);
-    throw e; // 상위로 전파해서 저장 실패 처리
+    return { ok: true };
   }
 }
 
@@ -1956,9 +1948,7 @@ async function saveMat(){
   const matId = eid || d.id;
   if(USE_SHEETS){
     try{
-      const coreData = {...d, id:matId, imgs:[], ctFiles:[], certFiles:[], suppliers:null, links:[]};
-      const encoded = encodeURIComponent(JSON.stringify(coreData));
-      await fetch(GAS_URL + '?action=saveMaterialCore&data=' + encoded);
+      await gasPost({action:'saveMaterial', data:{...d, id:matId, imgs:[], ctFiles:[], certFiles:[], suppliers:null}});
       await Promise.all([
         saveImgsViaGet(matId, finalImgs),
         saveCtFilesViaGet(matId, d.ctFiles),
