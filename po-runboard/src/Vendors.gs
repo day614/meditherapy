@@ -50,3 +50,44 @@ function apiVendorAdd(name) {
   try { appendHist_([{ kind: '설정', item: '업체 목록', before: '', after: name + ' 추가', where: '_실행판_설정 ' + RB_VENDOR_KEY }]); } catch (e) { /* 넘어간다 */ }
   return { list: vendorList_(), name: name };
 }
+
+/** 같은 업체 · 다른 표기 통일(담당자 확인 10/20 「앞에 거로」) — 왼쪽 이름 → 오른쪽 이름 */
+var RB_VENDOR_UNIFY = {
+  '아람피엔아이': '아람피앤아이', '에쓰씨인터네셔널': '에스씨인터내셔널', '에스씨인터네셔널': '에스씨인터내셔널', '혁진디엔피': '혁진디앤피',
+  '펌텍': '펌텍코리아', '신원피앤피': '신원피엔피', '씨앤씨': '씨엔씨', '한국씨엔비': '한국씨앤비',
+  '중국Guangdong OuxinmayPack Tech Co. , Ltd': '중국 Guangdong OuxinmayPack Tech Co.,Ltd',
+  '중국GUANGZHOU MEIYINGLUN PACKAGING PRODUCTS CO.,LTD': '중국 GUANGZHOU MEIYINGLUN PACKAGING PRODUCTS CO.,LTD'
+};
+/**
+ * 1회: 운영 탭(BOM · 품목 DB · 발주 DB · 샘플)의 업체 칸에서 RB_VENDOR_UNIFY 이름을 바꾼다(칸 값이 정확히 같을 때만).
+ * 보관 탭(_실행판_BOM · BOM2) · 이력 · 다른 팀 탭은 그대로. 반환: '탭 n칸 …'
+ */
+function vendorUnify_() {
+  var lock = LockService.getScriptLock(); waitLock_(lock);
+  var out = [], hist = [];
+  try {
+    var ss = ss_();
+    [[RB_BOM_TAB, ['업체명']], [RB_ITEM.TAB, ['업체']], [RB.STATUS_TAB, ['업체명', '매입처']], [RB.SAMPLE_TAB, ['업체명', '업체']]].forEach(function (t) {
+      var sh = ss.getSheetByName(t[0]);
+      if (!sh || sh.getLastRow() < 2) return;
+      var lc = sh.getLastColumn(), hr = 0, col = -1;
+      var head = sh.getRange(1, 1, Math.min(3, sh.getLastRow()), lc).getDisplayValues();
+      for (var h = 0; h < head.length && col < 0; h++) for (var k = 0; k < t[1].length && col < 0; k++) { var i = head[h].map(function (x) { return str_(x); }).indexOf(t[1][k]); if (i > -1) { col = i; hr = h + 1; } }
+      if (col < 0) return;
+      var n = sh.getLastRow() - hr, vals = sh.getRange(hr + 1, col + 1, n, 1).getValues(), cells = {}, c = 0;
+      vals.forEach(function (r, i) {
+        var to = RB_VENDOR_UNIFY[str_(r[0])];
+        if (!to) return;
+        cells[hr + 1 + i] = to; c++;
+        if (hist.length < 200) hist.push({ kind: '업체 통일', item: '업체명', before: str_(r[0]), after: to, where: t[0] + ' ' + (hr + 1 + i) + '행', reason: '같은 업체 다른 표기 통일(10/20)' });
+      });
+      if (c) { setColCells_(sh, col + 1, cells); out.push(t[0] + ' ' + c + '칸'); }
+    });
+    SpreadsheetApp.flush();
+  } finally { lock.releaseLock(); }
+  try { if (hist.length) appendHist_(hist); } catch (e) { /* 넘어간다 */ }
+  cacheDrop_(RB_VENDOR_CACHE); cacheDrop_(RB_ITEM.CACHE); cacheDrop_(RB_II_CACHE); cacheDrop_(RB_II_REF);
+  try { cacheDrop_(rowsCacheKey_('po')); cacheDrop_(rowsCacheKey_('sample')); } catch (e) { /* 넘어간다 */ }
+  try { bomDropCache_([]); bomDropAllRows_(); } catch (e) { /* 넘어간다 */ }
+  return out.join(' · ');
+}
