@@ -13247,7 +13247,7 @@ function dateSlots_(steps, cfg, mode) {
       if (e.key === "Escape") { e.stopPropagation(); bvDrop(false); return; }
     }
     if (e.target && e.target.id === "bomv-hfp" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); bvHfSave(); return; }
-    if (e.key === "Escape") { e.stopPropagation(); if (!$("bomv-ord").hidden) { $("bomv-ord").hidden = true; ORD = null; return; } if (!$("bomv-rules").hidden) { $("bomv-rules").hidden = true; return; } if (BV.edit) { BV.edit = null; bomShow(); } else if (BV.fix) bomFixCancel(); else bomClose(); return; }
+    if (e.key === "Escape") { e.stopPropagation(); if (!$("bomv-ord").hidden) { $("bomv-ord").hidden = true; ORD = null; return; } if (!$("bomv-items").hidden) { iiClose(); return; } /* 품목 정보 창만 닫는다(예전엔 BOM 보기 전체가 닫혔다) */ if (!$("bomv-rules").hidden) { $("bomv-rules").hidden = true; return; } if (BV.edit) { BV.edit = null; bomShow(); } else if (BV.fix) bomFixCancel(); else bomClose(); return; }
     if (e.key === "Enter" && e.target && (e.target.dataset && e.target.dataset.fx || e.target.id === "bomfx-why")) { e.preventDefault(); if (e.target.id === "bomfx-why" && BV.fix && !BV.fix.plan) bomSaveAny(); return; }
     if (e.key === "Enter" && e.target && e.target.id && e.target.id.indexOf("bomf-") === 0) {
       e.preventDefault();
