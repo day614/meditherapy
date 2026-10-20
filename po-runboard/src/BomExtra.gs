@@ -159,6 +159,47 @@ function apiBomReorder(product, order, why) {
 /* ---------- 제조사 핸들링피 ---------- */
 
 var RB_HF_PROP = 'rb.hfee';
+/** 핸들링피가 없는 제조사(담당자 확인 10/20) — 시트에 % 수식이 있어도 설정으로 읽지 않는다 */
+var RB_HF_NONE = ['다원'];
+/**
+ * 1회(담당자 확인 10/20): 핸들링피 없는 제조사(다원) 제품 BOM 의 배송비/기타 칸 % 수식(=단가 × 3% 등)은 %가 아니라 배송비 —
+ * 지금 계산된 값을 그 칸에 값으로 넣는다(소요원가는 그대로). BOM변경이력에 줄마다 남긴다. 반환: 바꾼 줄 수
+ */
+function hfFreezeNone_() {
+  var lock = LockService.getScriptLock(); waitLock_(lock);
+  var logs = [], n = 0;
+  try {
+    var sh = bomSheet_(), C = bomCols_(sh), lr = sh.getLastRow();
+    if (lr < 3 || C.ship < 0 || C.unit < 0) return 0;
+    var v = sh.getRange(3, 1, lr - 2, C.lc).getValues(), f = sh.getRange(3, C.ship + 1, lr - 2, 1).getFormulas(), uL = colRB_(C.unit + 1);
+    var byP = {}; v.forEach(function (x, i) { var p = itemCodeKey_(x[C.product]); if (p) (byP[p] = byP[p] || []).push(i); });
+    var now = new Date(), tag = Utilities.getUuid().slice(0, 8);
+    Object.keys(byP).forEach(function (p) {
+      var maker = hfMakerOf_(byP[p].map(function (i) { return v[i]; }), C, p);
+      if (RB_HF_NONE.indexOf(hfKey_(maker)) < 0) return;
+      byP[p].forEach(function (i) {
+        var r = i + 3, s = f[i][0];
+        if (!hfFormulaLike_(s, uL, r)) return;
+        var val = Math.round(num_(v[i][C.ship]) * 10000) / 10000;
+        sh.getRange(r, C.ship + 1).setValue(val);
+        n++;
+        logs.push([now, '실행판', p, '', '', '정정', str_(v[i][C.type]), str_(v[i][C.code]), str_(v[i][C.code]), '배송비/기타 ' + s, '배송비/기타 ' + val,
+          '담당자 확인 10/20 · ' + maker + ' 은 핸들링피 없음 — % 수식을 배송비 값으로', '', '참고', tag + '-hf0-' + r, '']);
+      });
+    });
+    if (logs.length) bomLogWrite_(bomSS_(), logs);
+    SpreadsheetApp.flush();
+  } finally { lock.releaseLock(); }
+  if (n) { bomDropCache_([]); bomDropAllRows_(); }
+  return n;
+}
+/** 1회: 시트 수식에서 읽어 넣었던 설정 중 핸들링피 없는 제조사(다원)는 지운다(사람이 직접 정한 건 그대로) */
+function hfDropNone_() {
+  var a = hfAll_(), gone = [];
+  RB_HF_NONE.forEach(function (k) { if (a[k] && a[k].who === '시트 수식에서 읽음') { delete a[k]; gone.push(k); } });
+  if (gone.length) PropertiesService.getScriptProperties().setProperty(RB_HF_PROP, JSON.stringify(a));
+  return gone.join(', ');
+}
 function hfKey_(v) { return str_(v).replace(/\(주\)|㈜|주식회사|\s/g, '').toUpperCase(); }
 function hfAll_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(RB_HF_PROP) || '{}') || {}; } catch (e) { return {}; } }
 function hfOf_(vendor) { var a = hfAll_(), k = hfKey_(vendor); return k && a[k] && num_(a[k].pct) > 0 ? a[k] : null; }
@@ -276,7 +317,7 @@ function hfSeedFromSheet_() {
   });
   var a = hfAll_(), added = [];
   Object.keys(tally).forEach(function (k) {
-    if (a[k]) return;
+    if (a[k] || RB_HF_NONE.indexOf(k) > -1) return;
     var t = tally[k], pct = Object.keys(t.pcts).sort(function (x, y) { return t.pcts[y] - t.pcts[x]; })[0];
     var mode = t.prod > t.mat ? 'maker' : (t.sa ? 'all' : 'turnkey');
     a[k] = { vendor: t.vendor, pct: Number(pct), mode: mode, at: fmtDate_(new Date()), who: '시트 수식에서 읽음' };
