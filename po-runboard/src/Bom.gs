@@ -1285,7 +1285,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
   mk('잠금대기');
   var hist = [], made = [], logs = [];
   var who = me_(), batch = Utilities.getUuid().slice(0, 8);
-  var addedRows = [], clearedCodes = [], clearedRows = [], hfRes = null;        // 핸들링피 넣을 새 줄 · 지운 줄 코드(품목 DB 맞추기) — BomExtra.gs
+  var addedRows = [], clearedCodes = [], clearedRows = [], hfRes = null;        // 핸들링피 넣을 새 줄(줄ID) · 지운 줄 코드(품목 DB 맞추기) — BomExtra.gs
   try {
     var ss = bomSS_(), sh = bomSheet_(), C = bomCols_(sh);
     var lastData = sh.getLastRow();
@@ -1474,7 +1474,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
           cell(nr, 'change', note((isNew ? '신제품 ' : '자재 추가 ') + code, why));
           put();
           bomFixCost_(sh, C, nr, null);
-          addedRows.push(nr);
+          addedRows.push(addId);                       // 줄 번호는 뒤에 끼우는 줄로 밀릴 수 있어 줄ID 로
           var isComp = (isProd && code !== product) || !!c.reuse;          // 세트 구성 완제품은 이미 있는 코드 — 새 코드로 등록하지 않는다
           if (!isComp) regRow(isProd ? { brand: brand, kind: /^[A-Z]X/.test(product) ? '반제품' : '제품', num: bomNum_(product), prodName: prodName, type: '', tcode: '', ver: Number((product.match(/(\d+)$/) || [0, 1])[1]), code: code, name: prodName }
                         : { brand: brand, num: bomNum_(product), prodName: prodName, type: str_(c.type), tcode: p.tcode, ver: p.ver, code: code, name: str_(c.name) || (prodName + ' ' + str_(c.type)) });
@@ -1542,7 +1542,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
         hist.push({ kind: 'BOM', item: product + ' ' + N + '차 ' + str_(x[C.type]) + ' ' + p.kind, before: p.before.join(' · '), after: (renumber ? newCode + ' · ' : '') + p.after.join(' · '), reason: why, where: 'BOM 시트 ' + (target ? target + '행' : r + '행(지움)') });
       });
       // 이 제조사에 핸들링피가 정해져 있으면 새 줄 배송비/기타 칸에 수식(국가별 코드 줄은 아래 복사로 같이 따라간다)
-      if (addedRows.length) { try { hfRes = hfApplyRows_(sh, C, product, addedRows); } catch (eHf) { hfRes = { err: String(eHf && eHf.message || eHf).slice(0, 120) }; } }
+      if (addedRows.length) { try { hfRes = hfApplyRows_(sh, C, product, null, null, addedRows); } catch (eHf) { hfRes = { err: String(eHf && eHf.message || eHf).slice(0, 120) }; } }
       var extraLogs = [];
       if (extra.length && adds.length) {
         var k = adds.length, first = lastRow + 1, at = lastRow + k;

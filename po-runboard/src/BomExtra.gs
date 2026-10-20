@@ -194,13 +194,13 @@ function hfFormulaLike_(f, unitCol, row) {
 }
 /**
  * 줄들에 핸들링피 수식을 넣는다(배송비/기타 칸). 손으로 넣은 다른 값이 있는 칸은 건드리지 않고 skipped 로 알린다.
- * rows: 시트 행 번호(없으면 이 품목 전부) · 잠금은 부르는 쪽이. 반환 { vendor, pct, mode, n, skipped:[행] }
+ * rows: 시트 행 번호 · ids: 줄ID(둘 다 없으면 이 품목 전부) · 잠금은 부르는 쪽이. 반환 { vendor, pct, mode, n, skipped:[행] }
  */
-function hfApplyRows_(sh, C, product, rows, cfgIn) {
+function hfApplyRows_(sh, C, product, rows, cfgIn, ids) {
   if (C.ship < 0 || C.unit < 0) return null;
   var all = bomReadProduct_(sh, C, product), vendor = hfMakerOf_(all, C, product), cfg = cfgIn || hfOf_(vendor);
   if (!cfg) return null;
-  var pick = rows && rows.length ? rows : all.map(function (x, i) { return x ? i + 3 : 0; }).filter(Boolean);
+  var pick = rows && rows.length ? rows : all.map(function (x, i) { return x && (!ids || (C.id >= 0 && ids.indexOf(str_(x[C.id])) > -1)) ? i + 3 : 0; }).filter(Boolean);
   var uL = colRB_(C.unit + 1), fL = C.fx >= 0 ? colRB_(C.fx + 1) : '', pct = Math.round(num_(cfg.pct) * 1000) / 1000, n = 0, skipped = [];
   pick.forEach(function (r) {
     var x = all[r - 3];
@@ -249,4 +249,39 @@ function apiHfSet(vendor, pct, mode, applyTo, why) {
   }
   if (out.applied && out.applied.n) { bomAfterSave_([str_(applyTo).toUpperCase()], false); out.bom = apiBomGet(str_(applyTo).toUpperCase()); }
   return out;
+}
+
+/**
+ * 1회(배포 뒤): 시트에 이미 손으로 넣은 핸들링피 수식(배송비/기타 = 단가 × 3% 등)에서 제조사별 % · 방식을 읽어 설정을 채운다.
+ * 이미 정한 제조사는 건드리지 않는다. 방식: 제품 줄에만 있으면 제조사 단가 · 사급 줄에도 있으면 모든 자재 · 아니면 턴키 자재만. % 는 가장 많이 쓴 값.
+ */
+function hfSeedFromSheet_() {
+  var sh = bomSheet_(), C = bomCols_(sh), lr = sh.getLastRow();
+  if (lr < 3 || C.ship < 0 || C.unit < 0) return '';
+  var v = sh.getRange(3, 1, lr - 2, C.lc).getValues(), f = sh.getRange(3, C.ship + 1, lr - 2, 1).getFormulas(), uL = colRB_(C.unit + 1);
+  var byP = {}; v.forEach(function (x, i) { var p = itemCodeKey_(x[C.product]); if (p) (byP[p] = byP[p] || []).push(i); });
+  var tally = {};
+  Object.keys(byP).forEach(function (p) {
+    var rows = byP[p].map(function (i) { return v[i]; }), maker = hfMakerOf_(rows, C, p), k = hfKey_(maker);
+    if (!k) return;
+    byP[p].forEach(function (i) {
+      var s = f[i][0], r = i + 3;
+      if (!hfFormulaLike_(s, uL, r)) return;
+      var m = s.match(/(\d+(?:\.\d+)?)\s*%/) || s.match(/\*\s*(0?\.\d+)/), pct = m ? (s.indexOf('%') > -1 ? Number(m[1]) : Math.round(Number(m[1]) * 10000) / 100) : 0;
+      if (!(pct > 0 && pct <= 50)) return;
+      var t = tally[k] || (tally[k] = { vendor: maker, pcts: {}, mat: 0, sa: 0, prod: 0 });
+      t.pcts[pct] = (t.pcts[pct] || 0) + 1;
+      if (itemCodeKey_(v[i][C.code]) === p) t.prod++; else { t.mat++; if (str_(v[i][C.buy]).indexOf('사급') > -1) t.sa++; }
+    });
+  });
+  var a = hfAll_(), added = [];
+  Object.keys(tally).forEach(function (k) {
+    if (a[k]) return;
+    var t = tally[k], pct = Object.keys(t.pcts).sort(function (x, y) { return t.pcts[y] - t.pcts[x]; })[0];
+    var mode = t.prod > t.mat ? 'maker' : (t.sa ? 'all' : 'turnkey');
+    a[k] = { vendor: t.vendor, pct: Number(pct), mode: mode, at: fmtDate_(new Date()), who: '시트 수식에서 읽음' };
+    added.push(t.vendor + ' ' + pct + '% ' + RB_HF_LABEL[mode]);
+  });
+  if (added.length) PropertiesService.getScriptProperties().setProperty(RB_HF_PROP, JSON.stringify(a));
+  return added.join(', ');
 }

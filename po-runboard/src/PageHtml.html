@@ -1238,7 +1238,10 @@
   .bomt td.c { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; white-space: nowrap; }
   .bomt tr.tot td { font-weight: 700; background: var(--surface-2); }
   .bomt tr.chg td { background: var(--accent-soft); }
-  .bomt tr.gone td { opacity: .5; text-decoration: line-through; }
+  .bomt tr.gone td { color: var(--ink-3, #8a949c); text-decoration: line-through; }      /* 칸(td)은 불투명 그대로 — 왼쪽 고정 칸 아래로 다른 칸 글자가 비쳐 겹쳐 보였다 */
+  .bomt tr.gone td > * { opacity: .5; }
+  .bomt .nmpre { color: var(--ink-3); }
+  .bomt tr.tot .totlab { position: sticky; left: 12px; display: inline-block; }      /* 표를 옆으로 밀어도 합계 글이 보이게 */
   .bomt tr.form td { background: var(--accent-soft); padding: 8px; }
   .bomt .newc { color: var(--ok); font-weight: 700; }
   .bomform { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; font-size: 12px; }
@@ -11309,7 +11312,14 @@ function dateSlots_(steps, cfg, mode) {
     if (m[f] != null && String(m[f]) !== String(v[f] == null ? "" : v[f])) {
       return '<td class="' + cls + ' mod"><b>' + esc(num ? bvFmt(m[f]) : m[f]) + "</b><s>" + esc(txt) + "</s></td>";
     }
+    if (f === "name" && !/^(제품|세트|반제품)$/.test(String(v.type || "")) && String(v.code || "").toUpperCase() !== BV.code) { var sn = bvShortName(txt); if (sn !== txt) return '<td class="' + cls + '" title="' + esc(txt) + '"><span class="nmpre" aria-hidden="true">… </span>' + esc(sn) + "</td>"; }
     return '<td class="' + cls + '">' + esc(txt) + "</td>";
+  }
+  /** 자재 품목명이 제품명으로 시작하면 화면에는 뒤쪽(용기 · 단상자 …)만 — 표 폭이 줄어 원가 칸이 보인다(전체 이름은 마우스를 올리면 · 시트 값은 그대로) */
+  function bvShortName(t) {
+    var n = String(BV.name || "").trim().split(/\s+/), w = String(t || "").trim().split(/\s+/), k = 0;
+    while (k < n.length && k < w.length - 1 && w[k] === n[k]) k++;
+    return k >= 2 ? w.slice(k).join(" ") : String(t || "");
   }
   function bvModText(v, m) {
     if (m.remove) return "빼기" + (m.why ? " · " + m.why : "");
@@ -12243,12 +12253,14 @@ function dateSlots_(steps, cfg, mode) {
    */
   var BV_COLW = { "원가": 44, "구분": 118, "자재코드": 170, "품목명": 220, "업체명": 120, "매입정보": 96, "매입": 84, "사양": 200, "MOQ": 76, "소요량": 72,
     "내용물/자재": 110, "통화": 116, "임가공": 80, "배송비/기타": 90, "소요원가": 100, "적용": 80, "변동사항": 200, "초도": 64, "종료": 64, "시작 차수": 72, "끝 차수": 72, "적용 차수": 150, "변경": 96, "": 96 };
+  // 보기 표(고치는 칸 없음)는 좁게 — 1280 폭(실행판 화면)에서 소요원가까지 옆으로 밀지 않고 보이게. 품목명은 제품명 앞부분을 줄여 보여 준다(bvShortName)
+  var BV_COLW_VIEW = { "구분": 84, "자재코드": 120, "품목명": 170, "업체명": 100, "매입정보": 64, "사양": 170, "MOQ": 64, "소요량": 60, "내용물/자재": 96 };
   function bvColSize() {
     var hd = $("bomv-head"), tb = hd && hd.closest("table");
     if (!tb) return;
-    var sum = 0;
+    var sum = 0, view = !$("bomv").classList.contains("fixmode");
     [].forEach.call(hd.querySelectorAll("th"), function (th) {
-      var w = BV_COLW[String(th.textContent || "").trim()] || 96;
+      var k = String(th.textContent || "").trim(), w = (view && BV_COLW_VIEW[k]) || BV_COLW[k] || 96;
       th.style.width = w + "px";
       if (th.style.display !== "none") sum += w;
     });
@@ -12303,7 +12315,7 @@ function dateSlots_(steps, cfg, mode) {
       var fAdd = BV.adds.reduce(function (a, x) { return a + bvCalc({ unit: x.unit, fx: x.fx || 1, proc: x.proc, ship: x.ship, qty: x.qty }); }, 0);
       var fTot = fLive.reduce(function (a, v) { return a + bvNum(v.cost); }, 0) + fAdd;
       var fCk = fLive.filter(function (v) { return !bvNoCost(v, BV.bomMax); }).reduce(function (a, v) { return a + bvNum(v.cost); }, 0) + fAdd;
-      var fTotRow = '<tr class="tot"><td colspan="13">소요원가 합계 (' + BV.round + '차 · 구성 전체 · 저장된 값 기준) <b class="totv">' + bvFmt(Math.round(fTot)) + "원</b>" + (Math.round(fCk) !== Math.round(fTot) ? ' <span class="nghelp">· 원가 체크 줄만 ' + bvFmt(Math.round(fCk)) + "원</span>" : "") + '</td><td class="n">' + bvFmt(Math.round(fTot)) +
+      var fTotRow = '<tr class="tot"><td colspan="13"><span class="totlab">소요원가 합계 (' + BV.round + '차 · 구성 전체 · 저장된 값 기준) <b class="totv">' + bvFmt(Math.round(fTot)) + "원</b>" + (Math.round(fCk) !== Math.round(fTot) ? ' <span class="nghelp">· 원가 체크 줄만 ' + bvFmt(Math.round(fCk)) + "원</span>" : "") + '</span></td><td class="n">' + bvFmt(Math.round(fTot)) +
         (Math.round(fCk) !== Math.round(fTot) ? '<div class="nghelp" title="원가 체크한 줄만 — 원가표 · 발주 단가 기준">원가 체크 줄만 ' + bvFmt(Math.round(fCk)) + "</div>" : "") + '</td><td colspan="4"></td></tr>';
       $("bomv-rows").innerHTML = codeList + fr.map(function (v) { return bvFixRowHtml(v) + (BV.fix.pick === v.row && !BV.fix.plan ? bvSemiPickHtml(v, fr) : ""); }).join("") + BV.adds.map(bvAddRowHtml).join("") + fTotRow +
         (BV.fix.plan ? "" : (addOn ? bvAddEditHtml() : '<tr><td colspan="20"><button type="button" class="btn btn-sm" data-bomedit="add" data-row="0" title="이 차수 구성에 빠진 자재를 넣습니다 — ' + BV.round + '차부터 쓰는 새 줄(새 자재코드)">+ 자재 추가 (빠진 자재)</button></td></tr>'));
@@ -12339,7 +12351,7 @@ function dateSlots_(steps, cfg, mode) {
     var totalCk = live.filter(function (v) { return !bvNoCost(v, BV.bomMax); }).reduce(function (a, v) { return a + bvCostNow(v); }, 0) + addSum;
     var cs1 = canEdit ? 13 : 12, cs2 = canEdit ? 4 : 3;
     var ckNote = Math.round(totalCk) !== Math.round(total) ? '<div class="nghelp" title="원가 체크한 줄만 — 원가검색 · BOM 목록 원가 · 발주 단가 기준">원가 체크 줄만 ' + bvFmt(Math.round(totalCk)) + "</div>" : "";
-    html += '<tr class="tot"><td colspan="' + cs1 + '">소요원가 합계 (' + (pts.indexOf(BV.round) > -1 ? bvSegLabel(BV.round, pts) : BV.round + "차") + ' · 구성 전체) <b class="totv">' + bvFmt(Math.round(total)) + "원</b>" + (Math.round(totalCk) !== Math.round(total) ? ' <span class="nghelp">· 원가 체크 줄만 ' + bvFmt(Math.round(totalCk)) + "원</span>" : "") + '</td><td class="n">' + bvFmt(Math.round(total)) + ckNote + '</td><td colspan="' + cs2 + '"></td></tr>';
+    html += '<tr class="tot"><td colspan="' + cs1 + '"><span class="totlab">소요원가 합계 (' + (pts.indexOf(BV.round) > -1 ? bvSegLabel(BV.round, pts) : BV.round + "차") + ' · 구성 전체) <b class="totv">' + bvFmt(Math.round(total)) + "원</b>" + (Math.round(totalCk) !== Math.round(total) ? ' <span class="nghelp">· 원가 체크 줄만 ' + bvFmt(Math.round(totalCk)) + "원</span>" : "") + '</span></td><td class="n">' + bvFmt(Math.round(total)) + ckNote + '</td><td colspan="' + cs2 + '"></td></tr>';
     if (pr && act.length) {
       if (canEdit) pr.sum += BV.adds.filter(bvTurn).reduce(function (a, x) { return a + bvCalc({ unit: x.unit, fx: x.fx || 1, proc: x.proc, ship: x.ship, qty: x.qty }); }, 0);
       var oc = BV.order ? String(BV.order.code || "").toUpperCase() : "", op = BV.order ? Number(BV.order.price) : NaN;
