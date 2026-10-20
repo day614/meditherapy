@@ -6473,10 +6473,7 @@ function dateSlots_(steps, cfg, mode) {
           ? '<button type="button" class="tag qptag" id="basBtn" title="품목 · 수량 · 단가 · 업체 · 날짜 · 요청 정보 · 선금/잔금 등 한 곳에서 고치기">' +
             "발주 수정 ✎ · 수량 " + Number(row.qty || 0).toLocaleString() + " · 단가 " + Number(row.price || 0).toLocaleString() + "</button>"
           : "") +
-        // BOM 보기는 늘 위에(예전엔 1단계 'BOM · 품목코드'를 펼쳐야 보여, 그 단계를 끝냈거나 건너뛴 건은 찾기 어려웠다) · BOM 단가와 다르면 같이 표시
-        (mode === "po" && row.code && !row.pending
-          ? '<button type="button" class="tag qptag" data-bomopen="1" title="이 발주 차수의 BOM 구성 · 원가를 봅니다(바꿀 자재가 있으면 거기서 차수 변경)">BOM 보기</button>' + poBomBadge(row)
-          : "") +
+        (mode === "po" && row.code && !row.pending ? poBomBadge(row) : "") +          // BOM 단가와 다르면 표시(BOM 은 1단계 [BOM 보기]로)
         (mode === "sample" && !(DATA && DATA.canEdit === false) ? '<button type="button" class="tag qptag" id="spEditBtn" title="프로젝트명 · 품목코드 · 브랜드 · 프로젝트 링크를 한 곳에서 고치기">프로젝트 수정 ✎</button>' : "") +
         (mode === "sample" ? '<span class="tag">' + esc(sampleSummary(row)) + "</span>"
           : '<span class="tag' + (u >= total ? " done" : "") + '">' + doneCount(row) + "/" + total + " 단계</span>") +
@@ -10642,6 +10639,24 @@ function dateSlots_(steps, cfg, mode) {
     if (d && d.dropped && d.dropped.length) m += " · 품목 DB 에서도 지움: " + d.dropped.join(", ");
     return m;
   }
+  /** 발주 건 단가를 BOM 단가로(BOM 보기 '이 발주 단가 … BOM과 차이' 옆 단추) — [발주 수정]과 같은 저장(apiEditOrder) */
+  function bvSetOrderPrice(to, btn) {
+    var od = BV.order;
+    if (!od || !od.statusRow || !(to > 0)) return;
+    var why = prompt("발주 단가 " + bvFmt(od.price) + " → " + bvFmt(to) + " 로 바꿉니다(BOM " + bvEditRound() + "차 단가).\n사유(수량단가 변경 이력에 남음):", "BOM " + (bvEditRound() || "") + "차 단가로 맞춤");
+    if (why === null) return;
+    if (!String(why).trim()) { alert("사유를 적어 주세요."); return; }
+    btn.disabled = true; busy(true);
+    gsr().withSuccessHandler(function () {
+      busy(false);
+      od.price = to;
+      var r0 = rowById(od.id); if (r0 && r0 !== od) r0.price = to;
+      try { renderBoard(); if (currentId === od.id && !$("view-run").hidden) renderRun(); } catch (e) { /* 다음에 */ }
+      if (!$("bomv").hidden) bvShowKeep();
+      $("bomv-msg").textContent = "발주 단가를 " + bvFmt(to) + " 로 바꿨습니다 — 수량단가 변경 이력에 남았습니다.";
+    }).withFailureHandler(function (e) { busy(false); btn.disabled = false; alert("발주 단가를 바꾸지 못했습니다: " + e.message); })
+      .apiEditOrder(od.statusRow, statusRef(od), { price: to, reason: String(why).trim() });
+  }
   /* ---- BOM 단가 ≠ 최근 발주 단가 표시(지금 쓰는 자재 줄만 · 통화가 같을 때) ---- */
   var BV_PO = null;
   function bvPoLoad() {
@@ -11017,6 +11032,7 @@ function dateSlots_(steps, cfg, mode) {
     if (!BV_GETC[d.code]) { BV_GETQ.push(d.code); if (BV_GETQ.length > 30) delete BV_GETC[BV_GETQ.shift()]; }
     BV_GETC[d.code] = bvCopy(d);
     if (BV_ALL && !d.semi) BV_ALL[d.code] = bvCopy(d.rows);
+    PO_BOMP = {};                                  // 발주 목록 'BOM 단가 다름'도 새 BOM 으로 다시 계산
   }
   /** 목록에서 품목에 마우스를 올리면 미리 받아 둔다(누를 때 바로 열리게) — 한 번에 둘까지 */
   function bvPrefetch(code) {
@@ -12519,6 +12535,11 @@ function dateSlots_(steps, cfg, mode) {
         if (!inCur) { op = Math.round(op); cmpV = Math.round(cmpV); }       // 원화는 소수점 없이(반올림) 비교 · 표시
         var df = Math.round((op - cmpV) * 10000) / 10000;
         cmp = "이 발주 단가 " + bvFmt(op) + (inCur ? " " + pcx.label : (ocur !== "KRW" ? "원(환산)" : "")) + (Math.abs(df) < (inCur ? 0.01 : 1) ? ' <span class="ok">✓ 같음</span>' : ' <span class="ng">BOM과 차이 ' + (df > 0 ? "+" : "") + bvFmt(df) + '</span> <span class="nghelp">(재고 활용 등 예외면 발주 단가 그대로 · 단가는 [발주 수정]에서)</span>');
+        // BOM 과 다르면 발주 단가를 BOM 단가로 바로 맞추기(같은 통화일 때 · 사유는 자동으로 남김)
+        if (!(Math.abs(df) < (inCur ? 0.01 : 1)) && ocur === pcx.cur && BV.order.statusRow) {
+          var toP = inCur ? Math.round(cmpV * 10000) / 10000 : Math.round(cmpV);
+          cmp += ' <button type="button" class="btn btn-sm" data-bomsetprice="' + toP + '" title="이 발주 건 단가를 BOM 단가로 바꿉니다([발주 수정]과 같게 저장 · 수량단가 변경 이력에 남음)">발주 단가를 ' + bvFmt(toP) + (inCur ? " " + pcx.label + "로" : "원으로") + "</button>";
+        }
       }
       html += '<tr class="tot2"><td colspan="' + cs1 + '">' + esc(pr.vendor || "제조사") + '에 줄 발주 단가 <span class="nghelp">' + esc(pr.how) + " — 우리가 따로 사서 보내는 자재(사급) · 다른 업체 반제품은 빠짐(따로 발주 · 매입정보 칸에 발주 상태)</span></td>" +
         '<td class="n">' + bvFmt(Math.round(pr.sum)) + (pcx.cur !== "KRW" ? '<div class="nghelp">= ' + bvFmt(pcx.price) + " " + pcx.label + " (×" + bvFmt(pcx.fx) + ")</div>" : "") + '</td><td colspan="' + cs2 + '">' + cmp + "</td></tr>";
@@ -13343,6 +13364,7 @@ function dateSlots_(steps, cfg, mode) {
     }
     if (t.closest("#bomv-rulebtn")) { $("bomv-rules-body").innerHTML = bvRulesHtml(); $("bomv-rules").hidden = false; $("bomv-rulesx").focus(); bvTypesLoad(function () { if (!$("bomv-rules").hidden) $("bomv-rules-body").innerHTML = bvRulesHtml(); }); return; }
     if (t.closest("#bomv-hfsave")) { bvHfSave(); return; }
+    if ((x = t.closest("[data-bomsetprice]"))) { bvSetOrderPrice(Number(x.dataset.bomsetprice), x); return; }
     if (t.closest("#bomv-ordbtn")) { bomOrdOpen(); return; }
     if ((x = t.closest("[data-ordmv]"))) { if (!x.disabled) bomOrdMove(Number(x.dataset.ordmv), x.dataset.d); return; }
     if (t.closest("#bomv-ordsave")) { bomOrdSave(); return; }
