@@ -50,7 +50,8 @@ function shareFinalRows_() {
     var rs = by[p], max = 0;
     rs.forEach(function (x) { if (x.s > max) max = x.s; if (x.e && x.e > max) max = x.e; });
     bomVerEnds_(rs);
-    var on = rs.filter(function (x) { return !x.done && (!max || ((x.s || 1) <= max && x.e2 >= max)); }).map(function (x) { return x.o; });
+    var pos = function (o) { var n = Number(o.ord); return n > 0 ? n : 1e6 + o.row; };          // 실행판 화면 [순서 바꾸기] 순서(BOM 탭 순서 칸)
+    var on = rs.filter(function (x) { return !x.done && (!max || ((x.s || 1) <= max && x.e2 >= max)); }).map(function (x) { return x.o; }).sort(function (a, b) { return pos(a) - pos(b) || a.row - b.row; });
     out[p] = { round: max, rows: shareOrder_(on) };
   });
   return out;

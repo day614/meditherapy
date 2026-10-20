@@ -1708,7 +1708,7 @@
       <div class="bomvrules-bd" id="bomv-rules-body"></div></div></div>
     <div class="bomvrules" id="bomv-ord" hidden><div class="bomvrules-box" role="dialog" aria-modal="true" aria-labelledby="bomv-ord-t">
       <div class="bomvrules-hd"><b id="bomv-ord-t">구성 순서 바꾸기</b><span><button class="btn btn-sm btn-solid" type="button" id="bomv-ordsave">저장</button> <button class="btn btn-sm" type="button" id="bomv-ordx">닫기</button></span></div>
-      <div class="bomvrules-bd"><p class="nghelp">▲ ▼ 로 옮기고 [저장]. 같은 자재의 지난 버전 줄도 같이 옮겨집니다 · 실행판 BOM 탭 줄 순서가 바뀌고(다른 품목 줄은 그대로) 배포용 BOM 파일도 이 순서를 따릅니다.</p><ol class="bomvord-list" id="bomv-ord-list"></ol></div></div></div>
+      <div class="bomvrules-bd"><p class="nghelp">▲ ▼ 로 옮기고 [저장]. 같은 자재의 지난 버전 줄도 같이 옮겨집니다 · BOM 탭 '순서' 칸에 저장되고 실행판 화면 · 배포용 BOM 파일이 이 순서로 보입니다(시트 줄 자리는 그대로).</p><ol class="bomvord-list" id="bomv-ord-list"></ol></div></div></div>
     <div class="bomvtop">
       <div class="bomvsearch">
         <input type="search" id="bomv-q" placeholder="품목명 · 품목코드 · 자재코드 · 업체명 (포함 단어)" aria-label="BOM 품목 검색" autocomplete="off">
@@ -1736,7 +1736,7 @@
       <span class="nghelp" id="bomv-info"></span>
       <button class="btn btn-sm" type="button" id="bomv-flat" hidden title="반제품 · 세트 구성품 아래로 묶은 자재를 한 표로 풀어 보거나 다시 묶습니다(보기만 바뀜 — BOM 은 그대로)">구성 풀기(한 표로)</button>
       <button class="btn btn-sm bomv-fixbtn" type="button" id="bomv-fixbtn" title="잘못 넣은 값을 바로잡습니다 — 코드 · 차수는 그대로, 그 줄을 덮어씁니다">이 차수 구성 정정</button>
-      <button class="btn btn-sm" type="button" id="bomv-ordbtn" hidden title="구성 자재 줄 순서를 바꿉니다 — 실행판 BOM 탭 줄 순서가 바뀌고, 배포용 BOM 파일(실행판 최종 BOM)도 이 순서를 따릅니다">순서 바꾸기</button>
+      <button class="btn btn-sm" type="button" id="bomv-ordbtn" hidden title="화면에 보이는 구성 자재 순서를 바꿉니다 — BOM 탭 '순서' 칸에 저장(실행판 화면 · 배포용 BOM 파일이 이 순서로)">순서 바꾸기</button>
       <span class="bomvhf" id="bomv-hf" hidden></span>
     </div>
     <div class="ngwrap" id="bomv-wrap" hidden><table class="ngt bomt"><thead><tr id="bomv-head">
@@ -10547,19 +10547,18 @@ function dateSlots_(steps, cfg, mode) {
     var mk = BV.code && !BV.newProduct && !BV.semi ? bvMaker() : "";
     if (!mk) { el.hidden = true; el.innerHTML = ""; return; }
     if (HF === null) { HF = {}; gsr().withSuccessHandler(function (a) { HF = a || {}; bvHfRender(); }).withFailureHandler(function () { /* 설정 없이 */ }).apiHfAll(); }
-    var c = HF[bvHfKey(mk)] || null, mm = c && c.mode === "maker";
+    var c = HF[bvHfKey(mk)] || null, md = c ? (c.mode === "maker" || c.mode === "all" || c.mode === "turnkey" ? c.mode : (c.sa ? "all" : "turnkey")) : "turnkey";
     el.hidden = false;
-    el.title = "이 제조사 제품 BOM 에 자동으로 붙는 핸들링피 — 자재별: 자재 줄 배송비/기타 = 단가 × 환율 × % · 제조사 단가에만: 제품 줄 배송비/기타 = 제조사 단가 × %. 한 번 정하면 이 제조사 신제품 · 자재 추가 때 알아서 들어갑니다";
+    el.title = "이 제조사 제품 BOM 에 자동으로 붙는 핸들링피(배송비/기타 칸 = 단가 × 환율 × %) — 턴키 자재만 / 모든 자재 / 제조사 단가에만(제품 줄). 한 번 정하면 이 제조사 신제품 · 자재 추가 때 알아서 들어갑니다";
     el.innerHTML = "<b>핸들링피</b><span class='nghelp'>" + esc(mk) + "</span><input id='bomv-hfp' inputmode='decimal' value='" + (c ? c.pct : "") + "' placeholder='0' aria-label='핸들링피 %'>%" +
-      "<select id='bomv-hfm' aria-label='핸들링피 방식'><option value='mat'" + (mm ? "" : " selected") + ">자재별</option><option value='maker'" + (mm ? " selected" : "") + ">제조사 단가에만</option></select>" +
-      "<label title='사급 자재 줄에도 붙입니다(자재별일 때)'><input type='checkbox' id='bomv-hfsa'" + (c && c.sa ? " checked" : "") + ">사급 포함</label>" +
+      "<select id='bomv-hfm' aria-label='핸들링피 방식'>" + [["turnkey", "턴키 자재만"], ["all", "모든 자재"], ["maker", "제조사 단가에만"]].map(function (o) { return "<option value='" + o[0] + "'" + (md === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
       "<button class='btn btn-sm' type='button' id='bomv-hfsave'>저장</button>" + (c ? "<span class='nghelp'>" + esc((c.at || "") + " " + (c.who || "").split("@")[0]) + "</span>" : "");
   }
   function bvHfSave() {
-    var mk = bvMaker(), p = String($("bomv-hfp").value || "").replace(/[%\s,]/g, ""), pct = p === "" ? 0 : Number(p), mode = $("bomv-hfm").value, sa = $("bomv-hfsa").checked;
+    var mk = bvMaker(), p = String($("bomv-hfp").value || "").replace(/[%\s,]/g, ""), pct = p === "" ? 0 : Number(p), mode = $("bomv-hfm").value, ml = { turnkey: "턴키 자재만", all: "모든 자재", maker: "제조사 단가에만" }[mode];
     if (isNaN(pct) || pct < 0 || pct > 50) { alert("핸들링피는 0 ~ 50 사이 숫자로 넣어 주세요(%)"); return; }
     if (bvPendCount() || BV.fix) { alert("저장하지 않은 BOM 변경이 있습니다 — 먼저 [저장]하거나 취소해 주세요."); return; }
-    var msg = pct ? mk + " 핸들링피를 " + pct + "% (" + (mode === "maker" ? "제조사 단가에만" : "자재별" + (sa ? " · 사급 포함" : "")) + ")로 정할까요?\n\n· 이 품목(" + BV.code + ") 지금 줄에 바로 넣습니다(손으로 넣은 배송비/기타 칸은 그대로)\n· 앞으로 " + mk + " 제품 BOM 에 자재를 넣으면 알아서 붙습니다"
+    var msg = pct ? mk + " 핸들링피를 " + pct + "% (" + ml + ")로 정할까요?\n\n· 이 품목(" + BV.code + ") 지금 줄에 바로 넣습니다(손으로 넣은 배송비/기타 칸은 그대로)\n· 앞으로 " + mk + " 제품 BOM 에 자재를 넣으면 알아서 붙습니다"
       : mk + " 핸들링피 설정을 지울까요?(이미 들어간 수식은 그대로)";
     if (!confirm(msg)) return;
     var b = $("bomv-hfsave"); b.disabled = true;
@@ -10569,14 +10568,14 @@ function dateSlots_(steps, cfg, mode) {
       if (r.bom && BV.code === code) bomSet(r.bom); else bvHfRender();
       var a = r.applied;
       $("bomv-msg").textContent = "핸들링피 저장" + (a ? " · " + a.n + "줄에 넣음" + (a.skipped.length ? " · 손으로 넣은 칸 " + a.skipped.length + "줄은 그대로(" + a.skipped.slice(0, 8).join(", ") + "행)" : "") : "");
-    }).withFailureHandler(function (e) { b.disabled = false; alert("핸들링피를 저장하지 못했습니다: " + e.message); }).apiHfSet(mk, pct, mode, sa, code, "");
+    }).withFailureHandler(function (e) { b.disabled = false; alert("핸들링피를 저장하지 못했습니다: " + e.message); }).apiHfSet(mk, pct, mode, code, "");
   }
   /* ---- 구성 순서 바꾸기 — 서버 apiBomReorder ---- */
   var ORD = null;
   function bvFam(v) { var c = String(v.code || "").toUpperCase(); return /^[A-Z]{1,2}\d{4}[A-Z]{2}\d+$/.test(c) ? c.replace(/\d+$/, "") : "row:" + v.row; }
   function bomOrdOpen() {
     if (bvPendCount() || BV.fix) { alert("저장하지 않은 BOM 변경이 있습니다 — 먼저 [저장]하거나 취소해 주세요."); return; }
-    var act = bvFamSort(bvActive(BV.round).filter(function (v) { return v.row && !v._carry; }).sort(function (a, b) { return a.row - b.row; }), BV.rows);
+    var act = bvOrder(bvActive(BV.round).filter(function (v) { return v.row && !v._carry; }).sort(bvByPos));
     var fams = [], seen = {};
     act.forEach(function (v) { var f = bvFam(v); if (!seen[f]) { seen[f] = 1; fams.push({ f: f, v: v }); } });
     ORD = { code: BV.code, fams: fams };
@@ -10603,15 +10602,18 @@ function dateSlots_(steps, cfg, mode) {
     if (!ORD || ORD.code !== BV.code) { $("bomv-ord").hidden = true; return; }
     var rank = {}; ORD.fams.forEach(function (x, i) { rank[x.f] = i; });
     var big = ORD.fams.length;
-    // 이 차수 표에 없는 줄(지난 버전 등)은 같은 자재 뒤에, 같은 자재가 없으면 맨 아래(원래 순서대로)
-    var order = BV.rows.filter(function (v) { return v.row && !v._carry; }).map(function (v) { var k = rank[bvFam(v)]; return { v: v, k: k == null ? big : k }; })
-      .sort(function (a, b) { return a.k - b.k || a.v.row - b.v.row; }).map(function (x) { return { row: x.v.row, id: x.v.id || "", code: x.v.code || "" }; });
+    // 줄마다 순서 숫자(같은 자재의 지난 버전 줄도 같은 숫자) — 이 차수 표에 없는 자재는 맨 아래(원래 순서대로)
+    var rest = BV.rows.filter(function (v) { return v.row && !v._carry && rank[bvFam(v)] == null; }).sort(bvByPos);
+    var order = BV.rows.filter(function (v) { return v.row && !v._carry; }).map(function (v) {
+      var k = rank[bvFam(v)];
+      return { row: v.row, id: v.id || "", code: v.code || "", ord: k != null ? (k + 1) * 10 : (big + 1) * 10 + rest.indexOf(v) + 1 };
+    });
     var b = $("bomv-ordsave"); b.disabled = true;
     var code = ORD.code;
     gsr().withSuccessHandler(function (d) {
       b.disabled = false; $("bomv-ord").hidden = true; ORD = null;
       if (BV.code === code) bomSet(d);
-      $("bomv-msg").textContent = d.moved ? "순서를 바꿨습니다(" + d.moved + "줄 자리 이동) · 배포용 BOM 파일에도 다음 갱신 때 반영됩니다" : "바뀐 순서가 없습니다";
+      $("bomv-msg").textContent = d.moved ? "순서를 저장했습니다 · 배포용 BOM 파일에도 다음 갱신 때 반영됩니다" : "바뀐 순서가 없습니다";
     }).withFailureHandler(function (e) { b.disabled = false; alert("순서를 저장하지 못했습니다: " + e.message); }).apiBomReorder(code, order, "");
   }
   function bvPendCount() { return Object.keys(BV.mods).length + BV.adds.length + Object.keys(BV.ckPend || {}).length; }
@@ -11144,7 +11146,7 @@ function dateSlots_(steps, cfg, mode) {
         (p.inDb ? "· 품목 DB 에서 삭제" + NL : "") +
         (p.del.length ? "· 같이 지우는 자재 " + p.del.length + "개 (이 BOM 에만 쓰던 것):" + NL + p.del.slice(0, 15).map(function (d) { return "   " + d.code + " " + (d.name || ""); }).join(NL) + (p.del.length > 15 ? NL + "   … 외 " + (p.del.length - 15) + "개" : "") + NL : "") +
         (p.keep.length ? "· 남기는 자재 " + p.keep.length + "개 (품목 DB 에 그대로):" + NL + p.keep.slice(0, 15).map(function (d) { return "   " + d.code + " " + (d.name || "") + " — " + d.why; }).join(NL) + (p.keep.length > 15 ? NL + "   … 외 " + (p.keep.length - 15) + "개" : "") + NL : "") +
-        NL + "지운 줄은 숨김 탭 '_실행판_삭제보관'에 원래 값이 남습니다." + NL + "삭제 사유(취소하면 삭제 안 함):";
+        NL + "지운 품목코드 번호는 다음 신제품 · 새 자재 등록 때 다시 씁니다." + NL + "삭제 사유(취소하면 삭제 안 함):";
       var why = prompt(msg, "");
       if (why === null) return;
       if (!String(why).trim()) { alert("삭제 사유를 적어야 지울 수 있습니다(삭제 기록에 남습니다)."); return; }
@@ -11673,7 +11675,7 @@ function dateSlots_(steps, cfg, mode) {
   function bvDeadRows() { return BV.rows.filter(function (v) { var s0 = bvR(v.start), e0 = bvR(v.end); return s0 && e0 && e0 < s0; }); }
   function bvFixRows() {
     var act = bvActive(BV.round), dead = bvDeadRows().filter(function (v) { return act.indexOf(v) < 0; });
-    return bvOrder(act.concat(dead).sort(function (a, b) { return a.row - b.row; }));
+    return bvOrder(act.concat(dead).sort(bvByPos));
   }
   /**
    * BOM 줄 순서(모든 화면 같게): 제품 · 세트 줄 → 반제품 줄과 그 구성 자재 → 완제품 구성 자재(사급 · 턴키) 순.
@@ -11682,11 +11684,14 @@ function dateSlots_(steps, cfg, mode) {
    */
   /** 반제품이 없는 품목: 시트 순서로 두되, 같은 자재의 버전 줄(코드 끝 번호만 다름)은 처음 버전 자리에 모은다.
    *  원래 자리는 품목 전체 줄(all)에서 — 이번 차수 화면에는 끝난 앞 버전 줄이 없다. 반제품이 있으면 그대로(줄 순서가 묶음 뜻) */
+  /** 화면 순서 = BOM 탭 '순서' 칸([순서 바꾸기]) → 없으면 시트 줄 순서(순서가 없는 새 자재는 맨 아래) */
+  function bvPos(v) { var o = Number(v && v.ord); return o > 0 ? o : 1e6 + (Number(v && v.row) || 0); }
+  function bvByPos(a, b) { return bvPos(a) - bvPos(b) || (a.row - b.row); }
   function bvFamSort(rows, all) {
     if (rows.concat(all || []).some(function (v) { return v.type === "반제품"; })) return rows;
     var fam = function (v) { return String(v.code || "").toUpperCase().replace(/[0-9]+$/, ""); }, first = {};
-    rows.concat(all || []).forEach(function (v) { var f = fam(v); if (first[f] == null || v.row < first[f]) first[f] = v.row; });
-    return rows.slice().sort(function (a, b) { return (first[fam(a)] - first[fam(b)]) || (a.row - b.row); });
+    rows.concat(all || []).forEach(function (v) { var f = fam(v), p = bvPos(v); if (first[f] == null || p < first[f]) first[f] = p; });
+    return rows.slice().sort(function (a, b) { return (first[fam(a)] - first[fam(b)]) || bvByPos(a, b); });
   }
   function bvOrder(rows) {
     if (!rows.some(function (v) { return v.type === "반제품"; })) return bvFamSort(rows, (typeof BV !== "undefined" && BV.rows) || []);
@@ -12311,7 +12316,7 @@ function dateSlots_(steps, cfg, mode) {
       return;
     }
     var canEdit = !!(ob && BV.round === ob) && !BV.semi;
-    var act = bvFamSort((canEdit ? bvRowsFor(BV.round) : bvActive(BV.round)).slice().sort(function (a, b) { return a.row - b.row; }), BV.rows);
+    var act = bvFamSort((canEdit ? bvRowsFor(BV.round) : bvActive(BV.round)).slice().sort(bvByPos), BV.rows);
     if (BV.semi) { var actS0 = bvLiveSemis(act); act = act.filter(function (v) { return v.code === BV.semi.mat || bvInGrp(v, BV.semi.mat, actS0); }); }
     var pr = bvPrice(act);
     BV._sep = pr ? pr.sep : {};

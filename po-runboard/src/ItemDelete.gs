@@ -6,7 +6,7 @@
  *  · 다른 제품 BOM 에 들어간 자재(공용)를 직접 지우려 하면 막는다(그 BOM 이 깨진다).
  *  · 제품(BOM 이 있는 코드)을 지우면 그 제품 BOM 줄 전부를 지우고, 그 BOM 에만 쓰던 자재도 품목 DB 에서 지운다.
  *    단, 공용 자재(공용여부 표시 · 다른 제품 BOM 에도 있음) · 발주/입고 이력이 있는 자재 · 자기 BOM 이 따로 있는 반제품은 남긴다.
- *  · 지운 줄은 숨김 탭 '_실행판_삭제보관'에 원래 값 그대로 남긴다(되살릴 때 쓴다). 변경이력 · BOM변경이력에도 남긴다.
+ *  · 지운 줄은 보관하지 않는다(2026-10-20 담당자) — 그 번호는 다음 신제품 · 새 자재 등록 때 다시 쓴다. 변경이력 · BOM변경이력에는 남긴다.
  * ============================================================
  */
 var RB_DEL_TAB = '_실행판_삭제보관';
@@ -105,28 +105,7 @@ function apiItemDelete(code, apply, why) {
     if (plan.block) throw new Error(plan.block);
     if (!plan.bomRows.length && !plan.itemRows.length) throw new Error(code + ' 는 품목 DB · BOM 어디에도 없습니다.');
     var ss = ss_(), now = new Date(), who = me_();
-    var bk = tab_(RB_DEL_TAB, RB_DEL_HEAD), back = [];
-    var bs = bomSheet_(), B = bomCols_(bs);
-    if (plan.bomRows.length) {
-      var lc = B.lc;
-      plan.bomRows.forEach(function (r) {
-        var v = bs.getRange(r, 1, 1, lc).getValues()[0];
-        back.push([now, who, code, RB_BOM_TAB, r, itemCodeKey_(v[B.code]), JSON.stringify(v.map(function (x) { return x instanceof Date ? fmtDate_(x) : x; }))]);
-      });
-    }
-    var ish = sheet_(RB_ITEM.TAB);
-    if (plan.itemRows.length) {
-      plan.itemRows.forEach(function (r) {
-        var v = ish.getRange(r, 1, 1, RB_ITEM.HEAD.length).getValues()[0];
-        back.push([now, who, code, RB_ITEM.TAB, r, itemCodeKey_(v[0]), JSON.stringify(v.map(function (x) { return x instanceof Date ? fmtDate_(x) : x; }))]);
-      });
-    }
-    if (back.length) {
-      var r0 = bk.getLastRow() + 1;
-      ensureRows_(bk, r0 + back.length - 1);
-      bk.getRange(r0, 1, back.length, RB_DEL_HEAD.length).setValues(back);
-      try { if (!bk.isSheetHidden()) bk.hideSheet(); } catch (eH) { /* 넘어간다 */ }
-    }
+    var bs = bomSheet_(), ish = sheet_(RB_ITEM.TAB);
     if (plan.bomRows.length) deleteRowsDesc_(bs, plan.bomRows);
     if (plan.itemRows.length) deleteRowsDesc_(ish, plan.itemRows);
     var summary = (plan.bomRows.length ? 'BOM ' + plan.bomRows.length + '줄' : '') + (plan.del.length ? ' · 자재 ' + plan.del.length + '개(' + plan.del.map(function (d) { return d.code; }).join(', ').slice(0, 300) + ')' : '') +
@@ -136,7 +115,7 @@ function apiItemDelete(code, apply, why) {
     out = view(plan);
     out.done = summary.replace(/^ · /, '') || '품목 DB 1줄';
     try {
-      appendHist_([{ kind: '품목 삭제', code: code, name: plan.name, item: '품목 삭제', before: plan.name, after: '삭제 — ' + out.done, reason: str_(why), where: RB_DEL_TAB + '에 원래 값 보관' }]);
+      appendHist_([{ kind: '품목 삭제', code: code, name: plan.name, item: '품목 삭제', before: plan.name, after: '삭제 — ' + out.done, reason: str_(why), where: '보관 없음 · 번호는 다음 등록 때 다시 씀' }]);
     } catch (eL) { /* 이력은 넘어간다 */ }
   } finally {
     lock.releaseLock();

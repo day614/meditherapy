@@ -24,9 +24,9 @@ var RB_BOM_HEAD = {
   brand: '브랜드명', seq: '품목코드', product: '제품코드', search: '제품명', costKey: '원가반영', start: '초도', end: '종료', firstAt: '초도 발주일',
   code: '자재코드', common: '공용여부', type: '구분', name: '품목명', vendor: '업체명', buy: '매입정보', spec: '사양', moq: 'MOQ',
   place: '입고지', qty: '소요량', unit: '단가', proc: '임가공', ship: '배송비/기타', cost: '소요원가', remark: '구매발주 특이사항',
-  change: '변동사항', fx: '환율', cur: '통화', oldCode: '기존코드', id: '줄ID', semi: '반제품 구성'
+  change: '변동사항', fx: '환율', cur: '통화', oldCode: '기존코드', id: '줄ID', semi: '반제품 구성', ord: '순서'
 };
-var RB_BOM_SEND = ['row', 'start', 'end', 'code', 'type', 'name', 'vendor', 'buy', 'spec', 'moq', 'qty', 'unit', 'proc', 'ship', 'cost', 'change', 'fx', 'cur', 'common', 'place', 'costKey', 'semi', 'id'];   // id = 줄ID — 화면이 저장 · 정정 · 원가 체크 때 같이 보내 줄 번호가 밀려도 엉뚱한 줄을 고치지 않게(없으면 예전처럼 코드 · 초도)
+var RB_BOM_SEND = ['row', 'start', 'end', 'code', 'type', 'name', 'vendor', 'buy', 'spec', 'moq', 'qty', 'unit', 'proc', 'ship', 'cost', 'change', 'fx', 'cur', 'common', 'place', 'costKey', 'semi', 'id', 'ord'];   // id = 줄ID — 화면이 저장 · 정정 · 원가 체크 때 같이 보내 줄 번호가 밀려도 엉뚱한 줄을 고치지 않게(없으면 예전처럼 코드 · 초도)
 /** 화면이 보낸 줄ID 가 있고 시트 줄ID 와 다르면 다른 줄 — 줄ID 가 비었으면(옛 화면 · 옛 줄) 예전처럼 코드 · 초도만 본다 */
 function bomIdDiff_(C, x, id) { return !!(str_(id) && C.id >= 0 && x && str_(x[C.id]) && str_(x[C.id]) !== str_(id)); }
 
@@ -1285,7 +1285,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
   mk('잠금대기');
   var hist = [], made = [], logs = [];
   var who = me_(), batch = Utilities.getUuid().slice(0, 8);
-  var addedRows = [], clearedCodes = [], hfRes = null;        // 핸들링피 넣을 새 줄 · 지운 줄 코드(품목 DB 맞추기) — BomExtra.gs
+  var addedRows = [], clearedCodes = [], clearedRows = [], hfRes = null;        // 핸들링피 넣을 새 줄 · 지운 줄 코드(품목 DB 맞추기) — BomExtra.gs
   try {
     var ss = bomSS_(), sh = bomSheet_(), C = bomCols_(sh);
     var lastData = sh.getLastRow();
@@ -1461,7 +1461,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
           sh.getRange(lastRow, 1, 1, C.lc).copyTo(sh.getRange(nr, 1, 1, C.lc));        // 수식 칸(소요원가 등)을 이어받는다
           relaxRowValidation_(sh, nr, C.lc);                                             // 복사 뒤에(복사가 데이터 확인 규칙도 옮긴다)
           mk('줄복사');
-          ['firstAt', 'common', 'place', 'remark', 'oldCode', 'change', 'semi'].forEach(function (k) { cell(nr, k, ''); });      // 본뜬 줄의 반제품 구성은 안 따라오게
+          ['firstAt', 'common', 'place', 'remark', 'oldCode', 'change', 'semi', 'ord'].forEach(function (k) { cell(nr, k, ''); });      // 본뜬 줄의 반제품 구성 · 화면 순서는 안 따라오게(새 자재는 맨 아래)
           var addId = (nidA = nidA || bomIdGen_(sh, C))(); cell(nr, 'id', addId);
           if (c.reuse && !isProd) cell(nr, 'common', '공용');          // 다른 품목 자재를 그대로 쓰면 공용
           if (isNew) { cell(nr, 'seq', ''); cell(nr, 'brand', brand); cell(nr, 'product', product); cell(nr, 'search', prodName); }
@@ -1499,8 +1499,8 @@ function apiBomSaveCore_(product, round, changes, meta) {
           // 이 차수에 시작한 줄을 이 차수부터 빼면 한 번도 안 쓰는 줄 — 지운다(되돌리면 같은 자리에 되살림). 예전엔 종료가 초도보다 앞인 죽은 줄이 남았다.
           var rg0 = sh.getRange(r, 1, 1, C.lc), rv0 = rg0.getValues()[0];
           undo.v2 = 1; undo.v3 = 1; undo.restore = { at: r, soft: 1, vals: rv0.map(function (v) { return v instanceof Date ? { d: v.toISOString() } : v; }), fmls: rg0.getFormulasR1C1()[0] };
-          rg0.clearContent();                          // 당기지 않고 비운다(다른 줄 번호 · 캐시 그대로)
-          clearedCodes.push(oldCode);
+          rg0.clearContent();                          // 비운 뒤 저장 끝에 줄을 지운다(아래 줄부터 · 빈 줄을 남기지 않게)
+          clearedCodes.push(oldCode); clearedRows.push(r);
           target = 0;
         } else if (s0 === N) {
           // 이 차수에 시작한 줄은 그 줄을 고친다(새 코드여도 그 줄 코드를 바꿈 — 되돌리면 원래 코드 · 값으로). 예전엔 새 코드면 이 줄을 종료(초도보다 앞)로 남겼다.
@@ -1570,6 +1570,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
           at += k;
         });
       }
+      if (clearedRows.length && bomDropBlankRows_(sh, C, clearedRows)) SHIFT = true;      // 비운 줄을 지운다 — 아래 줄 번호가 밀리니 캐시는 통째로
       mk('쓰기');
       SpreadsheetApp.flush();
       mk('반영1');
@@ -1764,7 +1765,7 @@ function apiBomFixManyCore_(product, items, why, dry) {
   if (!items.length) throw new Error('바뀐 값이 없습니다.');
   items.forEach(function (it) { if (it && it.fields && it.fields.type != null) bomNoRawType_(it.fields.type); });      // 원재료는 더 등록하지 않는다
   var lock = dry ? null : bomLock_();
-  var plan = [], logs = [], touched = {};
+  var plan = [], logs = [], touched = {}, delShift = false;
   try {
     var ss = bomSS_(), sh = bomSheet_(), C = bomCols_(sh);
     var all = bomReadProduct_(sh, C, product);           // 이 품목 줄만(나머지는 빈 자리) — 예전: BOM 탭 전체(2천 줄 × 27칸)를 두 번 읽었다
@@ -1979,13 +1980,14 @@ function apiBomFixManyCore_(product, items, why, dry) {
     delPlan.sort(function (a, b) { return b.r - a.r; }).forEach(function (d, di) {
       // 줄을 당기지 않고 비운다(다른 줄 번호 · 캐시가 그대로 — 예전엔 줄 삭제 때마다 시트를 당기고 BOM 캐시를 통째로 다시 만들었다)
       var rg = sh.getRange(d.r, 1, 1, C.lc), vals = all[d.r - 3] ? all[d.r - 3].slice() : rg.getValues()[0], fm = rg.getFormulasR1C1()[0];
-      rg.clearContent();
+      rg.clearContent();                                  // 비운 뒤 아래에서 시트 줄을 지운다(빈 줄을 남기지 않게)
       all[d.r - 3] = undefined;
       touched[product] = 1;
       logs.push([new Date(), who, product, '', d.start + '~' + d.end, '정정 삭제', d.type, d.code, '', d.type + ' ' + d.code + ' ' + d.vendor, '줄 삭제', why, '', '유효', batch + '-d' + di,
         JSON.stringify({ v2: 1, v3: 1, restore: { at: d.r, soft: 1, vals: vals.map(function (v) { return v instanceof Date ? { d: v.toISOString() } : v; }), fmls: fm } })]);
     });
     bomLogWrite_(ss, logs);
+    if (delPlan.length) delShift = bomDropBlankRows_(sh, C, delPlan.map(function (d) { return d.r; })) > 0;
     SpreadsheetApp.flush();
     } catch (eW) {
       try { bomDropCache_(Object.keys(touched).concat([product])); } catch (eD) { /* 넘어간다 */ }
@@ -2002,7 +2004,7 @@ function apiBomFixManyCore_(product, items, why, dry) {
   var pcodes = plan.filter(function (q) { return q.set.unit !== undefined || q.set.fx !== undefined || q.set.cur !== undefined || q.set.code !== undefined; })
     .map(function (q) { return q.set.code !== undefined ? str_(q.set.code) : q.code; });
   if (pcodes.length) { try { itemDbPriceSync_(pcodes); } catch (ePs) { /* 넘어간다 */ } }
-  bomAfterSave_(Object.keys(touched), false);                // 지운 줄은 비우기만 — 줄 번호가 그대로라 그 품목만 다시
+  bomAfterSave_(Object.keys(touched), delShift);             // 줄을 지웠으면 아래 줄 번호가 밀려 캐시를 통째로
   try { appendHist_([{ kind: 'BOM', code: product, item: product + ' BOM 정정 ' + plan.length + '줄', before: '', after: plan.map(function (q) { return q.code; }).join(', '), reason: why }], 'p'); } catch (e) { /* 넘어간다 */ }
   var res = apiBomGet(product);
   res.fixed = plan.length + delPlan.length;
@@ -2072,14 +2074,7 @@ function bomKnownCodes_() {
       if (/^[A-Z]{1,2}\d{4}[A-Z]{2}\d+$/.test(c)) add(c);
     });
   } catch (eS) { /* 발주 DB 를 못 읽으면 예전처럼 */ }
-  // 지운 품목 · 자재 코드도 다시 발급하지 않는다(새 품목이 옛 사양서 링크 · 이력을 물려받지 않게)
-  try {
-    var dk = sheet_(RB_DEL_TAB);
-    if (dk && dk.getLastRow() > 1) dk.getRange(2, 3, dk.getLastRow() - 1, 4).getValues().forEach(function (r) {
-      if (/^[A-Z]{1,2}\d{4}[A-Z]{2}\d+$/.test(str_(r[0]).toUpperCase())) add(r[0]);
-      if (/^[A-Z]{1,2}\d{4}[A-Z]{2}\d+$/.test(str_(r[3]).toUpperCase())) add(r[3]);
-    });
-  } catch (eD) { /* 넘어간다 */ }
+  // 지운 품목 · 자재 코드(발주 이력 없음)는 BOM · 품목 DB 어디에도 없으니 다음 신제품 · 새 자재 등록 때 그 번호를 다시 쓴다(2026-10-20 담당자)
   return codes;
 }
 /** 이 코드를 이미 어디서 쓰는지(BOM · 신규코드채번 · 품목 DB) */
@@ -2231,7 +2226,7 @@ function apiBomUndo(product, id, why) {
       if (!at0.inPlace) throw new Error('고친 줄(' + u.inPlace.code + ')을 찾지 못했습니다.');
     }
     var insAt = 0, sf = function (r) { return r && insAt && r >= insAt ? r + 1 : r; };      // 옛 이력(지운 줄을 당겨 지움)을 되살리며 줄을 끼우면 그 아래 줄 번호가 하나 밀린다
-    var fixRows = {}, costSet = {}, unitColU = C.unit >= 0 ? colRB_(C.unit + 1) : 'T';
+    var undoClr = [], fixRows = {}, costSet = {}, unitColU = C.unit >= 0 ? colRB_(C.unit + 1) : 'T';
     var cell = function (row, k, val) {
       if (C[k] < 0) return;
       if (k === 'cost') {
@@ -2246,7 +2241,7 @@ function apiBomUndo(product, id, why) {
       if (k === 'unit' || k === 'qty' || k === 'proc' || k === 'ship' || k === 'fx') fixRows[row] = 1;
     };
     // ② 쓰기
-    if (at0.newRef) { sh.getRange(at0.newRef, 1, 1, C.lc).clearContent(); done.push('새 줄(' + u.newRef.code + ' ' + u.newRef.start + '~) 지움'); }      // 당기지 않고 비운다(다른 품목 줄 번호가 밀리지 않게)
+    if (at0.newRef) { sh.getRange(at0.newRef, 1, 1, C.lc).clearContent(); undoClr.push(at0.newRef); done.push('새 줄(' + u.newRef.code + ' ' + u.newRef.start + '~) 지움'); }      // 당기지 않고 비운다(다른 품목 줄 번호가 밀리지 않게)
     if (u.restore) {
       var at = Number(u.restore.at), lr0 = sh.getLastRow();
       if (u.restore.soft) {                                  // 비운 줄: 그 자리가 아직 비어 있으면 그대로, 아니면 맨 아래에
@@ -2269,11 +2264,11 @@ function apiBomUndo(product, id, why) {
     }
     (u.newRefs || []).forEach(function (ref, i) {
       var r2 = sf(at0.newRefs[i]);
-      if (r2) { sh.getRange(r2, 1, 1, C.lc).clearContent(); done.push(ref.code + ' 줄 지움'); }
+      if (r2) { sh.getRange(r2, 1, 1, C.lc).clearContent(); undoClr.push(r2); done.push(ref.code + ' 줄 지움'); }
     });
     (u.copyRefs || []).forEach(function (ref, i) {
       var q = at0.copyRefs[i];
-      if (q.r) { sh.getRange(sf(q.r), 1, 1, C.lc).clearContent(); done.push(ref.code + ' (' + q.rs + ' 구성) 줄 지움'); }
+      if (q.r) { sh.getRange(sf(q.r), 1, 1, C.lc).clearContent(); undoClr.push(sf(q.r)); done.push(ref.code + ' (' + q.rs + ' 구성) 줄 지움'); }
     });
     if (u.oldRef) {
       var orow = sf(at0.oldRef);
@@ -2305,7 +2300,8 @@ function apiBomUndo(product, id, why) {
     try { var cvU = sh.getRange(3, C.code + 1, Math.max(1, sh.getLastRow() - 2), 1).getValues(); cvU.forEach(function (r0) { var k0 = str_(r0[0]).toUpperCase(); if (k0) usedNow[k0] = 1; }); } catch (eQ) { /* 넘어간다 */ }
     if (u.reg && usedNow[str_(u.reg).toUpperCase()]) u.reg = '';
     u.regs = (u.regs || []).filter(function (rc) { return !usedNow[str_(rc).toUpperCase()]; });      // 다른 BOM 에서 아직 쓰는 코드는 미사용으로 안 바꾼다
-    (u.regs || []).concat(u.reg ? [u.reg] : []).forEach(function (rc) { try { itemDbMarkUnused_(rc); } catch (eU) { /* 넘어간다 */ } });
+    // 되돌린 새 코드: 어디에도 안 쓰이고 발주 이력도 없으면 품목 DB 에서 지운다(그 번호는 다음 등록 때 다시 씀)
+    try { var gone0 = itemDbDropOrphans_((u.regs || []).concat(u.reg ? [u.reg] : []), '되돌리기', product); if (gone0.length) done.push('품목 DB 에서 지움 ' + gone0.join(', ')); } catch (eU) { /* 넘어간다 */ }
     (u.regs || []).forEach(function (rc) {
       var reg2 = ss.getSheetByName(RB_BOM_REG);
       if (!reg2) return;
@@ -2313,7 +2309,6 @@ function apiBomUndo(product, id, why) {
       var head2 = reg2.getRange(2, 1, 1, Math.min(reg2.getLastColumn(), 20)).getDisplayValues()[0], bi2 = head2.indexOf('비고');
       for (var j2 = cv2.length - 1; j2 >= 0; j2--) if (str_(cv2[j2][0]).toUpperCase() === str_(rc).toUpperCase()) { if (bi2 >= 0) reg2.getRange(j2 + 3, bi2 + 1).setValue('실행판 되돌림 · 미사용'); break; }
     });
-    if (u.regs && u.regs.length) done.push('코드 ' + u.regs.join(', ') + ' 미사용 표시');
     if (u.recodeFrom) done.push('옛 제품코드 ' + u.recodeFrom + ' 가 품목 DB 에 미사용이면 품목 정보에서 직접 되살려 주세요');
     if (u.reg) {
       var reg = ss.getSheetByName(RB_BOM_REG);
@@ -2326,6 +2321,7 @@ function apiBomUndo(product, id, why) {
         }
       }
     }
+    if (undoClr.length && bomDropBlankRows_(sh, C, undoClr)) bomDropAllRows_();      // 비운 줄은 시트에서 지운다(줄 번호가 밀려 다른 품목 캐시도)
     lg.getRange(li + 2, 14).setValue('되돌림');
     for (var q = 0; q < lv.length; q++) if (str_(lv[q][13]) === '참고' && str_(lv[q][14]).indexOf(str_(id) + '-') === 0) lg.getRange(q + 2, 14).setValue('되돌림');
     bomLogWrite_(ss, [[new Date(), me_(), product, str_(lv[li][3]), str_(lv[li][4]), '되돌림', str_(lv[li][6]), str_(lv[li][8]), str_(lv[li][7]),

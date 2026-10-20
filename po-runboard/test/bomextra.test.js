@@ -61,101 +61,96 @@ const ctx = {
   PropertiesService: { getScriptProperties: () => ({ getProperty: k => PROPS[k] || null, setProperty: (k, v) => { PROPS[k] = v; } }) },
   Utilities: { getUuid: () => 'uuid-0000-1111' },
   bomSheet_: () => SH, bomSS_: () => ({}), bomLock_: () => ({ releaseLock() {} }), bomLogWrite_: (ss, r) => LOGS.push(...r),
-  bomAfterSave_() {}, apiBomGet: c => ({ code: c }), requireEditor_() {}, me_: () => 'tester@x', fmtDate_: d => d.toISOString().slice(0, 10),
+  bomAfterSave_() {}, costTableMark_() {}, apiBomGet: c => ({ code: c }), requireEditor_() {}, me_: () => 'tester@x', fmtDate_: d => d.toISOString().slice(0, 10),
   colRB_: colL, str_: v => (v == null ? '' : String(v)).trim(), num_: v => Number(String(v == null ? '' : v).replace(/,/g, '')) || 0,
   itemCodeKey_: c => String(c == null ? '' : c).toUpperCase().replace(/\s/g, '')
 };
 vm.createContext(ctx);
 const bom = read('Bom.gs');
 vm.runInContext("var RB_BOM_HEAD = " + bom.match(/var RB_BOM_HEAD = (\{[\s\S]*?\});/)[1] + ";\n" +
-  pick(bom, ['bomIdDiff_', 'bomCols_', 'bomRowObj_', 'bomReadProduct_', 'bomRnum_', 'bomFixCost_']), ctx);
+  pick(bom, ['bomIdDiff_', 'bomCols_', 'bomRowObj_', 'bomReadProduct_', 'bomRnum_', 'bomFixCost_', 'bomSetColRuns_']), ctx);
 // bomCols_ 는 getDisplayValues 를 쓴다
 Rg.prototype.getDisplayValues = function () { return this.getValues().map(r => r.map(String)); };
 vm.runInContext(read('BomExtra.gs'), ctx);
 
-// ---- 1) 순서 바꾸기: M0001AA1 줄(3,4,6,7,8행)을 단상자 → 라벨 → 제품 → 용기(BO1, BO2) 로 ----
+// ---- 1) 순서 바꾸기: 순서 칸에 숫자만(줄 자리는 그대로) · 순서 칸이 없으면 만든다 ----
 SH = makeSheet();
-const order = [[7, 'a4', 'MP0001CA1'], [8, 'a5', 'MP0001BL1'], [3, 'a1', 'M0001AA1'], [4, 'a2', 'MP0001BO1'], [6, 'a3', 'MP0001BO2']].map(([row, id, code]) => ({ row, id, code }));
-let r = ctx.apiBomReorder('M0001AA1', order, '');
+SH.getMaxColumns = function () { return this.v[0].length; };
+SH.insertColumnAfter = function () { this.v.forEach(r => r.push('')); this.f.forEach(r => r.push('')); };
+Rg.prototype.copyTo = function () {};
+ctx.SpreadsheetApp.CopyPasteType = { PASTE_FORMAT: 1 };
+const before = JSON.stringify(SH.v.map(r => r[3]));
+let r = ctx.apiBomReorder('M0001AA1', [[7, 'a4', 'MP0001CA1', 10], [8, 'a5', 'MP0001BL1', 20], [3, 'a1', 'M0001AA1', 30], [4, 'a2', 'MP0001BO1', 40], [6, 'a3', 'MP0001BO2', 40]].map(([row, id, code, ord]) => ({ row, id, code, ord })), '');
 assert.strictEqual(r.moved, 5);
-const col = (rr, c) => SH.v[rr - 1][c];
-assert.deepStrictEqual([3, 4, 6, 7, 8].map(rr => col(rr, 3)), ['MP0001CA1', 'MP0001BL1', 'M0001AA1', 'MP0001BO1', 'MP0001BO2']);
-assert.strictEqual(col(5, 3), 'M0002AA1', '다른 품목 줄은 그대로');
-assert.strictEqual(SH.f[3 - 1][19], '=((O3*Q3)+R3+S3)*N3', '옮긴 줄 소요원가 수식은 자기 줄을 가리킨다');
-assert.strictEqual(col(3, 18), 5, '손입력 배송비 값도 같이 옮겨진다');
-// 줄 수가 다르면 막는다
-assert.throws(() => ctx.apiBomReorder('M0001AA1', order.slice(1), ''), /그사이 바뀌었/);
-// 다른 줄을 가리키는 수식이 있으면 막는다
-SH = makeSheet(); SH.f[2][18] = '=SUM(R4:R8)*9%';
-assert.throws(() => ctx.apiBomReorder('M0001AA1', order, ''), /다른 줄을 가리키는 수식/);
+assert.strictEqual(SH.v[1][26], '순서', '순서 칸 머리글');
+assert.deepStrictEqual([3, 4, 6, 7, 8].map(x => SH.v[x - 1][26]), [30, 40, 40, 10, 20]);
+assert.strictEqual(JSON.stringify(SH.v.map(r => r[3])), before, '줄 자리는 그대로');
+assert.strictEqual(SH.v[4][26], '', '다른 품목 줄은 그대로');
+assert.throws(() => ctx.apiBomReorder('M0001AA1', [{ row: 5, id: 'b1', code: 'M0002AA1', ord: 1 }], ''), /그사이 바뀌었/);
+// ---- 빈 줄 지우기 ----
+SH = makeSheet(); SH.deleteRow = function (r) { this.v.splice(r - 1, 1); this.f.splice(r - 1, 1); };
+SH.v[3] = SH.v[3].map(() => ''); SH.f[3] = SH.f[3].map(() => '');
+assert.strictEqual(ctx.bomDropBlankRows_(SH, ctx.bomCols_(SH), [4, 5]), 1, '빈 줄만 지운다(5행은 내용 있음)');
+assert.strictEqual(SH.v[3][3], 'M0002AA1');
 
-// ---- 2) 핸들링피 ----
+// ---- 2) 핸들링피(턴키만 / 모든 자재 / 제조사 단가) ----
 SH = makeSheet(); PROPS = {};
-SH.v[6][18] = '';                         // 단상자 배송비 비움
-SH.v[2][18] = 7;                          // 제품 줄은 손입력(자재별 방식에선 건드리지 않음)
-let out = ctx.apiHfSet('비앤비코리아', 3, 'mat', false, 'M0001AA1', '');
-assert.ok(PROPS['rb.hfee'].includes('비앤비코리아'));
-// 지금 쓰는 턴키 자재 줄(종료 없음): BO2(6행) · CA1(7행). BO1(종료 2차) · 사급 라벨(8행) · 제품 줄은 빼고
+SH.v[6][18] = ''; SH.v[2][18] = 7;
+let out = ctx.apiHfSet('비앤비코리아', 3, 'turnkey', 'M0001AA1', '');
 assert.strictEqual(SH.f[5][18], '=O6*Q6*3%');
 assert.strictEqual(SH.f[6][18], '=O7*Q7*3%');
 assert.strictEqual(SH.f[3][18], '', '끝난 줄은 그대로');
-assert.strictEqual(SH.f[7][18], '', '사급은 기본으로 빼기');
+assert.strictEqual(SH.f[7][18], '', '턴키만이면 사급은 빼기');
 assert.strictEqual(SH.f[2][18], '', '제품 줄 그대로');
 assert.strictEqual(out.applied.n, 2);
-// 다른 제조사 품목엔 안 붙음
-SH.v[8][18] = '';
-r = ctx.hfApplyRows_(SH, ctx.bomCols_(SH), 'M0002AA1', [9]);
-assert.strictEqual(r, null);
-// 사급 포함 + 손입력 칸은 그대로
+assert.strictEqual(ctx.hfApplyRows_(SH, ctx.bomCols_(SH), 'M0002AA1', [9]), null, '다른 제조사엔 안 붙음');
+// 모든 자재 + 손입력 칸은 그대로
 SH = makeSheet(); SH.v[7][18] = 4;
-out = ctx.apiHfSet('비앤비코리아', 3, 'mat', true, 'M0001AA1', '');
+out = ctx.apiHfSet('비앤비코리아', 3, 'all', 'M0001AA1', '');
 assert.deepStrictEqual(Array.from(out.applied.skipped), [7, 8], '손으로 넣은 배송비 칸(단상자 5 · 라벨 4)은 건너뛴다');
-assert.strictEqual(SH.f[7][18], '');
+SH = makeSheet(); SH.v[6][18] = '';
+out = ctx.apiHfSet('비앤비코리아', 3, 'all', 'M0001AA1', '');
+assert.strictEqual(SH.f[7][18], '=O8*Q8*3%', '모든 자재 = 사급도');
 // 이미 핸들링피 수식이 있으면 % 만 바꾼다
 SH = makeSheet(); SH.f[5][18] = '=O6*0.03';
-out = ctx.apiHfSet('비앤비코리아', 5, 'mat', false, 'M0001AA1', '');
+ctx.apiHfSet('비앤비코리아', 5, 'turnkey', 'M0001AA1', '');
 assert.strictEqual(SH.f[5][18], '=O6*Q6*5%');
 // 제조사 단가에만
 SH = makeSheet(); SH.v[2][18] = '';
-out = ctx.apiHfSet('(주)비앤비코리아', 2, 'maker', false, 'M0001AA1', '');
+ctx.apiHfSet('(주)비앤비코리아', 2, 'maker', 'M0001AA1', '');
 assert.strictEqual(SH.f[2][18], '=O3*Q3*2%');
 assert.strictEqual(SH.f[6][18], '', '자재 줄은 그대로');
-assert.ok(!PROPS['rb.hfee'].includes('"mat"'), '같은 제조사 키 하나로(주식회사 표기 무시)');
-// 0% = 설정 지움
-ctx.apiHfSet('비앤비코리아', 0, 'mat', false, '', '');
-assert.strictEqual(JSON.parse(PROPS['rb.hfee'])['비앤비코리아'], undefined);
+assert.strictEqual(Object.keys(JSON.parse(PROPS['rb.hfee'])).length, 1, '같은 제조사 키 하나로(주식회사 표기 무시)');
+// 예전 저장값(mat + sa) 읽기
+assert.strictEqual(ctx.hfMode_({ mode: 'mat', sa: true }), 'all');
+ctx.apiHfSet('비앤비코리아', 0, 'turnkey', '', '');
+assert.strictEqual(JSON.parse(PROPS['rb.hfee'])['비앤비코리아'], undefined, '0% = 설정 지움');
 
 // ---- 3) 품목 DB 맞추기 ----
 const keys = read('Keys.gs'), idel = read('ItemDelete.gs');
-vm.runInContext('var RB_ITEM = ' + keys.match(/var RB_ITEM = (\{[\s\S]*?\n\});/)[1] + ';\nvar RB_ITEM_EDIT = { price: 5 };\nvar RB_DEL_TAB = "_실행판_삭제보관";\nvar RB_DEL_HEAD = ' + idel.match(/var RB_DEL_HEAD = (\[.*?\]);/)[1] + ';\n' +
-  pick(keys, ['itemDbAllCodes_', 'itemDbHead_']) + '\n' + pick(idel, ['deleteRowsDesc_']), ctx);
+vm.runInContext('var RB_ITEM = ' + keys.match(/var RB_ITEM = (\{[\s\S]*?\n\});/)[1] + ';\nvar RB_ITEM_EDIT = { price: 5 };\n' +
+  pick(keys, ['itemDbAllCodes_']) + '\n' + pick(idel, ['deleteRowsDesc_']), ctx);
 const ITEM = new Sheet([['품목코드', '품목명', '브랜드', '채널', '업체', '단가', '바코드', '구코드1', '구코드2', '등록일', '등록자', '출처', '사양'],
-  ['MP0001BO2', '용기', '', '', '두코', 300, '', '', '', '', '', 'BOM', ''], ['MP0009XX1', '안씀', '', '', '', 1, '', '', '', '', '', '', ''],
-  ['MP0001CA1', '단상자', '', '', '성진', 90, '', '', '', '', '', '', '']]);
+  ['MP0001BO2', '용기', '', '', '두코', '', '', '', '', '', '', 'BOM', ''], ['MP0009XX1', '안씀', '', '', '', 1, '', '', '', '', '', '', ''],
+  ['MP0001CA1', '단상자', '', '', '성진', '', '', '', '', '', '', '', '']]);
 ITEM.deleteRows = function (r, n) { this.v.splice(r - 1, n); this.f.splice(r - 1, n); };
-ITEM.getMaxColumns = () => 13;
-const DEL = new Sheet([['일시', '삭제자', '삭제한 품목', '탭', '원래 행', '코드', '값(JSON)']].concat(Array.from({ length: 3 }, () => Array(7).fill(''))));
-DEL.isSheetHidden = () => true;
-let ORDERED = {};
-Object.assign(ctx, { sheet_: n => (n === '_실행판_품목' ? ITEM : DEL), tab_: n => (n === '_실행판_품목' ? ITEM : DEL), ensureRows_(sh, n) { while (sh.v.length < n) { sh.v.push(Array(sh.v[0].length).fill('')); sh.f.push(Array(sh.v[0].length).fill('')); } },
-  itemOrderCodes_: () => ORDERED, cacheDrop_() {}, appendHist_() {}, RB_II_CACHE: 'x', RB_II_REF: 'y' });
+let ORDERED = {}, REG = [];
+Object.assign(ctx, { sheet_: () => ITEM, itemOrderCodes_: () => ORDERED, cacheDrop_() {}, appendHist_() {}, RB_II_CACHE: 'x', RB_II_REF: 'y',
+  bomRegFromRows_: (codes) => { REG.push(...codes); ITEM.v.push([codes[0], 'BOM 값', '', '', '', '', '', '', '', '', '', '', '']); ITEM.f.push(Array(13).fill('')); return codes; } });
 SH = makeSheet();
-// MP0001BO2 줄을 BOM 에서 비웠다고 치자 → 품목 DB 에서 지움 · MP0001CA1 은 BOM 에 남아 있어 그대로 · 발주 이력 있으면 남김
-SH.v[5] = SH.v[5].map(() => '');
-ORDERED = {};
+SH.v[5] = SH.v[5].map(() => '');                        // MP0001BO2 줄을 BOM 에서 지웠다
 let gone = ctx.itemDbDropOrphans_(['MP0001BO2', 'MP0001CA1'], '테스트', 'M0001AA1');
-assert.deepStrictEqual(Array.from(gone), ['MP0001BO2']);
+assert.deepStrictEqual(Array.from(gone), ['MP0001BO2'], 'BOM 에 남은 CA1 은 그대로');
 assert.ok(!ITEM.v.some(r => r[0] === 'MP0001BO2'));
-assert.ok(DEL.v.some(r => r[5] === 'MP0001BO2'), '삭제보관 탭에 남김');
-// 되돌리기 → 되살림
-assert.strictEqual(ctx.itemDbRestore_('MP0001BO2'), true);
-assert.ok(ITEM.v.some(r => r[0] === 'MP0001BO2' && r[4] === '두코'));
-// 발주 이력이 있으면 안 지움
+assert.strictEqual(ctx.itemDbRestore_('MP0001BO2'), true, '되돌리면 BOM 줄 값으로 다시 등록');
+assert.deepStrictEqual(REG, ['MP0001BO2']);
 ORDERED = { MP0009XX1: 1 };
-gone = ctx.itemDbDropOrphans_(['MP0009XX1'], '', '');
-assert.strictEqual(gone.length, 0);
-// 단가 맞추기: MP0001CA1 BOM 지금 줄 단가 100 → 품목 DB 90 → 100
+assert.strictEqual(ctx.itemDbDropOrphans_(['MP0009XX1'], '', '').length, 0, '발주 이력 있으면 안 지움');
+// 단가: 빈 칸 채우기 · 전부(null)
 SH = makeSheet();
 assert.strictEqual(ctx.itemDbPriceSync_(['MP0001CA1', 'M0001AA1']), 1);
 assert.strictEqual(ITEM.v.find(r => r[0] === 'MP0001CA1')[5], 100);
+assert.strictEqual(ctx.itemDbPriceSync_(null), 1, '전부: 다시 등록된 BO2 빈 단가 채움');
+assert.strictEqual(ITEM.v.find(r => r[0] === 'MP0001BO2')[5], 320);
+assert.strictEqual(ctx.itemDbPriceSync_(null), 0, '이미 맞으면 그대로');
 console.log('bomextra: all passed');
