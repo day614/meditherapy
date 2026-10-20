@@ -1285,6 +1285,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
   mk('잠금대기');
   var hist = [], made = [], logs = [];
   var who = me_(), batch = Utilities.getUuid().slice(0, 8);
+  var addedRows = [], clearedCodes = [], hfRes = null;        // 핸들링피 넣을 새 줄 · 지운 줄 코드(품목 DB 맞추기) — BomExtra.gs
   try {
     var ss = bomSS_(), sh = bomSheet_(), C = bomCols_(sh);
     var lastData = sh.getLastRow();
@@ -1473,6 +1474,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
           cell(nr, 'change', note((isNew ? '신제품 ' : '자재 추가 ') + code, why));
           put();
           bomFixCost_(sh, C, nr, null);
+          addedRows.push(nr);
           var isComp = (isProd && code !== product) || !!c.reuse;          // 세트 구성 완제품은 이미 있는 코드 — 새 코드로 등록하지 않는다
           if (!isComp) regRow(isProd ? { brand: brand, kind: /^[A-Z]X/.test(product) ? '반제품' : '제품', num: bomNum_(product), prodName: prodName, type: '', tcode: '', ver: Number((product.match(/(\d+)$/) || [0, 1])[1]), code: code, name: prodName }
                         : { brand: brand, num: bomNum_(product), prodName: prodName, type: str_(c.type), tcode: p.tcode, ver: p.ver, code: code, name: str_(c.name) || (prodName + ' ' + str_(c.type)) });
@@ -1498,6 +1500,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
           var rg0 = sh.getRange(r, 1, 1, C.lc), rv0 = rg0.getValues()[0];
           undo.v2 = 1; undo.v3 = 1; undo.restore = { at: r, soft: 1, vals: rv0.map(function (v) { return v instanceof Date ? { d: v.toISOString() } : v; }), fmls: rg0.getFormulasR1C1()[0] };
           rg0.clearContent();                          // 당기지 않고 비운다(다른 줄 번호 · 캐시 그대로)
+          clearedCodes.push(oldCode);
           target = 0;
         } else if (s0 === N) {
           // 이 차수에 시작한 줄은 그 줄을 고친다(새 코드여도 그 줄 코드를 바꿈 — 되돌리면 원래 코드 · 값으로). 예전엔 새 코드면 이 줄을 종료(초도보다 앞)로 남겼다.
@@ -1538,6 +1541,8 @@ function apiBomSaveCore_(product, round, changes, meta) {
         logs.push({ id: id, kind: p.kind, type: str_(x[C.type]), codeA: oldCode, codeB: c.remove ? '' : newCode, before: p.before.join(' · '), after: p.after.join(' · '), why: why, undo: undo });
         hist.push({ kind: 'BOM', item: product + ' ' + N + '차 ' + str_(x[C.type]) + ' ' + p.kind, before: p.before.join(' · '), after: (renumber ? newCode + ' · ' : '') + p.after.join(' · '), reason: why, where: 'BOM 시트 ' + (target ? target + '행' : r + '행(지움)') });
       });
+      // 이 제조사에 핸들링피가 정해져 있으면 새 줄 배송비/기타 칸에 수식(국가별 코드 줄은 아래 복사로 같이 따라간다)
+      if (addedRows.length) { try { hfRes = hfApplyRows_(sh, C, product, addedRows); } catch (eHf) { hfRes = { err: String(eHf && eHf.message || eHf).slice(0, 120) }; } }
       var extraLogs = [];
       if (extra.length && adds.length) {
         var k = adds.length, first = lastRow + 1, at = lastRow + k;
@@ -1590,6 +1595,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
     }
     bomLogWrite_(ss, logs.map(logRowOf).concat(extraLogs));
     mk('변경이력');
+    if (clearedCodes.length) { try { made.dropped = itemDbDropOrphans_(clearedCodes, '자재 빼기(이 차수에 넣은 줄)', product); } catch (eDr) { /* 품목 정보 [삭제]로 */ } }
     SpreadsheetApp.flush();
     mk('반영2');
   } finally {
@@ -1601,8 +1607,14 @@ function apiBomSaveCore_(product, round, changes, meta) {
     appendHist_(hist.map(function (h) { h.id = str_(meta.orderId); h.doc = str_(meta.doc); h.code = product; h.name = str_(meta.name); return h; }), 'p');
   } catch (e) { /* 이력 실패가 저장을 막지 않는다 */ }
   mk('이력');
+  var unitCodes = changes.filter(function (c) { return c.kind !== 'add' && !c.remove && (c.unit != null || c.fx != null || c.cur != null); }).map(function (c) { return c.code; })
+    .concat(made);                                       // 새 번호(업체 · 사양 변경 · 자재 추가)는 그 코드로
+  if (unitCodes.length) { try { itemDbPriceSync_(unitCodes); } catch (ePs) { /* 넘어간다 */ } }
+  mk('품목단가');
   var fresh = apiBomGet(product);
   mk('다시읽기');
+  fresh.hf = hfRes;
+  fresh.dropped = made.dropped || [];
   fresh.made = made;
   fresh.saved = logs.length;
   fresh.timing = TM;
@@ -1981,14 +1993,21 @@ function apiBomFixManyCore_(product, items, why, dry) {
     }
     var nc = Object.keys(newCodes).map(function (k) { return newCodes[k]; });
     if (nc.length) { try { bomRegFromRows_(nc, 'BOM 정정 · 새 번호', all); } catch (eR) { /* 등록은 BOM 검사에서 다시 */ } }
+    // 지운 줄의 코드가 BOM 어디에도 안 남고 발주 이력도 없으면 품목 DB 에서도 지운다(삭제보관 탭 · 되돌리면 되살림)
+    var dropped = [];
+    if (delPlan.length) { try { dropped = itemDbDropOrphans_(delPlan.map(function (d) { return d.code; }), why, product); } catch (eDr) { dropped = []; } }
   } finally {
     if (!dry) lock.releaseLock();
   }
+  var pcodes = plan.filter(function (q) { return q.set.unit !== undefined || q.set.fx !== undefined || q.set.cur !== undefined || q.set.code !== undefined; })
+    .map(function (q) { return q.set.code !== undefined ? str_(q.set.code) : q.code; });
+  if (pcodes.length) { try { itemDbPriceSync_(pcodes); } catch (ePs) { /* 넘어간다 */ } }
   bomAfterSave_(Object.keys(touched), false);                // 지운 줄은 비우기만 — 줄 번호가 그대로라 그 품목만 다시
   try { appendHist_([{ kind: 'BOM', code: product, item: product + ' BOM 정정 ' + plan.length + '줄', before: '', after: plan.map(function (q) { return q.code; }).join(', '), reason: why }], 'p'); } catch (e) { /* 넘어간다 */ }
   var res = apiBomGet(product);
   res.fixed = plan.length + delPlan.length;
   res.deleted = delPlan.length;
+  res.dropped = dropped;
   res.others = Object.keys(touched).filter(function (c) { return c !== product; });
   res.logTag = batch;
   return res;
@@ -2245,6 +2264,7 @@ function apiBomUndo(product, id, why) {
       if (v1) bomFixCost_(sh, C, at);
       else (u.restore.fmls || []).forEach(function (f, j) { if (f) sh.getRange(at, j + 1).setFormulaR1C1(f); });
       done.push(at + '행 지운 줄 되살림');
+      try { var rc0 = C.code >= 0 ? itemCodeKey_(sh.getRange(at, C.code + 1).getValue()) : ''; if (rc0 && itemDbRestore_(rc0)) done.push('품목 DB ' + rc0 + ' 되살림'); } catch (eIr) { /* 품목 정보에서 직접 */ }
       if (insAt) bomDropAllRows_();                 // 줄을 끼웠다 — 다른 품목 줄 캐시도 줄 번호가 밀렸다
     }
     (u.newRefs || []).forEach(function (ref, i) {

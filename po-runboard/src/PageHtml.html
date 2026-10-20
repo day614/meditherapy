@@ -973,6 +973,14 @@
   .bomv-fixbtn { margin-left: auto; border-style: dashed; }
   .bomvrules { position: fixed; inset: 0; z-index: 90; background: rgba(12, 22, 28, .45); display: flex; align-items: center; justify-content: center; padding: 16px; }
   .bomvrules[hidden] { display: none; }
+  .bomvhf { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 12.5px; }
+  .bomvhf[hidden] { display: none; }
+  .bomvhf input[type=text], .bomvhf input:not([type]) { width: 46px; font: inherit; padding: 2px 4px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); text-align: right; }
+  .bomvhf select { padding: 2px 4px; }
+  .bomvord-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .bomvord-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; }
+  .bomvord-list .ordno { min-width: 22px; color: var(--ink-2); text-align: right; }
+  .bomvord-list .ordbtns { margin-left: auto; display: inline-flex; gap: 4px; }
   .bomvrules-box { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); width: min(760px, 100%); max-height: 86vh; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
   .bomvrules-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
   .bomvrules-bd { padding: 12px 16px 16px; overflow: auto; font-size: 13px; line-height: 1.65; display: grid; gap: 6px; }
@@ -1698,6 +1706,9 @@
     <div class="bomvrules" id="bomv-rules" hidden><div class="bomvrules-box" role="dialog" aria-modal="true" aria-labelledby="bomv-rules-t">
       <div class="bomvrules-hd"><b id="bomv-rules-t">코드 번호 규칙</b><button class="btn btn-sm" type="button" id="bomv-rulesx">닫기</button></div>
       <div class="bomvrules-bd" id="bomv-rules-body"></div></div></div>
+    <div class="bomvrules" id="bomv-ord" hidden><div class="bomvrules-box" role="dialog" aria-modal="true" aria-labelledby="bomv-ord-t">
+      <div class="bomvrules-hd"><b id="bomv-ord-t">구성 순서 바꾸기</b><span><button class="btn btn-sm btn-solid" type="button" id="bomv-ordsave">저장</button> <button class="btn btn-sm" type="button" id="bomv-ordx">닫기</button></span></div>
+      <div class="bomvrules-bd"><p class="nghelp">▲ ▼ 로 옮기고 [저장]. 같은 자재의 지난 버전 줄도 같이 옮겨집니다 · 실행판 BOM 탭 줄 순서가 바뀌고(다른 품목 줄은 그대로) 배포용 BOM 파일도 이 순서를 따릅니다.</p><ol class="bomvord-list" id="bomv-ord-list"></ol></div></div></div>
     <div class="bomvtop">
       <div class="bomvsearch">
         <input type="search" id="bomv-q" placeholder="품목명 · 품목코드 · 자재코드 · 업체명 (포함 단어)" aria-label="BOM 품목 검색" autocomplete="off">
@@ -1725,6 +1736,8 @@
       <span class="nghelp" id="bomv-info"></span>
       <button class="btn btn-sm" type="button" id="bomv-flat" hidden title="반제품 · 세트 구성품 아래로 묶은 자재를 한 표로 풀어 보거나 다시 묶습니다(보기만 바뀜 — BOM 은 그대로)">구성 풀기(한 표로)</button>
       <button class="btn btn-sm bomv-fixbtn" type="button" id="bomv-fixbtn" title="잘못 넣은 값을 바로잡습니다 — 코드 · 차수는 그대로, 그 줄을 덮어씁니다">이 차수 구성 정정</button>
+      <button class="btn btn-sm" type="button" id="bomv-ordbtn" hidden title="구성 자재 줄 순서를 바꿉니다 — 실행판 BOM 탭 줄 순서가 바뀌고, 배포용 BOM 파일(실행판 최종 BOM)도 이 순서를 따릅니다">순서 바꾸기</button>
+      <span class="bomvhf" id="bomv-hf" hidden></span>
     </div>
     <div class="ngwrap" id="bomv-wrap" hidden><table class="ngt bomt"><thead><tr id="bomv-head">
       <th class="g-ckh" title="체크한 줄만 원가 · 발주 단가에 들어갑니다">원가</th><th>구분</th><th>자재코드</th><th>품목명</th><th>업체명</th><th>매입정보</th><th>사양</th><th>MOQ</th><th>소요량</th><th>내용물/자재</th><th>임가공</th><th>배송비/기타</th><th>소요원가</th><th>적용</th><th>변동사항</th><th id="bomv-acth">변경</th>
@@ -10509,6 +10522,98 @@ function dateSlots_(steps, cfg, mode) {
   function bvEditRound() { return BV.draft || bvOrderRound(); }
   /** 저장 안 한 것 전부(정정 중 고친 칸 · 구성 고르기 · 공용 포함) — 다른 품목 · 차수로 갈 때 확인용 */
   function bvDirtyN() { return bvPendCount() + (BV.fix ? bvFixDiff().length + bvFixShares().length + bvFixCommons().length : 0); }
+  /** 저장 결과에 붙는 알림 — 핸들링피 자동 적용 · 품목 DB 에서 같이 지운 코드 */
+  function bvExtraMsg(d) {
+    var m = "";
+    if (d && d.hf && d.hf.n) m += " · " + (d.hf.vendor || "") + " 핸들링피 " + d.hf.pct + "% " + d.hf.n + "줄 적용";
+    if (d && d.hf && d.hf.skipped && d.hf.skipped.length) m += "(손입력 배송비 " + d.hf.skipped.length + "줄은 그대로)";
+    if (d && d.dropped && d.dropped.length) m += " · 품목 DB 에서도 지움: " + d.dropped.join(", ");
+    return m;
+  }
+  /* ---- 제조사 핸들링피(BOM 보기 위쪽) — 서버 BomExtra.gs ---- */
+  var HF = null;
+  function bvHfKey(v) { return String(v || "").replace(/\(주\)|㈜|주식회사|\s/g, "").toUpperCase(); }
+  function bvMaker() {
+    var best = null;
+    BV.rows.forEach(function (v) {
+      if (String(v.code || "").toUpperCase() !== BV.code) return;
+      var s = Number((String(v.start || "").match(/\d+/) || [0])[0]), open = !String(v.end || "").trim();
+      if (!best || (open && !best.open) || (open === best.open && s >= best.s)) best = { s: s, open: open, v: String(v.vendor || "").trim() };
+    });
+    return best ? best.v : "";
+  }
+  function bvHfRender() {
+    var el = $("bomv-hf"); if (!el) return;
+    var mk = BV.code && !BV.newProduct && !BV.semi ? bvMaker() : "";
+    if (!mk) { el.hidden = true; el.innerHTML = ""; return; }
+    if (HF === null) { HF = {}; gsr().withSuccessHandler(function (a) { HF = a || {}; bvHfRender(); }).withFailureHandler(function () { /* 설정 없이 */ }).apiHfAll(); }
+    var c = HF[bvHfKey(mk)] || null, mm = c && c.mode === "maker";
+    el.hidden = false;
+    el.title = "이 제조사 제품 BOM 에 자동으로 붙는 핸들링피 — 자재별: 자재 줄 배송비/기타 = 단가 × 환율 × % · 제조사 단가에만: 제품 줄 배송비/기타 = 제조사 단가 × %. 한 번 정하면 이 제조사 신제품 · 자재 추가 때 알아서 들어갑니다";
+    el.innerHTML = "<b>핸들링피</b><span class='nghelp'>" + esc(mk) + "</span><input id='bomv-hfp' inputmode='decimal' value='" + (c ? c.pct : "") + "' placeholder='0' aria-label='핸들링피 %'>%" +
+      "<select id='bomv-hfm' aria-label='핸들링피 방식'><option value='mat'" + (mm ? "" : " selected") + ">자재별</option><option value='maker'" + (mm ? " selected" : "") + ">제조사 단가에만</option></select>" +
+      "<label title='사급 자재 줄에도 붙입니다(자재별일 때)'><input type='checkbox' id='bomv-hfsa'" + (c && c.sa ? " checked" : "") + ">사급 포함</label>" +
+      "<button class='btn btn-sm' type='button' id='bomv-hfsave'>저장</button>" + (c ? "<span class='nghelp'>" + esc((c.at || "") + " " + (c.who || "").split("@")[0]) + "</span>" : "");
+  }
+  function bvHfSave() {
+    var mk = bvMaker(), p = String($("bomv-hfp").value || "").replace(/[%\s,]/g, ""), pct = p === "" ? 0 : Number(p), mode = $("bomv-hfm").value, sa = $("bomv-hfsa").checked;
+    if (isNaN(pct) || pct < 0 || pct > 50) { alert("핸들링피는 0 ~ 50 사이 숫자로 넣어 주세요(%)"); return; }
+    if (bvPendCount() || BV.fix) { alert("저장하지 않은 BOM 변경이 있습니다 — 먼저 [저장]하거나 취소해 주세요."); return; }
+    var msg = pct ? mk + " 핸들링피를 " + pct + "% (" + (mode === "maker" ? "제조사 단가에만" : "자재별" + (sa ? " · 사급 포함" : "")) + ")로 정할까요?\n\n· 이 품목(" + BV.code + ") 지금 줄에 바로 넣습니다(손으로 넣은 배송비/기타 칸은 그대로)\n· 앞으로 " + mk + " 제품 BOM 에 자재를 넣으면 알아서 붙습니다"
+      : mk + " 핸들링피 설정을 지울까요?(이미 들어간 수식은 그대로)";
+    if (!confirm(msg)) return;
+    var b = $("bomv-hfsave"); b.disabled = true;
+    var code = BV.code;
+    gsr().withSuccessHandler(function (r) {
+      HF = r.all || HF;
+      if (r.bom && BV.code === code) bomSet(r.bom); else bvHfRender();
+      var a = r.applied;
+      $("bomv-msg").textContent = "핸들링피 저장" + (a ? " · " + a.n + "줄에 넣음" + (a.skipped.length ? " · 손으로 넣은 칸 " + a.skipped.length + "줄은 그대로(" + a.skipped.slice(0, 8).join(", ") + "행)" : "") : "");
+    }).withFailureHandler(function (e) { b.disabled = false; alert("핸들링피를 저장하지 못했습니다: " + e.message); }).apiHfSet(mk, pct, mode, sa, code, "");
+  }
+  /* ---- 구성 순서 바꾸기 — 서버 apiBomReorder ---- */
+  var ORD = null;
+  function bvFam(v) { var c = String(v.code || "").toUpperCase(); return /^[A-Z]{1,2}\d{4}[A-Z]{2}\d+$/.test(c) ? c.replace(/\d+$/, "") : "row:" + v.row; }
+  function bomOrdOpen() {
+    if (bvPendCount() || BV.fix) { alert("저장하지 않은 BOM 변경이 있습니다 — 먼저 [저장]하거나 취소해 주세요."); return; }
+    var act = bvFamSort(bvActive(BV.round).filter(function (v) { return v.row && !v._carry; }).sort(function (a, b) { return a.row - b.row; }), BV.rows);
+    var fams = [], seen = {};
+    act.forEach(function (v) { var f = bvFam(v); if (!seen[f]) { seen[f] = 1; fams.push({ f: f, v: v }); } });
+    ORD = { code: BV.code, fams: fams };
+    bomOrdRender();
+    $("bomv-ord").hidden = false;
+  }
+  function bomOrdRender() {
+    var n = ORD.fams.length;
+    $("bomv-ord-list").innerHTML = ORD.fams.map(function (x, i) {
+      var v = x.v;
+      return "<li><span class='ordno'>" + (i + 1) + "</span><span class='nghelp'>" + esc(v.type || "") + "</span><b>" + esc(v.code || "") + "</b><span>" + esc(v.name || "") + "</span><span class='nghelp'>" + esc(v.vendor || "") + "</span>" +
+        "<span class='ordbtns'><button type='button' class='btn btn-sm' data-ordmv='" + i + "' data-d='top'" + (i ? "" : " disabled") + ">맨 위</button>" +
+        "<button type='button' class='btn btn-sm' data-ordmv='" + i + "' data-d='-1'" + (i ? "" : " disabled") + " aria-label='위로'>▲</button>" +
+        "<button type='button' class='btn btn-sm' data-ordmv='" + i + "' data-d='1'" + (i < n - 1 ? "" : " disabled") + " aria-label='아래로'>▼</button></span></li>";
+    }).join("");
+  }
+  function bomOrdMove(i, d) {
+    var a = ORD.fams, x = a.splice(i, 1)[0], j = d === "top" ? 0 : i + Number(d);
+    a.splice(Math.max(0, Math.min(a.length, j)), 0, x);
+    bomOrdRender();
+    var b = document.querySelector('[data-ordmv="' + Math.max(0, Math.min(a.length - 1, j)) + '"][data-d="' + (d === "top" ? "1" : d) + '"]'); if (b && !b.disabled) b.focus();
+  }
+  function bomOrdSave() {
+    if (!ORD || ORD.code !== BV.code) { $("bomv-ord").hidden = true; return; }
+    var rank = {}; ORD.fams.forEach(function (x, i) { rank[x.f] = i; });
+    var big = ORD.fams.length;
+    // 이 차수 표에 없는 줄(지난 버전 등)은 같은 자재 뒤에, 같은 자재가 없으면 맨 아래(원래 순서대로)
+    var order = BV.rows.filter(function (v) { return v.row && !v._carry; }).map(function (v) { var k = rank[bvFam(v)]; return { v: v, k: k == null ? big : k }; })
+      .sort(function (a, b) { return a.k - b.k || a.v.row - b.v.row; }).map(function (x) { return { row: x.v.row, id: x.v.id || "", code: x.v.code || "" }; });
+    var b = $("bomv-ordsave"); b.disabled = true;
+    var code = ORD.code;
+    gsr().withSuccessHandler(function (d) {
+      b.disabled = false; $("bomv-ord").hidden = true; ORD = null;
+      if (BV.code === code) bomSet(d);
+      $("bomv-msg").textContent = d.moved ? "순서를 바꿨습니다(" + d.moved + "줄 자리 이동) · 배포용 BOM 파일에도 다음 갱신 때 반영됩니다" : "바뀐 순서가 없습니다";
+    }).withFailureHandler(function (e) { b.disabled = false; alert("순서를 저장하지 못했습니다: " + e.message); }).apiBomReorder(code, order, "");
+  }
   function bvPendCount() { return Object.keys(BV.mods).length + BV.adds.length + Object.keys(BV.ckPend || {}).length; }
   /** [원가] 체크 — 저장 전 바꾼 값이 있으면 그것(저장은 [저장] · [저장] 때 같이) */
   function bvCkOn(v) { var p = (BV.ckPend || {})[v.row]; return p !== undefined ? p : !!String(v.costKey || "").trim(); }
@@ -12001,12 +12106,13 @@ function dateSlots_(steps, cfg, mode) {
     };
     var errOf = function (e) { return String((e && e.message) || e || "").replace(/^Error:\s*/, ""); };
     var addThen = function (msg0) {
-      gsr().withSuccessHandler(function (d2) { finish(d2, (msg0 ? msg0 + " · " : "") + "자재 " + adds.length + "줄 추가" + (d2.made && d2.made.length ? "(" + d2.made.join(", ") + ")" : "") + " — 저장했습니다(BOM변경이력에 남음)."); })
+      gsr().withSuccessHandler(function (d2) { finish(d2, (msg0 ? msg0 + " · " : "") + "자재 " + adds.length + "줄 추가" + (d2.made && d2.made.length ? "(" + d2.made.join(", ") + ")" : "") + bvExtraMsg(d2) + " — 저장했습니다(BOM변경이력에 남음)."); })
         .withFailureHandler(function (e) { reload((msg0 ? "정정은 저장됨 · 자재 추가는 " : "") + errOf(e)); }).apiBomSave(code, keepRound, adds, {});
     };
     if (!items.length && !bvShareN(shares) && !commons.length) { if (adds.length) addThen(""); else finish(null, "저장했습니다"); return; }
     gsr().withSuccessHandler(function (d) {
       var msg = (nFix ? "정정 " + (d.fixed || 0) + "줄" : "구성") + " 저장했습니다" + (d.shared ? " · 반제품 공용 " + d.shared + "줄 더 넣음" : "") + (d.commonN ? " · 공용여부 " + d.commonN + "줄(다른 품목 포함)" : "") + (d.deleted ? " · " + d.deleted + "줄 삭제" : "") + (d.others && d.others.length ? " · 같은 코드를 쓰는 " + d.others.join(", ") + " 도 같이" : "");
+      msg += bvExtraMsg(d);
       if (adds.length) addThen(msg); else finish(d, msg + " — BOM변경이력에 남았습니다.");
     }).withFailureHandler(function (e) { reload(errOf(e)); }).apiBomFixMany(code, items, why, false, shares, commons);
   }
@@ -12147,6 +12253,8 @@ function dateSlots_(steps, cfg, mode) {
   }
   function bomShow() {
     bvLinksRender();
+    bvHfRender();
+    if ($("bomv-ordbtn")) $("bomv-ordbtn").hidden = !BV.code || !!BV.newProduct || !!BV.fix || !!BV.semi || BV.rows.length < 2;
     var has = !!BV.code;
     if (has && ITEMDB === null) loadItemDB();          // 품목 DB 를 아직 못 받았으면 받아서 다시 그린다(위 loadItemDB 성공 처리)
     $("bomv-bar").hidden = !has; $("bomv-wrap").hidden = !has;
@@ -12436,7 +12544,7 @@ function dateSlots_(steps, cfg, mode) {
     else { $("bomv-msg").textContent = "실행판 BOM 탭에 저장하는 중…"; bvShowKeep(); }
     gsr().withSuccessHandler(function (d) {
       BV.saving = 0; busy(false);
-      var msg = ob + "차 BOM " + (d.saved || 0) + "건을 실행판 BOM 탭에 저장했습니다" + (d.made && d.made.length ? " · 새 코드 " + d.made.join(", ") : "");
+      var msg = ob + "차 BOM " + (d.saved || 0) + "건을 실행판 BOM 탭에 저장했습니다" + (d.made && d.made.length ? " · 새 코드 " + d.made.join(", ") : "") + bvExtraMsg(d);
       if (ckL.length && d.code === code) {              // 원가 체크만 바꾼 줄(내용은 그대로) — 같은 사유로
         BV.saving = 1; busy(true);
         bvCkFlush(code, why0, function (d2, n2) {
@@ -13064,6 +13172,11 @@ function dateSlots_(steps, cfg, mode) {
       bomLoad(x.dataset.revopen); return;
     }
     if (t.closest("#bomv-rulebtn")) { $("bomv-rules-body").innerHTML = bvRulesHtml(); $("bomv-rules").hidden = false; $("bomv-rulesx").focus(); bvTypesLoad(function () { if (!$("bomv-rules").hidden) $("bomv-rules-body").innerHTML = bvRulesHtml(); }); return; }
+    if (t.closest("#bomv-hfsave")) { bvHfSave(); return; }
+    if (t.closest("#bomv-ordbtn")) { bomOrdOpen(); return; }
+    if ((x = t.closest("[data-ordmv]"))) { if (!x.disabled) bomOrdMove(Number(x.dataset.ordmv), x.dataset.d); return; }
+    if (t.closest("#bomv-ordsave")) { bomOrdSave(); return; }
+    if (t.closest("#bomv-ordx") || t.id === "bomv-ord") { $("bomv-ord").hidden = true; ORD = null; return; }
     if (t.closest("#bomv-rulesx") || t.id === "bomv-rules") { $("bomv-rules").hidden = true; $("bomv-rulebtn").focus(); return; }
     if (t.closest("#bomv-nvopen")) { BV.nv = BV.nv || { name: BV.name, why: "" }; bomShow(); var ni = $("bomnv-name"); if (ni) ni.focus(); return; }
     if (t.closest("#bomnv-cancel")) { BV.nv = null; bomShow(); return; }
@@ -13116,7 +13229,8 @@ function dateSlots_(steps, cfg, mode) {
       if (e.key === "Enter") { e.preventDefault(); if (bvListMode()) { var r1 = document.querySelector("#bomv-list tr[data-bomp]"); if (r1) bomLoad(r1.dataset.bomp); return; } if (bomList[bomPick]) bomLoad(bomList[bomPick].code); return; }
       if (e.key === "Escape") { e.stopPropagation(); bvDrop(false); return; }
     }
-    if (e.key === "Escape") { e.stopPropagation(); if (!$("bomv-rules").hidden) { $("bomv-rules").hidden = true; return; } if (BV.edit) { BV.edit = null; bomShow(); } else if (BV.fix) bomFixCancel(); else bomClose(); return; }
+    if (e.target && e.target.id === "bomv-hfp" && e.key === "Enter" && !e.isComposing) { e.preventDefault(); bvHfSave(); return; }
+    if (e.key === "Escape") { e.stopPropagation(); if (!$("bomv-ord").hidden) { $("bomv-ord").hidden = true; ORD = null; return; } if (!$("bomv-rules").hidden) { $("bomv-rules").hidden = true; return; } if (BV.edit) { BV.edit = null; bomShow(); } else if (BV.fix) bomFixCancel(); else bomClose(); return; }
     if (e.key === "Enter" && e.target && (e.target.dataset && e.target.dataset.fx || e.target.id === "bomfx-why")) { e.preventDefault(); if (e.target.id === "bomfx-why" && BV.fix && !BV.fix.plan) bomSaveAny(); return; }
     if (e.key === "Enter" && e.target && e.target.id && e.target.id.indexOf("bomf-") === 0) {
       e.preventDefault();
