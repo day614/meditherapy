@@ -748,7 +748,9 @@ function toDate_(v) {
     return new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * 86400000);
   }
 
-  var s = String(v).replace(/\s+/g, '').replace(/[년월]/g, '.').replace(/일$/, '');
+  var raw = String(v).trim();
+  if (/^\d{4}\.?\s+\d{1,2}\.?\s+\d{1,2}\.?$/.test(raw)) raw = raw.replace(/\.?\s+/g, '.');      // '2026. 10 6' 처럼 띄어 쓴 날짜(손으로 친 값)
+  var s = raw.replace(/\s+/g, '').replace(/[년월]/g, '.').replace(/일$/, '');
   if (!s) return null;
 
   var m = s.match(/^(\d{4}|\d{2})[.\-\/](\d{1,2})[.\-\/](\d{1,2})\.?$/);
@@ -1946,7 +1948,7 @@ function flushVer_() {
 }
 /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
 /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
-var RB_BUILD = '2026-10-20t';
+var RB_BUILD = '2026-10-20u';
 /** 브라우저 탭 아이콘 — 공개 PNG 주소(바꾸려면 이 주소만) */
 var RB_FAVICON = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f44d.png';
 function apiVer() {

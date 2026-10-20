@@ -942,7 +942,7 @@
   .bomt td.w1 { min-width: 140px; max-width: 260px; }
   .bomt td.w2 { min-width: 140px; max-width: 260px; }
   .bomt.ngt { min-width: 0; }
-  .bomt td.w1, .bomt td.w2, .bomt td.w3 { white-space: normal; overflow-wrap: anywhere; }
+  .bomt td.w1, .bomt td.w2, .bomt td.w3 { white-space: normal; overflow-wrap: anywhere; word-break: keep-all; }      /* 낱말 단위로 줄바꿈(너무 긴 낱말만 쪼갬) */
   .bomt td.w3 { max-width: 220px; }
   .bomt td:last-child { min-width: 128px; }
   .bomt td.w3 { min-width: 110px; font-size: 12px; color: var(--ink-2); }
@@ -1243,7 +1243,9 @@
   .bomt tr.chg td { background: var(--accent-soft); }
   .bomt tr.gone td { color: var(--ink-3, #8a949c); text-decoration: line-through; }      /* 칸(td)은 불투명 그대로 — 왼쪽 고정 칸 아래로 다른 칸 글자가 비쳐 겹쳐 보였다 */
   .bomt tr.gone td > * { opacity: .5; }
-  .bomt .nmpre { color: var(--ink-3); }
+  #guideBtn.hasnew { border-color: var(--accent, #b45309); color: var(--accent, #b45309); font-weight: 700; }
+  .vgroup.vfold { padding-top: 6px; padding-bottom: 6px; }
+  .vgroup.vfold .vhead { margin-bottom: 0; }
   .bomt .bvpdiff { display: block; font-size: 11.5px; font-weight: 600; color: #c2410c; white-space: nowrap; }
   .bomt tr.tot .totlab { position: sticky; left: 12px; display: inline-block; }      /* 표를 옆으로 밀어도 합계 글이 보이게 */
   .bomt tr.form td { background: var(--accent-soft); padding: 8px; }
@@ -2472,6 +2474,13 @@ function dateSlots_(steps, cfg, mode) {
   setTimeout(function () { stkLoad(false); }, 3000);     // 첫 화면 뒤 재고시트 입고예정을 뒤에서 읽는다
   /** 새 버전 확인 · 안 본 업데이트 팝업 — 첫 화면 그리기와 따로(그리기 중 오류가 나도 꼭 돈다. 예전엔 그 앞에서 멈추면 둘 다 안 떴다) */
   var bootTailDone = false;
+  /** 지금 자동 팝업(새로 바뀐 점 · 기한 알림)을 띄우면 하던 일을 가리는지 — 창이 열려 있거나 칸에 입력 중 */
+  function popupWouldInterrupt() {
+    var open = ["view-run", "bomv", "ngrid", "nin", "bas", "bitm", "preview", "rem"].some(function (id) { var e = document.getElementById(id); return e && !e.hidden; });
+    var a = document.activeElement;
+    return open || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== "q");
+  }
+  function guideNewMark(on) { var b = $("guideBtn"); if (b) { b.classList.toggle("hasnew", !!on); b.textContent = on ? "가이드 · NEW" : "가이드"; } }
   function bootTail() {
     if (bootTailDone) return; bootTailDone = true;
     try { startAutoSync(); } catch (e1) { reportErr("startAutoSync", e1); }
@@ -2479,7 +2488,12 @@ function dateSlots_(steps, cfg, mode) {
     try {
       if (!guideShown && updMaybeUnseen()) {
         guideShown = true;
-        updLoad(function (err) { if (!err && updUnseen().length && $("guide").hidden) guideOpen("news"); });
+        updLoad(function (err) {
+          if (err || !updUnseen().length || !$("guide").hidden) return;
+          // 받는 사이 이미 일을 시작했으면(창을 열었거나 입력 중) 덮어 띄우지 않고 [가이드]에 표시만 — 예전엔 쓰던 창 위로 늦게 떠 가렸다
+          if (popupWouldInterrupt()) { guideNewMark(true); toast("새로 바뀐 점이 있습니다 — 오른쪽 위 [가이드]에서 볼 수 있습니다"); return; }
+          guideOpen("news");
+        });
       }
     } catch (e3) { reportErr("updPopup", e3); }
   }
@@ -5895,6 +5909,7 @@ function dateSlots_(steps, cfg, mode) {
     }).apiSampleBulkSet(pick.map(function (x) { return { row: x.q.row, projKey: x.r.projKey, exp: sExp(x.q) }; }), st, date, why);
   }
 
+  var VOPEN = {};          // 펼친 드롭 · 탈락 업체(건ID|업체키)
   function sampleBlock(row) {
     var vendors = row.vendors || [];
 
@@ -5902,7 +5917,10 @@ function dateSlots_(steps, cfg, mode) {
     var groups = vendors.map(function (g) {
 
       var vk = sampleVKey(g.name);
-      return '<div class="vgroup ' + sstClass(g.status) + (SAMPLE_OFF[g.status] ? " vdropped" : "") + '">' +
+      // 드롭 · 탈락 업체는 한 줄로 접어 둔다(펼치기로 봄) — 업체가 여럿 드롭되면 진행 중인 업체를 보려고 한참 내려야 했다
+      var fold = SAMPLE_OFF[g.status] && !VOPEN[row.id + "|" + vk];
+      var foldBtn = SAMPLE_OFF[g.status] ? '<button class="btn btn-sm vexpbtn" type="button" data-vexp="' + esc(row.id + "|" + vk) + '" title="이 업체 회차 · 기록 ' + (fold ? "펼치기" : "접기") + '">' + (fold ? "▸ 펼치기" : "▾ 접기") + "</button>" : "";
+      return '<div class="vgroup ' + sstClass(g.status) + (SAMPLE_OFF[g.status] ? " vdropped" : "") + (fold ? " vfold" : "") + '">' +
         '<div class="vhead"><b>' + esc(g.name) + "</b>" +
           '<span class="tag ' + sstClass(g.status) + '">' + esc(g.status) + "</span>" +
           '<span class="vn" title="회차 = 같은 구성끼리 요청 순서">' + esc(sampleRoundSum(g)) + "</span>" +
@@ -5916,16 +5934,18 @@ function dateSlots_(steps, cfg, mode) {
             '" title="이 업체에 샘플을 (다시) 요청합니다 — 구성을 고르면 그 구성의 다음 차수로 시트에 줄이 하나 붙습니다. 직전 회차 상태는 그대로">+ 샘플 요청</button>' +
           (SAMPLE_OFF[g.status] ? '<button class="btn btn-sm" type="button" data-vdrop="' + esc(g.name) + '" data-vrow="' + g.lastRow + '" data-back="1" title="드롭을 취소하고 진행중으로">드롭 취소</button>'
             : '<button class="btn btn-sm vdropbtn" type="button" data-vdrop="' + esc(g.name) + '" data-vrow="' + g.lastRow + '" title="이 업체는 더 진행하지 않습니다 — 마지막 회차 상태를 드롭으로, 사유는 기록에 남김">드롭</button>')) +
+          foldBtn +
         "</div>" +
         (VREQ === g.name && !(VREQ_PRE && VREQ_PRE.vk === vk) ? sampleReqForm(g) : "") +
-        sampleTimeline(row, g) +
+        (fold ? "</div>" : "") +
+        (fold ? "" : sampleTimeline(row, g) +
         '<div class="tladd">' + (g.reqs.length ? sampleRoundSel(row, g) : "") + '<input type="text" data-tltext="' + esc(vk) + '" placeholder="진행상황 · 견적 메모 한 줄 — 시트 [비고/피드백]에도 덧붙습니다. 예: 견적 개당 600원(MOQ 1만)" maxlength="500">' +
           // 수신은 회차 줄 오른쪽 [수신]으로(어느 회차를 받았는지가 분명하게) — 여기서는 진행중 · 채택 · 탈락 · 드롭만
           '<select data-tlst="' + esc(vk) + '"><option value="">상태 유지</option>' + SST.filter(function (x) { return x !== "수신"; }).map(function (x) { return x === "드롭" ? '<option value="드롭" title="고른 회차만 드롭 — 업체 전체를 드롭하려면 카드의 [업체 드롭]">이 회차만 드롭</option>' : "<option>" + x + "</option>"; }).join("") + "</select>" +
           '<label class="tldue" title="이 일의 기한(없으면 비워 둠)">기한 <input type="date" data-tldue="' + esc(vk) + '"></label>' +
           '<button class="btn btn-sm btn-solid" type="button" data-tlsave="' + esc(vk) + '" data-tlrow="' + g.lastRow + '">기록</button></div>' +
 
-        "</div>";
+        "</div>");
     }).join("") || '<div class="count-note" style="margin:0">요청 이력이 없습니다.</div>';
 
     var last = vendors.length ? vendors[vendors.length - 1] : {};
@@ -6976,6 +6996,9 @@ function dateSlots_(steps, cfg, mode) {
     // 진행 기록 펼치기 · 접기(화면만)
     var tlm = e.target.closest("[data-tlmore]");
     if (tlm) { TLMORE[tlm.dataset.tlmore] = !TLMORE[tlm.dataset.tlmore]; renderRun(); return true; }
+    // 드롭 · 탈락 업체 카드 펼치기 · 접기(화면만)
+    var vx = e.target.closest("[data-vexp]");
+    if (vx) { VOPEN[vx.dataset.vexp] = !VOPEN[vx.dataset.vexp]; renderRun(); return true; }
     // 업체 드롭 / 드롭 취소 — 마지막 회차 상태(시트) + 기록에 사유
     var vd = e.target.closest("[data-vdrop]");
     if (vd) {
@@ -8085,6 +8108,7 @@ function dateSlots_(steps, cfg, mode) {
 
   var guideMode = "list";            // list = [가이드] 목록 · news = 안 본 업데이트 팝업
   function guideOpen(m) {
+    guideNewMark(false);
     guideMode = m === "news" ? "news" : "list";
     if (!UPDATES) {
       // 업데이트 내역을 아직 안 받았다 — 가이드부터 띄우고 받는 대로 다시 그린다
@@ -8780,6 +8804,8 @@ function dateSlots_(steps, cfg, mode) {
   function alrNext() {
     if (!$("guide").hidden || !$("alr").hidden) return;
     if (updWait) { setTimeout(alrNext, 800); return; }          // 업데이트 소식을 받는 중이면 그게 먼저
+    // 이미 다른 일을 하고 있으면 덮어 띄우지 않고 알림만(종 단추로 본다)
+    if (ALR.queue.length && popupWouldInterrupt()) { ALR.queue = []; toast("기한 알림이 있습니다 — 오른쪽 위 🔔 를 누르면 봅니다"); return; }
     var f = ALR.queue.shift(); if (f) f();
   }
   function alrStart() {
@@ -8856,11 +8882,17 @@ function dateSlots_(steps, cfg, mode) {
     gsr().withSuccessHandler(function (d) { VENDORS = (d && d.list) || []; VENDOR_SIM = (d && d.similar) || []; fillList("nord-vendors", vendorsAll()); })
       .withFailureHandler(function () { /* 발주 목록 업체로만 */ }).apiVendors();
   }
-  function vendorsAll() { var seen = {}, out = []; VENDORS.concat(uniqVals("vendor")).forEach(function (v) { if (!seen[v]) { seen[v] = 1; out.push(v); } }); return out; }
+  function vendorsAll() {
+    var seen = {}, out = [], sv = [];
+    var sd = mode === "sample" ? DATA : MODEDATA.sample;          // 샘플 소싱 업체도 목록에(업체 미정 빼고)
+    ((sd && sd.rows) || []).forEach(function (r) { (r.vendors || []).forEach(function (g) { if (g.name && g.name !== "업체 미정") sv.push(g.name); }); });
+    VENDORS.concat(mode === "po" ? uniqVals("vendor") : [], sv).forEach(function (v) { v = String(v || "").trim(); if (v && !seen[v]) { seen[v] = 1; out.push(v); } });
+    return out;
+  }
   function vendorNorm(s) { return String(s || "").replace(/\(주\)|㈜|주식회사|\s/g, "").toUpperCase(); }
   function vendorLoose(s) { return vendorNorm(s).replace(/앤/g, "엔").replace(/쓰/g, "스").replace(/네/g, "내").replace(/[.,·\-]/g, "").replace(/코리아$/, ""); }
   // 업체 칸: BOM(자재 추가 · 정정 표 · 신제품) · 품목 정보 · 새 발주 · 발주 수정
-  var VENDOR_SEL = '#bomf-vendor, #bomv input[data-f="vendor"], input[data-iif="vendor"], input[list="nord-vendors"], #nord input[name="vendor"]';
+  var VENDOR_SEL = '#bomf-vendor, #bomv input[data-f="vendor"], input[data-iif="vendor"], input[list="nord-vendors"], #nord input[name="vendor"], #ns-vendor, #sqVendor';      // 샘플: 새 샘플 · 업체 추가
   document.addEventListener("focusin", function (e) {
     var el = e.target;
     if (!el || !el.matches || !el.matches(VENDOR_SEL)) return;
@@ -8874,7 +8906,7 @@ function dateSlots_(steps, cfg, mode) {
     var el = e.target;
     if (!el || !el.matches || !el.matches(VENDOR_SEL)) return;
     var v = String(el.value || "").trim(), all = vendorsAll();
-    if (!v || all.indexOf(v) > -1 || !all.length) return;
+    if (!v || v === "업체 미정" || all.indexOf(v) > -1 || !all.length) return;
     var same = all.filter(function (x) { return vendorNorm(x) === vendorNorm(v); })[0];
     if (same) { el.value = same; el.dispatchEvent(new Event("input", { bubbles: true })); return; }
     var lv = vendorLoose(v), near = all.filter(function (x) { var l = vendorLoose(x); return l === lv || (lv.length >= 2 && (l.indexOf(lv) > -1 || lv.indexOf(l) > -1)); }).slice(0, 6);
@@ -11475,14 +11507,8 @@ function dateSlots_(steps, cfg, mode) {
     if (m[f] != null && String(m[f]) !== String(v[f] == null ? "" : v[f])) {
       return '<td class="' + cls + ' mod"><b>' + esc(num ? bvFmt(m[f]) : m[f]) + "</b><s>" + esc(txt) + "</s></td>";
     }
-    if (f === "name" && !/^(제품|세트|반제품)$/.test(String(v.type || "")) && String(v.code || "").toUpperCase() !== BV.code) { var sn = bvShortName(txt); if (sn !== txt) return '<td class="' + cls + '" title="' + esc(txt) + '"><span class="nmpre" aria-hidden="true">… </span>' + esc(sn) + "</td>"; }
+    // 품목명은 그대로 다 보여 준다(칸 안에서 줄바꿈) — 2026-10-20 담당자: 앞부분을 … 로 줄이지 않는다
     return '<td class="' + cls + '">' + esc(txt) + "</td>";
-  }
-  /** 자재 품목명이 제품명으로 시작하면 화면에는 뒤쪽(용기 · 단상자 …)만 — 표 폭이 줄어 원가 칸이 보인다(전체 이름은 마우스를 올리면 · 시트 값은 그대로) */
-  function bvShortName(t) {
-    var n = String(BV.name || "").trim().split(/\s+/), w = String(t || "").trim().split(/\s+/), k = 0;
-    while (k < n.length && k < w.length - 1 && w[k] === n[k]) k++;
-    return k >= 2 ? w.slice(k).join(" ") : String(t || "");
   }
   function bvModText(v, m) {
     if (m.remove) return "빼기" + (m.why ? " · " + m.why : "");
@@ -12428,8 +12454,8 @@ function dateSlots_(steps, cfg, mode) {
    */
   var BV_COLW = { "원가": 44, "구분": 118, "자재코드": 170, "품목명": 220, "업체명": 120, "매입정보": 96, "매입": 84, "사양": 200, "MOQ": 76, "소요량": 72,
     "내용물/자재": 110, "통화": 116, "임가공": 80, "배송비/기타": 90, "소요원가": 100, "적용": 80, "변동사항": 200, "초도": 64, "종료": 64, "시작 차수": 72, "끝 차수": 72, "적용 차수": 150, "변경": 96, "": 96 };
-  // 보기 표(고치는 칸 없음)는 좁게 — 1280 폭(실행판 화면)에서 소요원가까지 옆으로 밀지 않고 보이게. 품목명은 제품명 앞부분을 줄여 보여 준다(bvShortName)
-  var BV_COLW_VIEW = { "구분": 84, "자재코드": 120, "품목명": 170, "업체명": 100, "매입정보": 64, "사양": 170, "MOQ": 64, "소요량": 60, "내용물/자재": 96 };
+  // 보기 표(고치는 칸 없음)는 좁게 — 1280 폭(실행판 화면)에서 소요원가까지 옆으로 밀지 않고 보이게(품목명 · 사양은 칸 안에서 줄바꿈)
+  var BV_COLW_VIEW = { "구분": 84, "자재코드": 120, "품목명": 200, "업체명": 100, "매입정보": 64, "사양": 140, "MOQ": 64, "소요량": 60, "내용물/자재": 96 };
   function bvColSize() {
     var hd = $("bomv-head"), tb = hd && hd.closest("table");
     if (!tb) return;
