@@ -326,3 +326,17 @@ function hfSeedFromSheet_() {
   if (added.length) PropertiesService.getScriptProperties().setProperty(RB_HF_PROP, JSON.stringify(a));
   return added.join(', ');
 }
+
+/** 1회(10/20): BOM 에 쓰이는데 품목 DB 에 없는 코드(단종 품목 자재 등) — BOM 줄 값(품목명 · 브랜드 · 업체 · 사양)으로 품목 DB 에 등록. 반환: 등록한 코드 */
+function bomRegMissingAll_() {
+  var sh = bomSheet_(), C = bomCols_(sh), lr = sh.getLastRow();
+  if (lr < 3) return [];
+  var have = {}; itemDbAllCodes_().forEach(function (c) { have[c] = 1; });
+  var want = {};
+  sh.getRange(3, C.code + 1, lr - 2, 1).getValues().forEach(function (r) { var c = itemCodeKey_(r[0]); if (/^[A-Z]{1,2}\d{4}[A-Z]{2}\d+$/.test(c) && !have[c]) want[c] = 1; });
+  var codes = Object.keys(want);
+  if (!codes.length) return [];
+  var done = bomRegFromRows_(codes, 'BOM 에 있던 코드 등록(10/20)');
+  try { itemDbPriceSync_(done); } catch (e) { /* 넘어간다 */ }
+  return done;
+}

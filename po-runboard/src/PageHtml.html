@@ -1182,6 +1182,8 @@
   .iit td.ref.num .iisrc, .iit td.ref.num .iicur { float: left; }                 /* 출처 · 통화는 왼쪽, 숫자는 오른쪽 끝 — 위아래 줄 숫자 자리가 맞는다 */
   .iicur { font-size: 11px; color: var(--ink-3); margin-right: 6px; line-height: 20px; }
   .iit td.ref.num .n { font-variant-numeric: tabular-nums; }
+  .iit td.ref.pdiff { background: color-mix(in srgb, #d9480f 10%, transparent); }
+  .iit td.ref .iidiff { display: block; clear: both; text-align: right; font-size: 11.5px; color: #c2410c; font-weight: 600; line-height: 1.2; }
   .iit td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .iisrc { display: inline-block; font-size: 10.5px; font-weight: 700; line-height: 16px; padding: 0 4px; margin-right: 6px; border-radius: 4px; background: var(--surface-2); color: var(--ink-3); vertical-align: 1px; }
   .iisrc.po { color: var(--primary); }
@@ -1241,6 +1243,7 @@
   .bomt tr.gone td { color: var(--ink-3, #8a949c); text-decoration: line-through; }      /* 칸(td)은 불투명 그대로 — 왼쪽 고정 칸 아래로 다른 칸 글자가 비쳐 겹쳐 보였다 */
   .bomt tr.gone td > * { opacity: .5; }
   .bomt .nmpre { color: var(--ink-3); }
+  .bomt .bvpdiff { display: block; font-size: 11.5px; font-weight: 600; color: #c2410c; white-space: nowrap; }
   .bomt tr.tot .totlab { position: sticky; left: 12px; display: inline-block; }      /* 표를 옆으로 밀어도 합계 글이 보이게 */
   .bomt tr.form td { background: var(--accent-soft); padding: 8px; }
   .bomt .newc { color: var(--ok); font-weight: 700; }
@@ -10528,10 +10531,25 @@ function dateSlots_(steps, cfg, mode) {
   /** 저장 결과에 붙는 알림 — 핸들링피 자동 적용 · 품목 DB 에서 같이 지운 코드 */
   function bvExtraMsg(d) {
     var m = "";
+    BV_PO = null;                       // 저장 뒤 단가 비교도 새로(다음 그리기 때 다시 받음)
     if (d && d.hf && d.hf.n) m += " · " + (d.hf.vendor || "") + " 핸들링피 " + d.hf.pct + "% " + d.hf.n + "줄 적용";
     if (d && d.hf && d.hf.skipped && d.hf.skipped.length) m += "(손입력 배송비 " + d.hf.skipped.length + "줄은 그대로)";
     if (d && d.dropped && d.dropped.length) m += " · 품목 DB 에서도 지움: " + d.dropped.join(", ");
     return m;
+  }
+  /* ---- BOM 단가 ≠ 최근 발주 단가 표시(지금 쓰는 자재 줄만 · 통화가 같을 때) ---- */
+  var BV_PO = null;
+  function bvPoLoad() {
+    if (BV_PO !== null) return;
+    BV_PO = {};
+    gsr().withSuccessHandler(function (m) { BV_PO = m || {}; if (BV.code && !$("bomv").hidden && !BV.edit && !BV.fix && !bvPendCount()) bomShow(); }).withFailureHandler(function () { /* 표시 없이 */ }).apiPoLastPrices();
+  }
+  function bvCurKey(c) { c = String(c || "").trim().toUpperCase(); return /^(|KRW|원|원화|₩)$/.test(c) ? "KRW" : (/CNY|위안|RMB/.test(c) ? "CNY" : (/USD|달러|\$/.test(c) ? "USD" : c)); }
+  function bvPoDiff(v) {
+    var c = String(v.code || "").toUpperCase(), x = BV_PO && BV_PO[c];
+    if (!x || !/^[A-Z]P\d{4}/.test(c) || String(v.end || "").trim() || String(v.unit) === "" || v.unit == null) return "";
+    if (bvCurKey(x.cur) !== bvCurKey(bvCur(v)) || Math.abs(bvNum(x.price) - bvNum(v.unit)) < 0.0001) return "";
+    return '<span class="bvpdiff" title="최근 발주 단가 ' + esc(bvFmt(x.price) + (x.at ? " (" + x.at + (x.doc ? " · " + x.doc : "") + ")" : "")) + ' — BOM 단가와 다릅니다">≠ 발주 ' + esc(bvFmt(x.price)) + "</span>";
   }
   /* ---- 제조사 핸들링피(BOM 보기 위쪽) — 서버 BomExtra.gs ---- */
   var HF = null;
@@ -11061,7 +11079,10 @@ function dateSlots_(steps, cfg, mode) {
     var db = it[f] === "" || it[f] == null ? "" : " (품목 DB 값: " + it[f] + ")";
     var txt = f === "vendor" ? x.vendor : iiPrice(x);
     var body = f === "price" ? (iiCur(x) ? '<span class="iicur">' + esc(iiCur(x)) + "</span>" : "") + '<span class="n">' + esc(iiNum(x)) + "</span>" : esc(txt);
-    return '<td class="ref' + (f === "price" ? " num" : "") + '" title="' + esc(txt + " — " + why + db) + '"><span class="iisrc ' + (po ? "po" : "bom") + '">' + (po ? "발주" : "BOM") + "</span>" + body + "</td>";
+    var alt = f === "price" && x.alt ? x.alt : null;
+    var altTxt = alt ? " · " + (alt.src === "po" ? "최근 발주 단가 " + iiPrice(alt) + (alt.at ? " (" + alt.at + (alt.doc ? " · " + alt.doc : "") + ")" : "") : "BOM 단가 " + iiPrice(alt) + (alt.product ? " (" + alt.product + (alt.st ? " " + alt.st + "차~" : "") + ")" : "")) + " — BOM 단가와 발주 단가가 다릅니다" : "";
+    if (alt) body += '<span class="iidiff" aria-label="단가 다름">≠ ' + esc(iiNum(alt)) + "</span>";
+    return '<td class="ref' + (f === "price" ? " num" : "") + (alt ? " pdiff" : "") + '" title="' + esc(txt + " — " + why + altTxt + db) + '"><span class="iisrc ' + (po ? "po" : "bom") + '">' + (po ? "발주" : "BOM") + "</span>" + body + "</td>";
   }
   function iiClose() {
     if (Object.keys(II.dirty).length && !confirm("저장하지 않은 품목 고침이 " + Object.keys(II.dirty).length + "줄 있습니다. 버리고 닫을까요?")) return;
@@ -11074,6 +11095,7 @@ function dateSlots_(steps, cfg, mode) {
       if (II.kind === "unused") { if (!it.unused) return false; }
       else if (it.unused) return false;
       if (II.kind === "nobc") { if (it.barcode || iiKind(it.code) !== "prod") return false; }
+      else if (II.kind === "pdiff") { if (!(it.ref && it.ref.alt)) return false; }
       else if (II.kind && II.kind !== "unused" && iiKind(it.code) !== II.kind) return false;
       return !toks.length || matchToks([it.code, it.name, it.brand, it.vendor, it.ref ? it.ref.vendor : "", it.spec, it.barcode].join(" "), toks);
     });
@@ -11082,7 +11104,7 @@ function dateSlots_(steps, cfg, mode) {
     var el = $("bomv-items");
     if (full || !el.querySelector(".iit")) {
       el.innerHTML = '<div class="iihead"><b>품목 정보</b><input type="search" id="ii-q" placeholder="품목명 · 코드 · 업체 · 사양 · 바코드" value="' + esc(II.q) + '" autocomplete="off">' +
-        '<select id="ii-kind">' + [["", "전체"], ["prod", "완제품"], ["semi", "반제품"], ["mat", "자재"], ["nobc", "바코드 없는 완제품"], ["unused", "미사용(되돌린 코드)"]].map(function (o) { return '<option value="' + o[0] + '"' + (II.kind === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
+        '<select id="ii-kind">' + [["", "전체"], ["prod", "완제품"], ["semi", "반제품"], ["mat", "자재"], ["nobc", "바코드 없는 완제품"], ["pdiff", "BOM ≠ 발주 단가"], ["unused", "미사용(되돌린 코드)"]].map(function (o) { return '<option value="' + o[0] + '"' + (II.kind === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
         '<span class="nghelp" id="ii-n"></span><span class="iisp"></span><span class="nghelp" title="업체 · 단가에 [발주]가 붙은 값은 최종 발주 건, [BOM]이 붙은 값은 BOM 마지막 차수의 원가반영 단가입니다(칸에 마우스를 올리면 출처). 이 값은 여기서 고치지 않습니다. 품목코드도 고치지 않습니다(BOM · 발주에 이어져 있음).">노란 줄 = 고친 줄 · 업체 · 단가의 [발주]/[BOM] = 최근 값</span>' +
         '<button type="button" class="btn btn-sm btn-solid" id="ii-saveall" disabled>고친 줄 모두 저장</button><button type="button" class="btn btn-sm" data-iiclose="1">닫기</button></div>' +
         '<div class="iiwrap"><table class="iit"><colgroup><col style="width:110px">' + II_F.map(function (f) { return f[0] === "name" ? '<col class="iic-name">' : (f[2] ? '<col style="width:' + f[2] + 'px">' : "<col>"); }).join("") + '<col style="width:86px"><col style="width:104px"></colgroup>' +
@@ -11663,7 +11685,7 @@ function dateSlots_(steps, cfg, mode) {
     var semiCk = v._grp ? '<span class="semick">' + esc(bvGrpLabel(v)) + "</span>" : "";
     return '<tr class="' + (gone ? "gone" : (m ? "chg" : (ed ? "editing" : ""))) + '">' + bvCkTd(v, !BV.semi && !v._carry && !gone, !canEdit) + '<td' + (v._grp ? ' class="sub" title="' + esc(v._grp === "*" ? "반제품 공용(모든 반제품 구성)" : v._grp + " 반제품 구성") + '"' : (v.type === "반제품" ? ' class="semi"' : "")) + ">" + (v._grp ? "└ " : "") + esc(v.type || "") + semiCk + "</td>" + codeTd +
       bvCell(v, "name", v.name || "", "w1") + bvCell(v, "vendor", v.vendor || "") + buyTd + bvCell(v, "spec", v.spec || "", "w2") +
-      bvCell(v, "moq", bvFmt(v.moq)) + bvCell(v, "qty", bvFmt(v.qty)) + bvCell(v, "unit", bvUnitTxt(v.unit, bvCur(v), bvNum(v.fx) || 1)) +
+      bvCell(v, "moq", bvFmt(v.moq)) + bvCell(v, "qty", bvFmt(v.qty)) + bvCell(v, "unit", bvUnitTxt(v.unit, bvCur(v), bvNum(v.fx) || 1)).replace(/<\/td>$/, bvPoDiff(v) + "</td>") +
       bvCell(v, "proc", bvFmt(v.proc)) + bvCell(v, "ship", bvFmt(v.ship)) +
       '<td class="n' + (bvNoCost(v, BV.bomMax) ? " nocost" : "") + '">' + bvFmt(Math.round(bvCostNow(v))) +
         (gone ? '<div class="nghelp">빠짐 · 원가 제외</div>' : "") +
@@ -12270,6 +12292,7 @@ function dateSlots_(steps, cfg, mode) {
   }
   function bomShow() {
     bvLinksRender();
+    bvPoLoad();
     bvHfRender();
     if ($("bomv-ordbtn")) $("bomv-ordbtn").hidden = !BV.code || !!BV.newProduct || !!BV.fix || !!BV.semi || BV.rows.length < 2;
     var has = !!BV.code;

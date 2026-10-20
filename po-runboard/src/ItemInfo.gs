@@ -46,10 +46,27 @@ function apiItemDbRefs(codes) {
   return { refs: out };
 }
 
+/** 화면: BOM 보기 단가 칸 옆 '≠ 발주 단가' 표시용 — 자재 코드별 최근 발주 단가(발주일이 가장 늦은 건 · 취소 빼고) */
+function apiPoLastPrices() {
+  var po = itemRefPrices_().po, out = {};
+  Object.keys(po).forEach(function (c) { var x = po[c]; if (/^[A-Z]P\d{4}/.test(c) && x.price !== '') out[c] = { price: x.price, cur: x.cur, at: x.at, doc: x.doc }; });
+  return out;
+}
+
 /** 자재(?P0000…)는 BOM 원가반영 단가가 먼저, 나머지(완제품 · 반제품 등)는 최종 발주가 먼저. 없으면 다른 쪽. */
 function itemRefOf_(code, ref) {
   var po = ref.po[code], bom = ref.bom[code];
-  return /^[A-Z]P\d{4}/.test(code) ? (bom || po || null) : (po || bom || null);
+  var x = /^[A-Z]P\d{4}/.test(code) ? (bom || po || null) : (po || bom || null);
+  // BOM 단가와 최근 발주 단가가 둘 다 있고 다르면 다른 쪽 값을 붙인다(화면이 ≠ 로 표시) — 통화가 같을 때만 비교
+  // 자재만 — 완제품 · 반제품의 BOM 값은 세트 구성 줄 단가라 발주 단가와 견줄 수 없다(완제품 발주 단가는 BOM 보기 '✓ 같음 / 차이')
+  if (x && po && bom && /^[A-Z]P\d{4}/.test(code) && po.price !== '' && bom.price !== '') {
+    var other = x === bom ? po : bom, cu = function (c) { c = str_(c).toUpperCase(); return /^(|KRW|원|원화|₩)$/.test(c) ? 'KRW' : (/CNY|위안|RMB/.test(c) ? 'CNY' : (/USD|달러|\$/.test(c) ? 'USD' : c)); };
+    if (cu(po.cur) === cu(bom.cur) && Math.abs(num_(po.price) - num_(bom.price)) > 0.0001) {
+      x = JSON.parse(JSON.stringify(x));
+      x.alt = { src: other.src, price: other.price, cur: other.cur, at: other.at || '', doc: other.doc || '', product: other.product || '', st: other.st || '' };
+    }
+  }
+  return x;
 }
 
 /**
