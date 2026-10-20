@@ -6473,6 +6473,10 @@ function dateSlots_(steps, cfg, mode) {
           ? '<button type="button" class="tag qptag" id="basBtn" title="품목 · 수량 · 단가 · 업체 · 날짜 · 요청 정보 · 선금/잔금 등 한 곳에서 고치기">' +
             "발주 수정 ✎ · 수량 " + Number(row.qty || 0).toLocaleString() + " · 단가 " + Number(row.price || 0).toLocaleString() + "</button>"
           : "") +
+        // BOM 보기는 늘 위에(예전엔 1단계 'BOM · 품목코드'를 펼쳐야 보여, 그 단계를 끝냈거나 건너뛴 건은 찾기 어려웠다) · BOM 단가와 다르면 같이 표시
+        (mode === "po" && row.code && !row.pending
+          ? '<button type="button" class="tag qptag" data-bomopen="1" title="이 발주 차수의 BOM 구성 · 원가를 봅니다(바꿀 자재가 있으면 거기서 차수 변경)">BOM 보기</button>' + poBomBadge(row)
+          : "") +
         (mode === "sample" && !(DATA && DATA.canEdit === false) ? '<button type="button" class="tag qptag" id="spEditBtn" title="프로젝트명 · 품목코드 · 브랜드 · 프로젝트 링크를 한 곳에서 고치기">프로젝트 수정 ✎</button>' : "") +
         (mode === "sample" ? '<span class="tag">' + esc(sampleSummary(row)) + "</span>"
           : '<span class="tag' + (u >= total ? " done" : "") + '">' + doneCount(row) + "/" + total + " 단계</span>") +
@@ -11029,6 +11033,7 @@ function dateSlots_(steps, cfg, mode) {
     if (!BV_ALL) gsr().withSuccessHandler(function (m) { BV_ALL = m || {}; if (mode === "po" && !busyEditing() && saveQueue === 0) { try { renderBoard(); } catch (eR) { /* 다음 그리기 때 */ } } }).withFailureHandler(function () { /* 조용히 */ }).apiBomAllRows();      // 받으면 목록에 'BOM 단가 다름' 표시
   }
   function bomSet(d) {
+    var keepFocus = d && BV.code && d.code === BV.code ? BV.focus : null, keepDone = BV.focusDone;      // 같은 품목을 다시 받아 그릴 때 노란 줄 유지
     bvGetPut(d);
     loadBomCodesSoon();
     if ($("bomv-used")) $("bomv-used").hidden = true;      // 다른 품목을 열면 공용 창은 닫는다
@@ -11043,7 +11048,9 @@ function dateSlots_(steps, cfg, mode) {
     BV.edit = null; BV.draft = null; BV.mods = {}; BV.ckPend = {}; BV.adds = []; BV.newProduct = null; BV.fix = null; BV.semi = semi; BV.open = {};
     BV.chgWhy = "";          // 사유는 그 저장 한 번 것 — 다른 품목 · 저장 뒤에 남으면 엉뚱한 사유가 이력에 들어갔다
     // BOM 검사에서 짚은 줄: 그 줄이 쓰이는 차수(마지막 구간)로 연다 — 지난 차수 줄이면 최신 차수 표엔 안 보였다
-    BV.focus = BV.focusNext || null; BV.focusNext = null;
+    BV.focus = BV.focusNext || keepFocus || null; BV.focusNext = null;
+    if (!BV.focus && BV.focusCode) { var fc0 = BV.focusCode; BV.focus = BV.rows.filter(function (q) { return String(q.code || "").toUpperCase() === fc0; }).map(function (q) { return q.row; }); if (!BV.focus.length) BV.focus = null; }      // 자재 발주에서 연 품목 — 그 자재 줄
+    BV.focusCode = null; BV.focusDone = BV.focus && BV.focus === keepFocus ? keepDone : 0;
     var fv = BV.focus && BV.rows.filter(function (q) { return BV.focus.indexOf(q.row) > -1; })[0];
     if (semi) BV.round = BV.bomMax;
     if (fv && !(fv._s <= BV.round && BV.round <= fv._e)) {
@@ -11573,6 +11580,16 @@ function dateSlots_(steps, cfg, mode) {
   }
   function bvUsedRender(d) {
     var box = $("bomv-used"), L = d.list || [], on = L.some(function (x) { return x.common; });
+    var live0 = L.filter(function (x) { return x.live; });
+    if (!BV.rows.length && BV.order && /^[A-Z]P\d{4}/.test(String(d.code || "")) && String(BV.order.code || "").toUpperCase() === String(d.code).toUpperCase() && (live0.length || L.length) === 1 && BV.code === d.code) {
+      var to = (live0[0] || L[0]).product;
+      BV.focusCode = String(d.code).toUpperCase();
+      var mm0 = d.code + " 자재 발주 — 이 자재를 쓰는 " + to + " BOM 을 열었습니다(노란 줄이 그 자재)";
+      BV.msgNext = mm0;
+      bomLoad(to);
+      if (BV.code === to) $("bomv-msg").textContent = mm0;          // 받아 둔 줄로 바로 열렸으면
+      return;
+    }
     box.hidden = false;
     box.innerHTML = '<div class="usedin"><div class="usedh">' + (BV.rows.length ? "" : '<span class="commontag">역전개</span> ') + '<b>' + esc(d.code) + "</b> 를 쓰는 품목 " + L.length + "개" + (L.length ? " (지금 쓰는 품목 " + L.filter(function (x) { return x.live; }).length + "개)" : "") +
       (L.length > 1 ? ' <span class="commontag">' + (on ? "공용 표시됨" : "여러 품목이 같이 씀") + "</span>" : "") +
@@ -11648,10 +11665,12 @@ function dateSlots_(steps, cfg, mode) {
     if (!BV.focus || !BV.focus.length) return;
     var first = null;
     BV.focus.forEach(function (n) { var tr = document.querySelector('#bomv-rows tr[data-brow="' + n + '"]'); if (tr) { tr.classList.add("revfocus"); if (!first) first = tr; } });
+    // 노란 줄은 이 품목을 보는 동안 다시 그려도 남긴다(뒤에서 받은 값으로 다시 그리면 사라졌다) — 자리 옮기기 · 안내는 처음 한 번만
+    if (BV.focusDone) return;
+    BV.focusDone = 1;
     if (first && first.scrollIntoView) { try { first.scrollIntoView({ block: "center" }); } catch (e) { /* 넘어간다 */ } }
     var miss = BV.focus.filter(function (n) { return !document.querySelector('#bomv-rows tr[data-brow="' + n + '"]'); });
     if (miss.length) $("bomv-msg").textContent = "BOM 검사에서 짚은 줄 중 " + miss.length + "줄은 이 차수 표에 없습니다(차수를 바꿔 보세요) — 시트 " + miss.slice(0, 5).join(", ") + "행";
-    BV.focus = null;
   }
   /** BOM 보기 코드 확정: 칸의 코드 = 지금 코드면 등록, 다르면 바꾸고 등록 — BOM 검사와 같은 방식 */
   function bvCodeSet(rowNo) {
@@ -12401,6 +12420,16 @@ function dateSlots_(steps, cfg, mode) {
     $("bomv-bar").hidden = !has; $("bomv-wrap").hidden = !has;
     bvListShow();
     if (!has) { $("bomv-pend").hidden = true; $("bomv-log").innerHTML = ""; return; }
+    // 자재코드(자기 BOM 없음) — 빈 표 · [+ 자재 추가]를 보이지 않는다(누르면 자재코드 밑에 엉뚱한 BOM 이 생겼다). 위 '쓰는 품목'에서 그 품목 BOM 을 연다
+    var matOnly = !BV.rows.length && !BV.newProduct && !BV.semi && /^[A-Z]P\d{4}/.test(String(BV.code || ""));
+    $("bomv-round").parentNode.hidden = matOnly; $("bomv-addr").hidden = matOnly || $("bomv-addr").hidden;
+    if (matOnly) {
+      $("bomv-wrap").hidden = true; $("bomv-pend").hidden = true; $("bomv-log").innerHTML = "";
+      $("bomv-name").textContent = BV.code;
+      $("bomv-info").textContent = "자재코드입니다 — 아래 '쓰는 품목'에서 [열기]를 누르면 그 품목 BOM 에서 이 자재 줄이 표시됩니다";
+      ["bomv-fixbtn", "bomv-ordbtn", "bomv-flat"].forEach(function (id) { if ($(id)) $(id).hidden = true; }); if ($("bomv-hf")) $("bomv-hf").hidden = true;
+      return;
+    }
     $("bomv-name").textContent = bvTitle() + (BV.newProduct ? " · 신제품" : "");
     var ob = bvEditRound(), orderR = bvOrderRound();
     var pts = bvPoints(), opts = "", list = pts.map(function (p) { return { v: p, t: bvSegLabel(p, pts) + (p === pts[pts.length - 1] ? " · 최신" : "") }; });
