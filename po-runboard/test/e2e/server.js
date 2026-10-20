@@ -22,7 +22,9 @@ http.createServer((req, res) => {
         out = { res: JSON.parse(JSON.stringify(ctx[n].apply(null, a) ?? null)) };
       } catch (e) { out = { err: String(e && e.message || e) }; }
       log.push({ n, ms: Date.now() - t0, err: out.err || '' });
-      res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(out));
+      // 저장 계열 응답을 늦춰 '저장 중에 다음 작업' 을 재현한다(RPC_DELAY=ms)
+      const slow = Number(process.env.RPC_DELAY || 0) && /Save|Fix|Undo|Set|Reorder|Delete|Register|Commit|Write|Bulk|Add|Update/.test(n) ? Number(process.env.RPC_DELAY) : 0;
+      setTimeout(() => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(out)); }, slow);
     });
     return;
   }

@@ -1,6 +1,7 @@
 // Apps Script 흉내(시트 · 캐시 · 속성 · 잠금 등) — 실제 서버 코드(src/*.gs)를 node 에서 돌려 화면을 시험한다.
 // 시트 데이터는 xlsx 에서 뽑은 JSON({탭: {v, f, hidden}}). 수식은 다시 계산하지 않는다(값은 내려받을 때 값).
 'use strict';
+const READS = { n: 0, cells: 0, by: {} };          // 시트 읽기 횟수 · 칸 수(속도 비교용)
 const fs = require('fs'), path = require('path'), vm = require('vm');
 
 const colL = n => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
@@ -53,7 +54,7 @@ class Range {
   _map(fn) { const o = []; for (let i = 0; i < this.nr; i++) { const row = []; for (let j = 0; j < this.nc; j++) row.push(fn(this.r + i - 1, this.c + j - 1)); o.push(row); } return o; }
   getRow() { return this.r; } getColumn() { return this.c; } getNumRows() { return this.nr; } getNumColumns() { return this.nc; } getLastRow() { return this.r + this.nr - 1; }
   getSheet() { return this.sh; } getA1Notation() { return colL(this.c) + this.r + (this.nr > 1 || this.nc > 1 ? ':' + colL(this.c + this.nc - 1) + (this.r + this.nr - 1) : ''); }
-  getValues() { return this._map((i, j) => { const x = (this.sh.v[i] || [])[j]; return x == null ? '' : x; }); }
+  getValues() { if (this.sh.name === process.env.TRACE_TAB) console.log('READ', this.sh.name, this.nr + 'x' + this.nc, new Error().stack.split('\n').slice(2, 6).map(s => s.trim().split(' ')[1]).join(' < ')); READS.n++; READS.cells += this.nr * this.nc; READS.by[this.sh.name] = (READS.by[this.sh.name] || 0) + this.nr * this.nc; return this._map((i, j) => { const x = (this.sh.v[i] || [])[j]; return x == null ? '' : x; }); }
   getDisplayValues() { return this.getValues().map(r => r.map(x => (x instanceof Date ? x.toISOString().slice(0, 10) : String(x)))); }
   getFormulas() { return this._map((i, j) => (this.sh.f[i] || [])[j] || ''); }
   getFormulasR1C1() { return this._map((i, j) => { const f = (this.sh.f[i] || [])[j]; return f ? toR1C1(f, i + 1, j + 1) : ''; }); }
@@ -134,4 +135,4 @@ function makeContext(opt) {
   ctx.__main = main; ctx.__bom = bomFile;
   return ctx;
 }
-module.exports = { makeContext };
+module.exports = { makeContext, READS };

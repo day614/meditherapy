@@ -356,6 +356,7 @@
   .chgopt.on { border-color: var(--accent); color: var(--accent); background: var(--surface); box-shadow: inset 0 0 0 1px var(--accent); }
   .chgmemo { font: inherit; font-size: 12.5px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
   .nobom { display: inline-block; font-size: 10.5px; color: var(--late); border: 1px solid var(--late); border-radius: 4px; padding: 0 5px; margin-left: 6px; vertical-align: 1px; font-weight: 600; white-space: nowrap; }
+  .nobom.bomp { color: #c2410c; border-color: #c2410c; }
   .chgtag { display: inline-block; font-size: 10px; color: var(--accent); border: 1px solid var(--accent);
             border-radius: 4px; padding: 0 4px; margin-left: 4px; vertical-align: 1px; font-weight: 500; }
   .itemrow .chgopts { grid-column: 1 / -1; }
@@ -2510,6 +2511,7 @@ function dateSlots_(steps, cfg, mode) {
     if (fromCache) setTimeout(revalidate, 300);
     setTimeout(prefetchOther, fromCache ? 2500 : 1200);
     setTimeout(bomListPrefetch, 20000);
+    setTimeout(vendorsLoad, 2500);             // 업체 목록(업체 칸 찾아 고르기)
     bootTail();
     setTimeout(alrStart, 1500);                // 기한 알림(발주 · 샘플) — 업데이트 소식이 떠 있으면 닫은 뒤에
     setTimeout(bellUpdate, 3000);
@@ -4103,6 +4105,7 @@ function dateSlots_(steps, cfg, mode) {
               ? ' <span class="nobom" title="BOM 에는 이 코드가 없고 ' + esc(nr.join(", ")) + ' 로 적혀 있습니다(구분 약호만 다름) — 어느 쪽이 맞는지 확인하고 [BOM 검사] 또는 BOM 보기 [이 차수 구성 정정]에서 코드를 맞추세요">BOM엔 ' + esc(nr[0]) + "</span>"
               : ' <span class="nobom" title="실행판 BOM 탭에 이 품목코드가 없습니다(제품 · 자재 · 반제품 모두). [BOM 보기]에서 등록하세요">BOM 없음</span>';
           })() : "") +
+          (mode === "po" && r.code && !r.cancelled ? poBomBadge(r) : "") +
           // 아래 줄: 왼쪽 품목코드(드래그해서 복사) · 업체, 오른쪽 끝 품의번호
           '<small class="subline"><span class="subl">' +
             (r.code ? '<span class="copyable code" title="드래그해서 복사">' + esc(r.code) + "</span>" : "") +
@@ -8845,6 +8848,45 @@ function dateSlots_(steps, cfg, mode) {
     (DATA.rows || []).forEach(function (r) { var v = String(r[key] == null ? "" : r[key]).trim(); if (v) set[v] = 1; });
     return Object.keys(set).sort();
   }
+  /* ---- 업체 목록 — 업체 칸은 목록에서 찾아 고르기(2026-10-20) · 서버 Vendors.gs ---- */
+  var VENDORS = [], VENDOR_SIM = [];
+  function vendorsLoad() {
+    gsr().withSuccessHandler(function (d) { VENDORS = (d && d.list) || []; VENDOR_SIM = (d && d.similar) || []; fillList("nord-vendors", vendorsAll()); })
+      .withFailureHandler(function () { /* 발주 목록 업체로만 */ }).apiVendors();
+  }
+  function vendorsAll() { var seen = {}, out = []; VENDORS.concat(uniqVals("vendor")).forEach(function (v) { if (!seen[v]) { seen[v] = 1; out.push(v); } }); return out; }
+  function vendorNorm(s) { return String(s || "").replace(/\(주\)|㈜|주식회사|\s/g, "").toUpperCase(); }
+  function vendorLoose(s) { return vendorNorm(s).replace(/앤/g, "엔").replace(/쓰/g, "스").replace(/네/g, "내").replace(/[.,·\-]/g, "").replace(/코리아$/, ""); }
+  // 업체 칸: BOM(자재 추가 · 정정 표 · 신제품) · 품목 정보 · 새 발주 · 발주 수정
+  var VENDOR_SEL = '#bomf-vendor, #bomv input[data-f="vendor"], input[data-iif="vendor"], input[list="nord-vendors"], #nord input[name="vendor"]';
+  document.addEventListener("focusin", function (e) {
+    var el = e.target;
+    if (!el || !el.matches || !el.matches(VENDOR_SEL)) return;
+    if (!el.getAttribute("list")) el.setAttribute("list", "nord-vendors");
+    if (!VENDORS.length) vendorsLoad();
+    el.dataset.vprev = el.value;
+    if (!el.placeholder || /업체|제조사|매입처/.test(el.placeholder)) el.placeholder = "업체 찾기(목록에서 고르기)";
+  }, true);
+  // 바꾼 값이 목록에 없으면: 같은 업체(표기만 다름)면 목록 이름으로 바꾸고, 아니면 새 업체로 추가할지 묻는다(취소 = 원래 값으로)
+  document.addEventListener("change", function (e) {
+    var el = e.target;
+    if (!el || !el.matches || !el.matches(VENDOR_SEL)) return;
+    var v = String(el.value || "").trim(), all = vendorsAll();
+    if (!v || all.indexOf(v) > -1 || !all.length) return;
+    var same = all.filter(function (x) { return vendorNorm(x) === vendorNorm(v); })[0];
+    if (same) { el.value = same; el.dispatchEvent(new Event("input", { bubbles: true })); return; }
+    var lv = vendorLoose(v), near = all.filter(function (x) { var l = vendorLoose(x); return l === lv || (lv.length >= 2 && (l.indexOf(lv) > -1 || lv.indexOf(l) > -1)); }).slice(0, 6);
+    if (confirm("‘" + v + "’ 는 업체 목록에 없습니다." + (near.length ? "\n비슷한 업체: " + near.join(", ") : "") + "\n\n[확인] 새 업체로 목록에 추가 · [취소] 다시 고르기")) {
+      VENDORS.push(v); fillList("nord-vendors", vendorsAll());
+      gsr().withSuccessHandler(function (r) { if (r && r.list) { VENDORS = r.list; fillList("nord-vendors", vendorsAll()); } toast("업체 목록에 추가했습니다: " + v); })
+        .withFailureHandler(function (er) { toast("업체를 목록에 넣지 못했습니다: " + er.message); }).apiVendorAdd(v);
+      return;
+    }
+    e.stopImmediatePropagation();
+    el.value = el.dataset.vprev || "";
+    el.dispatchEvent(new Event("input", { bubbles: true }));          // 입력 때 값을 받아 둔 화면(신제품 줄 등)도 원래 값으로
+    setTimeout(function () { el.focus(); try { el.select(); } catch (e2) { /* 넘어간다 */ } }, 0);
+  }, true);
   function fillList(id, vals) {
     $(id).innerHTML = vals.map(function (v) { return '<option value="' + esc(v) + '">'; }).join("");
   }
@@ -9658,7 +9700,7 @@ function dateSlots_(steps, cfg, mode) {
     if (staleBlocked()) return;
     buildItems();
     loadItemDB();
-    fillList("nord-vendors", uniqVals("vendor"));
+    fillList("nord-vendors", vendorsAll());
     NG = [ngBlank(), ngBlank(), ngBlank(), ngBlank(), ngBlank()];
     $("ng-head").innerHTML = "<th>#</th>" + NG_COLS.map(function (c) {
       return '<th style="min-width:' + c.w + "px;width:" + c.w + 'px">' + esc(c.h) + (c.req ? " *" : "") + (c.auto ? " <small>(비우면 자동)</small>" : "") + "</th>";
@@ -10213,6 +10255,20 @@ function dateSlots_(steps, cfg, mode) {
    * 자재코드 새로 채번: 업체 · 데이터(사양) · 소요량이 바뀔 때만(항상 새 줄 + 기존 줄 종료). 단가 · MOQ 등은 코드 그대로.
    */
   var BV = { code: "", name: "", rows: [], log: [], round: 0, bomMax: 0, order: null, mods: {}, adds: [], edit: null, draft: null, newProduct: null, fix: null, semi: null };
+  /* 저장 중 잠금은 '저장하는 그 품목'만(2026-10-20) — 예전엔 한 품목을 저장하는 몇 초 동안 다른 품목도 차수 추가 · 정정 · 자재 추가가 막혔다.
+     BV.saving = 1(지금 보는 품목) 또는 품목코드 → 그 품목을 잠금 목록에 넣고, = 0 → 먼저 시작한 저장부터 뺀다(서버가 차례로 처리).
+     읽을 때는 '지금 보는 품목이 저장 중인가' */
+  BV._saveQ = [];
+  Object.defineProperty(BV, "saving", {
+    get: function () { return BV._saveQ.indexOf(BV.code) > -1 ? 1 : 0; },
+    set: function (v) { if (v) BV._saveQ.push(typeof v === "string" ? v : BV.code); else BV._saveQ.shift(); }
+  });
+  /** 저장이 끝났을 때 화면을 다시 그려도 되는지 — 사람이 다음 일을 하는 중(검색 · 신제품 입력 · 순서 · 품목 정보 · 새 차수 · 고치는 칸)이면 그리지 않는다 */
+  function bvUserBusy() {
+    var a = document.activeElement;
+    if (a && a.closest && a.closest("#bomv") && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.type !== "checkbox") return true;
+    return !!(BV.fix || BV.edit || bvPendCount() || BV.draft || BV.newProduct || BV.nv || !$("bomv-new").hidden || !$("bomv-items").hidden || !$("bomv-ord").hidden || !$("bomv-res").hidden);
+  }
   var BV_TYPES = ["제품", "용기", "상용기", "하용기", "튜브+캡", "펌프", "캡", "펌프+캡", "파우치", "스포이드", "단상자", "싸바리", "간지", "아웃박스", "인박스",
     "기타라벨", "용기라벨", "봉합라벨", "수출라벨", "유저가이드", "충전케이블", "리드", "스파츌러", "집게", "OPP", "실링지", "디바이스", "기타"];      // 원재료는 더 등록하지 않는다(2026-10-20) — 이미 있는 줄은 그대로 보인다
   var BV_TYPE_OFF = { "원재료": 1 };
@@ -10420,6 +10476,51 @@ function dateSlots_(steps, cfg, mode) {
       cb({ odd: odd, vendor: q.vendor, price: pc.price, cur: pc.cur, curLabel: pc.label || "", fx: pc.fx, round: bvSegLabel(bvSegOf(max, pts), pts), how: q.how,
         sagup: act.filter(function (v) { return q.sep[v.row]; }).map(function (v) { return (v.type || "") + " " + v.code + (v.vendor ? " (" + v.vendor + ")" : ""); }) });
     }).withFailureHandler(function () { cb(null); }).apiBomGet(code);
+  }
+  /**
+   * 발주 건 단가 ≠ BOM 단가(목록 품목 칸 표시). 자재 = 지금 쓰는 BOM 줄 단가 · 완제품 = 그 발주 차수 BOM 발주 단가(제조사 줄 통화).
+   * 세트는 빼고(구성 완제품을 따로 발주). 모든 품목 BOM 줄(BV_ALL)을 받은 뒤부터 보인다.
+   */
+  var PO_BOMP = {}, PO_BOMP_SRC = null;
+  function poBomPrice(r) {
+    if (!BV_ALL) return null;
+    if (PO_BOMP_SRC !== BV_ALL) { PO_BOMP = {}; PO_BOMP_SRC = BV_ALL; }
+    var code = String(r.code || "").toUpperCase(), round = bvR(r.batch) || 0, key = code + "|" + round;
+    if (key in PO_BOMP) return PO_BOMP[key];
+    var out = null;
+    try {
+      if (/^[A-Z]P\d{4}/.test(code)) {
+        var best = null;
+        Object.keys(BV_ALL).forEach(function (pc) { (BV_ALL[pc] || []).forEach(function (v) {
+          if (String(v.code || "").toUpperCase() !== code || String(v.end || "").trim() || v.unit === "" || v.unit == null) return;
+          var s0 = bvR(v.start) || 0; if (!best || s0 >= best.s) best = { s: s0, v: v, p: pc };
+        }); });
+        if (best) out = { price: bvNum(best.v.unit), cur: BV_CUR_CODE[bvCur(best.v)] || "KRW", where: best.p + " BOM " + (best.v.start || "") + "~ 자재 줄" };
+      } else if (BV_ALL[code]) {
+        var rows = BV_ALL[code].map(function (x) { return Object.assign({}, x); });
+        if (rows.length && !rows.some(function (v) { return v.type === "세트"; })) {
+          var max = bvPlan(rows); bvGroupsOf(rows, code);
+          var at = round && round <= max ? round : max;
+          var act = rows.filter(function (v) { return v._s <= at && at <= v._e; });
+          var q = act.length ? bvPriceOf(act, code, "", function (v) { return bvNum(v.cost); }, at, {}) : null;
+          if (q) { var pc = bvPriceCur(q); out = { price: pc.price, cur: pc.cur, where: code + " BOM " + at + "차 발주 단가(제조사 단가 + 턴키 자재)" }; }
+        }
+      }
+    } catch (e) { out = null; }
+    PO_BOMP[key] = out;
+    return out;
+  }
+  function poBomBadge(r) {
+    if (r.price === "" || r.price == null || isNaN(Number(r.price))) return "";
+    var b = poBomPrice(r);
+    if (!b || !(b.price > 0)) return "";
+    var cur = curOf(r);
+    if (cur !== b.cur) return "";
+    var op = Number(r.price), bp = Number(b.price);
+    var diff = cur === "KRW" ? Math.round(op) !== Math.round(bp) : Math.abs(op - bp) > Math.max(0.01, bp * 0.01);
+    if (!diff) return "";
+    var f = function (n) { return Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 4 }) + (cur === "KRW" ? "원" : " " + cur); };
+    return ' <span class="nobom bomp" title="발주 단가 ' + esc(f(op)) + ' · BOM 단가 ' + esc(f(bp)) + " (" + esc(b.where) + ') — 다릅니다. BOM 보기에서 확인하세요">BOM 단가 다름 ' + esc(f(bp)) + "</span>";
   }
   function bomQuoteText(code, q) {
     if (!q) return code + ": BOM 없음 — 매입처 · 단가는 지난 발주 값입니다. 확인해 주세요.";
@@ -10925,7 +11026,7 @@ function dateSlots_(steps, cfg, mode) {
     if (document.hidden || saveQueue > 0) return;
     if (!(typeof BL !== "undefined" && BL.list)) gsr().withSuccessHandler(function (l) { if (!BL.list) BL.list = l || []; }).withFailureHandler(function () { /* 조용히 */ }).apiBomList();
     // 모든 품목 BOM 줄도 한 번에 받아 둔다 — 처음 여는 품목도 서버를 기다리지 않고 바로(최신 값은 열 때 뒤에서 확인)
-    if (!BV_ALL) gsr().withSuccessHandler(function (m) { BV_ALL = m || {}; }).withFailureHandler(function () { /* 조용히 */ }).apiBomAllRows();
+    if (!BV_ALL) gsr().withSuccessHandler(function (m) { BV_ALL = m || {}; if (mode === "po" && !busyEditing() && saveQueue === 0) { try { renderBoard(); } catch (eR) { /* 다음 그리기 때 */ } } }).withFailureHandler(function () { /* 조용히 */ }).apiBomAllRows();      // 받으면 목록에 'BOM 단가 다름' 표시
   }
   function bomSet(d) {
     bvGetPut(d);
@@ -12110,7 +12211,7 @@ function dateSlots_(steps, cfg, mode) {
       local.rows.forEach(function (v) { if (String(v.code || "").toUpperCase() === rc.from) v.code = rc.to; if (String(v.costKey || "").toUpperCase() === rc.from) v.costKey = rc.to; });
       local.code = rc.to; delete BV_GETC[rc.from];
     }
-    BV.saving = 1; busy(true);          // 그리기 전에 — 저장하는 동안 표 칸은 잠긴다
+    BV.saving = local.code || BV.code; busy(true);          // 그리기 전에 — 저장하는 동안 그 품목 표 칸은 잠긴다(품목코드를 바꾸면 새 코드로)
     bomSet(local); BV.round = keepRound; bomShow();
     $("bomv-msg").textContent = "정정을 화면에 반영했습니다 — 시트에 저장하는 중…(다른 품목을 봐도 됩니다)";
     var reload = function (em) {
@@ -12138,7 +12239,7 @@ function dateSlots_(steps, cfg, mode) {
       if (typeof II !== "undefined" && II) { II.at = 0; II.refAt = 0; }
       var cur = rc ? rc.to : code;
       if (!d || !d.rows) { delete BV_GETC[cur]; if (BV.code === cur) { BV.msgNext = msg; bomLoad(cur); } else toast(cur + " " + msg); return; }
-      if (BV.code === cur && !BV.fix && !BV.edit && !bvPendCount()) { bomSet(d); BV.round = keepRound; bomShow(); $("bomv-msg").textContent = msg; }
+      if (BV.code === cur && !bvUserBusy()) { bomSet(d); BV.round = keepRound; bomShow(); $("bomv-msg").textContent = msg; }
       else { bvGetPut(d); toast(cur + " " + msg); if (BV.code === cur) bvShowKeep(); }      // 잠갔던 표 칸을 다시 연다
     };
     var errOf = function (e) { return String((e && e.message) || e || "").replace(/^Error:\s*/, ""); };
@@ -12567,7 +12668,7 @@ function dateSlots_(steps, cfg, mode) {
       BV.ckPend = {};
       bvCkFlush(code0, why0, function (d, n) {
         BV.saving = 0; busy(false);
-        if (d && d.rows && BV.code === code0) { bomSet(d); BV.round = ob; bomShow(); $("bomv-msg").textContent = "원가 체크 " + n + "줄 저장했습니다(BOM변경이력에 남음)."; }
+        if (d && d.rows && BV.code === code0 && !bvUserBusy()) { bomSet(d); BV.round = ob; bomShow(); $("bomv-msg").textContent = "원가 체크 " + n + "줄 저장했습니다(BOM변경이력에 남음)."; }
         else if (d && d.rows) { bvGetPut(d); toast(code0 + " 원가 체크 " + n + "줄 저장했습니다"); }
         else if (!d && BV.code === code0) { BV.msgNext = $("bomv-msg").textContent; bomLoad(code0); }
         else if (!d) toast(code0 + " " + $("bomv-msg").textContent);
@@ -12579,24 +12680,24 @@ function dateSlots_(steps, cfg, mode) {
     // 화면에 바로 반영(신제품 · 품목코드가 바뀌는 저장 · 최종 차수 이어 쓰기는 서버 응답으로)
     var code = BV.code, local = (!BV.newProduct && !Object.keys(BV.mods).some(function (k) { var m = BV.mods[k]; return m.predict && m.predict.indexOf("품목코드") > -1; })) ? bvSaveLocalData(ob, send) : null;
     var b = $("bomv-save"); if (b) b.disabled = true;
-    BV.saving = 1; busy(true);          // 그리기 전에 — 저장하는 동안 표 칸은 잠긴다(임시 줄에 고친 값이 응답에 덮여 사라졌다)
+    BV.saving = code; busy(true);          // 그리기 전에 — 저장하는 동안 그 품목 표 칸은 잠긴다(임시 줄에 고친 값이 응답에 덮여 사라졌다)
     if (local) { bomSet(local); BV.round = ob; bomShow(); $("bomv-msg").textContent = ob + "차 BOM 변경을 화면에 반영했습니다 — 시트에 저장하는 중…(다른 품목을 봐도 됩니다)"; }
     else { $("bomv-msg").textContent = "실행판 BOM 탭에 저장하는 중…"; bvShowKeep(); }
     gsr().withSuccessHandler(function (d) {
       BV.saving = 0; busy(false);
       var msg = ob + "차 BOM " + (d.saved || 0) + "건을 실행판 BOM 탭에 저장했습니다" + (d.made && d.made.length ? " · 새 코드 " + d.made.join(", ") : "") + bvExtraMsg(d);
       if (ckL.length && d.code === code) {              // 원가 체크만 바꾼 줄(내용은 그대로) — 같은 사유로
-        BV.saving = 1; busy(true);
+        BV.saving = code; busy(true);
         bvCkFlush(code, why0, function (d2, n2) {
           BV.saving = 0; busy(false);
           var dd = d2 && d2.rows ? d2 : d, m2 = d2 ? msg + (n2 ? " · 원가 체크 " + n2 + "줄" : "") : msg + " — 그런데 " + $("bomv-msg").textContent;
-          if (BV.code === code && !BV.fix && !BV.edit && !bvPendCount()) { bomSet(dd); BV.round = ob; bomShow(); $("bomv-msg").textContent = m2; } else { bvGetPut(dd); toast(code + " " + m2); }
+          if (BV.code === code && !bvUserBusy()) { bomSet(dd); BV.round = ob; bomShow(); $("bomv-msg").textContent = m2; } else { bvGetPut(dd); toast(code + " " + m2); }
           bvAfterSave(dd.code, null);
         }, bvCkRemap(ckL, d.rows));
         return;
       }
-      if (!local || (BV.code === code && !BV.fix && !BV.edit && !bvPendCount())) { bomSet(d); BV.round = ob; bomShow(); $("bomv-msg").textContent = msg; }
-      else { bvGetPut(d); toast(code + " " + msg); if (BV.code === code) bvShowKeep(); }      // 잠갔던 표 칸을 다시 연다
+      if ((!local && !bvUserBusy()) || (BV.code === code && !bvUserBusy())) { bomSet(d); BV.round = ob; bomShow(); $("bomv-msg").textContent = msg; }
+      else { bvGetPut(d); toast(code + " " + msg); if (BV.code === code) { bvShowKeep(); $("bomv-msg").textContent = msg; } }      // 잠갔던 표 칸을 다시 연다
       bvAfterSave(d.code, null);
     }).withFailureHandler(function (e) {
       BV.saving = 0; busy(false);
@@ -13398,7 +13499,7 @@ function dateSlots_(steps, cfg, mode) {
     if (!row) return;
     if (!row.statusRow) { toast("시트 저장이 끝난 뒤에 고칠 수 있습니다"); return; }
     BAS_ROW = row;
-    fillList("nord-vendors", uniqVals("vendor"));
+    fillList("nord-vendors", vendorsAll());
     var f = $("bas-form").elements;
     ["cat", "brand", "channel", "owner", "team"].forEach(function (k) { f[k].innerHTML = choiceOpts(k, basVal(row, k), k === "channel" ? basVal(row, "brand") : ""); });
     BAS_KEYS.forEach(function (k) { f[k].value = (k === "qty" || k === "price" || k === "pre" || k === "bal") ? commaNum(basVal(row, k)) : basVal(row, k); });

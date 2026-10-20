@@ -51,12 +51,12 @@ function itemDbRestore_(code) {
 }
 
 /** 품목 DB 단가 = 지금 쓰는 BOM 줄(종료 없음 · 가장 늦은 초도)의 단가 × 환율. 자재 코드(?P0000XX0)만. codes = null 이면 전부. 반환: 바꾼 수 */
-function itemDbPriceSync_(codes) {
+function itemDbPriceSync_(codes, v0) {
   var want = null;
   if (codes) { want = {}; codes.forEach(function (c) { c = itemCodeKey_(c); if (/^[A-Z]P\d{4}[A-Z]{2}\d+$/.test(c)) want[c] = 1; }); if (!Object.keys(want).length) return 0; }
   var bs = bomSheet_(), B = bomCols_(bs), lr = bs.getLastRow();
   if (lr < 3) return 0;
-  var v = bs.getRange(3, 1, lr - 2, B.lc).getValues(), cur = {};
+  var v = v0 ? v0.filter(Boolean) : bs.getRange(3, 1, lr - 2, B.lc).getValues(), cur = {};      // v0 = 그 품목 줄(저장 직후 — BOM 탭 전체를 다시 읽지 않게)
   v.forEach(function (r) {
     var c = itemCodeKey_(r[B.code]);
     if (!/^[A-Z]P\d{4}[A-Z]{2}\d+$/.test(c) || (want && !want[c]) || str_(r[B.end]) || str_(r[B.unit]) === '') return;

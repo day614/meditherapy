@@ -1588,7 +1588,8 @@ function apiBomSaveCore_(product, round, changes, meta) {
       throw new Error('BOM 시트에 쓰다가 멈췄습니다 — 일부만 저장됐을 수 있습니다' + (wroteN ? '(먼저 쓴 ' + wroteN + '건은 BOM변경이력에 남김 · 되돌리기 가능)' : '') + '. 변경 이력에서 확인해 주세요: ' + eW.message);
     }
     SpreadsheetApp.flush();
-    bomRegisterMany_(reg, RC, regList, '신규코드 발급 · BOM 저장');
+    var prodRows = regList.length && !extra.length ? bomReadProduct_(sh, C, product) : null;      // 국가별 코드를 같이 만들면 그 줄도 있어야 해 예전처럼 전체            // 새 코드는 모두 이 품목 줄 — 그 줄만 읽어 등록(예전: BOM 탭 전체)
+    bomRegisterMany_(reg, RC, regList, '신규코드 발급 · BOM 저장', prodRows);
     mk('채번등록');
     if (isNew) {
       try { bomRegFromRows_([product].concat(extra), '실행판 신제품 BOM ' + product); } catch (e0) { /* 아래 */ }      // 제품 줄 업체(제조사)까지
@@ -1610,7 +1611,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
   mk('이력');
   var unitCodes = changes.filter(function (c) { return c.kind !== 'add' && !c.remove && (c.unit != null || c.fx != null || c.cur != null); }).map(function (c) { return c.code; })
     .concat(made);                                       // 새 번호(업체 · 사양 변경 · 자재 추가)는 그 코드로
-  if (unitCodes.length) { try { itemDbPriceSync_(unitCodes); } catch (ePs) { /* 넘어간다 */ } }
+  if (unitCodes.length) { try { itemDbPriceSync_(unitCodes, bomReadProduct_(sh, C, product)); } catch (ePs) { /* 넘어간다 */ } }
   mk('품목단가');
   var fresh = apiBomGet(product);
   mk('다시읽기');
@@ -2003,7 +2004,7 @@ function apiBomFixManyCore_(product, items, why, dry) {
   }
   var pcodes = plan.filter(function (q) { return q.set.unit !== undefined || q.set.fx !== undefined || q.set.cur !== undefined || q.set.code !== undefined; })
     .map(function (q) { return q.set.code !== undefined ? str_(q.set.code) : q.code; });
-  if (pcodes.length) { try { itemDbPriceSync_(pcodes); } catch (ePs) { /* 넘어간다 */ } }
+  if (pcodes.length) { try { itemDbPriceSync_(pcodes, all); } catch (ePs) { /* 넘어간다 */ } }
   bomAfterSave_(Object.keys(touched), delShift);             // 줄을 지웠으면 아래 줄 번호가 밀려 캐시를 통째로
   try { appendHist_([{ kind: 'BOM', code: product, item: product + ' BOM 정정 ' + plan.length + '줄', before: '', after: plan.map(function (q) { return q.code; }).join(', '), reason: why }], 'p'); } catch (e) { /* 넘어간다 */ }
   var res = apiBomGet(product);
@@ -2134,7 +2135,16 @@ function bomLogWrite_(ss, rows) {
 function bomLogOf_(product) {
   var ss = bomSS_(), sh = ss.getSheetByName(RB_BOM_LOG);
   if (!sh || sh.getLastRow() < 2) return [];
-  var v = sh.getRange(2, 1, sh.getLastRow() - 1, RB_BOM_LOG_HEAD.length).getValues();
+  // 제품코드 칸만 먼저 읽고, 그 품목 줄만(되돌리기 JSON 칸은 빼고 15칸) — 예전엔 이력 탭 전체(되돌리기 JSON 포함)를 읽어 BOM 열기 · 저장 뒤 다시 읽기가 느렸다
+  var n = sh.getLastRow() - 1, pc = sh.getRange(2, 3, n, 1).getValues(), idx = [];
+  pc.forEach(function (r, i) { if (str_(r[0]).toUpperCase() === product) idx.push(i); });
+  idx = idx.slice(-50);
+  var v = [];
+  for (var a = 0; a < idx.length;) {
+    var b = a; while (b + 1 < idx.length && idx[b + 1] === idx[b] + 1) b++;
+    sh.getRange(idx[a] + 2, 1, b - a + 1, 15).getValues().forEach(function (r) { v.push(r); });
+    a = b + 1;
+  }
   var out = [];
   v.forEach(function (r) {
     if (str_(r[2]).toUpperCase() !== product) return;
@@ -2411,11 +2421,11 @@ function bomWriteRow_(sh, row, vals) {
   }
 }
 /** 새로 받은 코드를 품목 DB 에 — BOM 줄의 품목명 · 브랜드 · 업체 · 사양 그대로(예전엔 이름 · 브랜드만 들어가 업체 · 사양이 빈 채로 등록됐다). 줄에서 못 찾은 코드만 예전처럼 */
-function bomRegisterMany_(reg, RC, list, src) {
+function bomRegisterMany_(reg, RC, list, src, v0) {
   var codes = (list || []).map(function (o) { return str_(o && o.code).toUpperCase(); }).filter(String);
   if (!codes.length) return;
   var done = {};
-  try { bomRegFromRows_(codes, src).forEach(function (c) { done[c] = 1; }); } catch (e) { /* 아래에서 이름만이라도 */ }
+  try { bomRegFromRows_(codes, src, v0).forEach(function (c) { done[c] = 1; }); } catch (e) { /* 아래에서 이름만이라도 */ }      // v0 = 그 품목 줄(BOM 탭 전체를 다시 읽지 않게)
   (list || []).forEach(function (o) { if (!done[str_(o && o.code).toUpperCase()]) bomRegister_(reg, RC, o); });
 }
 function bomRegister_(reg, RC, o) {
