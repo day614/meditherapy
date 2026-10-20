@@ -593,6 +593,17 @@ function opPut_(key, val) {
  * 입고 줄을 하나 더하고, 입고 수량만큼 예정 줄에서 뺀다 — 고른 줄(reduce[0].lineId)부터, 모자라면 다음으로 빠른 예정에서(0 이 되면 그 예정 줄은 지운다).
  * noReduce = '예정과 상관없는 추가 입고'를 직접 고른 때만 예정을 그대로 둔다.
  */
+/**
+ * 화면: [빠른 입고] 여러 줄을 한 번에(2026-10-20) — 예전엔 줄마다 서버를 따로 불러(한 번 3~5초) 5줄이면 20초 넘게 걸렸다.
+ * list = [{ statusRow, expect, inb }] → [{ ok, res } | { err }] (줄마다 apiAddInbound 와 같은 검사 · 같은 요청 번호면 다시 넣지 않음)
+ */
+function apiAddInboundMany(list) {
+  requireEditor_();
+  return (list || []).slice(0, 30).map(function (x) {
+    try { return { ok: true, res: apiAddInbound(x.statusRow, x.expect, x.inb) }; }
+    catch (e) { return { err: String((e && e.message) || e).replace(/^Error:\s*/, '') }; }
+  });
+}
 function apiAddInbound(statusRow, expect, inb) {
   requireEditor_();
   var id = str_((expect || {}).id);

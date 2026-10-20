@@ -2509,11 +2509,11 @@ function dateSlots_(steps, cfg, mode) {
     // 예전에는 캐시가 3분 넘었을 때만 읽어서, 시트를 고쳐도 한참 옛 값이 보였다.
     var fromCache = !!(d.timing && d.timing.cached);
     if (fromCache) setTimeout(revalidate, 300);
-    setTimeout(prefetchOther, fromCache ? 2500 : 1200);
+    setTimeout(prefetchOther, 300);            // 다른 탭(발주 ↔ 샘플) 데이터는 바로 — 알림 · 탭 넘기기가 기다리지 않게(예전 1.2~2.5초 뒤)
     setTimeout(bomListPrefetch, 20000);
     setTimeout(vendorsLoad, 2500);             // 업체 목록(업체 칸 찾아 고르기)
     bootTail();
-    setTimeout(alrStart, 1500);                // 기한 알림(발주 · 샘플) — 업데이트 소식이 떠 있으면 닫은 뒤에
+    setTimeout(alrStart, 300);                 // 기한 알림(발주 · 샘플) — 받아진 쪽부터 · 업데이트 소식이 떠 있으면 닫은 뒤에
     setTimeout(bellUpdate, 3000);
   }
 
@@ -8786,16 +8786,17 @@ function dateSlots_(steps, cfg, mode) {
     if (ALR.started) return;
     ALR.started = true;
     try { if (localStorage.getItem("rb_alr_day") === alrToday()) return; } catch (e) { /* 넘어간다 */ }
-    var waitN = 0;
-    (function wait() {      // 발주 · 샘플 둘 다 받아질 때까지(최대 2분 — 못 받았으면 5초마다 다시 받아 본다)
-      if ((!MODEDATA.po || !MODEDATA.sample) && waitN++ < 120) {
+    // 받아진 쪽부터 바로 띄운다(2026-10-20) — 예전엔 발주 · 샘플 둘 다 받을 때까지 기다려(샘플은 따로 받아 4~8초) 알림이 늦게 떴다.
+    // 앞 알림이 떠 있으면 줄 서 있다가 닫으면 다음(alrNext). 못 받았으면 5초마다 다시 받아 본다(최대 2분)
+    var waitN = 0, poDone = false, spDone = false;
+    ALR.queue = [];
+    (function wait() {
+      if (!poDone && MODEDATA.po) { poDone = true; if (alrPoItems().some(function (x) { return !x.late; })) { ALR.queue.push(function () { alrOpen("po", false); }); alrNext(); } }
+      if (!spDone && MODEDATA.sample) { spDone = true; if (alrSampleItems().some(function (x) { return !x.late; })) { ALR.queue.push(function () { alrOpen("sample", false); }); alrNext(); } }
+      if ((!poDone || !spDone) && waitN++ < 120) {
         if (waitN % 5 === 0) { try { prefetchOther(); } catch (eP) { /* 다음에 다시 */ } }
-        setTimeout(wait, 1000); return;
+        setTimeout(wait, 500); return;
       }
-      ALR.queue = [];
-      if (alrPoItems().some(function (x) { return !x.late; })) ALR.queue.push(function () { alrOpen("po", false); });
-      if (alrSampleItems().some(function (x) { return !x.late; })) ALR.queue.push(function () { alrOpen("sample", false); });
-      alrNext();
     })();
   }
   /** 종 단추 숫자 = 발주(지연 + 1주 안) + 샘플(지남 + 1주 안) */
@@ -10223,24 +10224,40 @@ function dateSlots_(steps, cfg, mode) {
         else if (!fails.length) $("nin-msg").textContent = done + "건 저장 — 쓰고 있던 줄은 그대로 있습니다. 다 쓰면 [저장].";
         return;
       }
-      var j = jobs.shift(), row = rowById(j.o.id);
-      if (!row) { j.o.res = "실패: 목록에서 건을 찾지 못했습니다(다시 열어 주세요)"; fails.push(j); ninSetRow(j.r); next(); return; }
+      // 여러 줄을 한 번에 보낸다(10줄씩) — 예전엔 줄마다 서버를 따로 불러 줄 수만큼 기다렸다
+      var batch = [], send = [];
+      while (jobs.length && batch.length < 10) {
+        var j0 = jobs.shift(), row0 = rowById(j0.o.id);
+        if (!row0) { j0.o.res = "실패: 목록에서 건을 찾지 못했습니다(다시 열어 주세요)"; fails.push(j0); ninSetRow(j0.r); continue; }
+        batch.push({ j: j0, row: row0 });
+        send.push({ statusRow: row0.statusRow, expect: statusRef(row0), inb: { op: j0.o.op || (j0.o.op = opId()), date: j0.o.date, qty: j0.qty, payYm: j0.o.payYm, unit: lnPayUnit(row0), memo: j0.o.memo || "", ch: j0.o.ch || "",
+          reduce: j0.o.lineId ? [{ lineId: j0.o.lineId, amt: j0.red }] : [], noReduce: !j0.o.lineId && !!(j0.o.pend && j0.o.pend.length) } });
+      }
+      if (!batch.length) { next(); return; }
+      var undo = function (b, msg) {
+        var row = b.row, j = b.j;
+        row.inQty = Math.max(0, (Number(row.inQty) || 0) - j.qty); row.remain = Math.max(0, (Number(row.qty) || 0) - row.inQty);
+        j.o.res = "실패: " + msg; fails.push(j); ninSetRow(j.r);
+      };
       busy(true); touched();
       gsr()
-        .withSuccessHandler(function (res) {
-          busy(false); done++;
-          if (row) lnApplyResult(row, res);
-          j.o.res = "저장됨"; ninSetRow(j.r); renderBoard();
+        .withSuccessHandler(function (list) {
+          busy(false);
+          batch.forEach(function (b, k) {
+            var x = (list || [])[k];
+            if (x && x.ok) { done++; lnApplyResult(b.row, x.res); b.j.o.res = "저장됨"; ninSetRow(b.j.r); }
+            else undo(b, (x && x.err) || "응답 없음");
+          });
+          renderBoard();
           next();
         })
         .withFailureHandler(function (err) {
           busy(false);
-          if (row) { row.inQty = Math.max(0, (Number(row.inQty) || 0) - j.qty); row.remain = Math.max(0, (Number(row.qty) || 0) - row.inQty); }
-          j.o.res = "실패: " + err.message; fails.push(j); ninSetRow(j.r); renderBoard();
+          batch.forEach(function (b) { undo(b, err.message); });
+          renderBoard();
           next();
         })
-        .apiAddInbound(row.statusRow, statusRef(row), { op: j.o.op || (j.o.op = opId()), date: j.o.date, qty: j.qty, payYm: j.o.payYm, unit: lnPayUnit(row), memo: j.o.memo || "", ch: j.o.ch || "",
-          reduce: j.o.lineId ? [{ lineId: j.o.lineId, amt: j.red }] : [], noReduce: !j.o.lineId && !!(j.o.pend && j.o.pend.length) });
+        .apiAddInboundMany(send);
     };
     next();
   }

@@ -1,7 +1,7 @@
 // 화면 시험 서버: 실제 PageHtml.html + 실제 서버 코드(gas-mock) — node server.js <시트 JSON> [port]
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path');
-const { makeContext } = require('./gas-mock');
+const { makeContext, READS } = require('./gas-mock');
 const SRC = path.join(__dirname, '..', '..', 'src');
 const code = fs.readFileSync(path.join(SRC, 'Code.gs'), 'utf8');
 const ctx = makeContext({ data: process.argv[2], src: SRC, ssId: code.match(/SS_ID: '([^']+)'/)[1], bomId: code.match(/BOM_SS_ID: '([^']+)'/)[1], user: process.env.RB_USER });
@@ -16,14 +16,16 @@ const log = [];
 http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/rpc') {
     let b = ''; req.on('data', d => (b += d)); req.on('end', () => {
-      const { n, a } = JSON.parse(b), t0 = Date.now(); let out;
+      const { n, a } = JSON.parse(b), t0 = Date.now(), c0 = READS.cells, by0 = Object.assign({}, READS.by); let out;
       try {
         if (typeof ctx[n] !== 'function' || /_$/.test(n)) throw new Error('Script function not found: ' + n);
         out = { res: JSON.parse(JSON.stringify(ctx[n].apply(null, a) ?? null)) };
       } catch (e) { out = { err: String(e && e.message || e) }; }
-      log.push({ n, ms: Date.now() - t0, err: out.err || '' });
+      const by = {}; Object.keys(READS.by).forEach(k => { const d = READS.by[k] - (by0[k] || 0); if (d) by[k] = d; });
+      log.push({ n, ms: Date.now() - t0, err: out.err || '', cells: READS.cells - c0, by });
       // 저장 계열 응답을 늦춰 '저장 중에 다음 작업' 을 재현한다(RPC_DELAY=ms)
-      const slow = Number(process.env.RPC_DELAY || 0) && /Save|Fix|Undo|Set|Reorder|Delete|Register|Commit|Write|Bulk|Add|Update/.test(n) ? Number(process.env.RPC_DELAY) : 0;
+      // RPC_LAT=ms: 모든 호출에 더하는 기본 지연(Apps Script 호출 한 번 ≈ 3초 — 실제 속도 기록 apiVer 중간값)
+      const slow = Number(process.env.RPC_LAT || 0) + (Number(process.env.RPC_DELAY || 0) && /Save|Fix|Undo|Set|Reorder|Delete|Register|Commit|Write|Bulk|Add|Update/.test(n) ? Number(process.env.RPC_DELAY) : 0);
       setTimeout(() => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(out)); }, slow);
     });
     return;
