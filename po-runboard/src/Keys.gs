@@ -1239,7 +1239,9 @@ function apiPoSubmit(no, approvalNo, day) {
  * 화면: 품의 취소 — 잘못 넣은 품의번호 · 상신(승인)을 되돌린다. items = [{ id, statusRow, expect }]
  * 품의번호 · 결재문서번호 지움 · 진행상태 상신/승인 → 계획 · 상신일 · 승인일 · 그 체크 지움 · 자동 상신 대기열에서 뺌.
  */
-function apiPoCancel(items, why) {
+function apiPoCancel(items, why) { return poCancel_(items, why, null); }
+/** 품의 취소 본체 — withOrdered: '발주'(업체에 낸 · 입고 전) 건도 계획으로(BOM 에서 품목코드를 새로 바꿔 기안을 다시 써야 할 때 · bomOrderFollow_) */
+function poCancel_(items, why, withOrdered) {
   requireEditor_();
   why = str_(why);
   if (!why) throw new Error('취소 사유를 적어 주세요.');
@@ -1260,11 +1262,11 @@ function apiPoCancel(items, why) {
       try { row = findStatusRow_(ix, sh, C, Number(x.statusRow), x.expect); } catch (e) { out.skipped.push(name + ' — 행을 찾지 못함'); out.skippedIds.push(xid); return; }
       // 계획 · 상신 · 승인만 — 발주 · 입고 · 종결 · 취소 건은 품의를 지우지 않는다(지급 · 입고가 걸린 건)
       var st0 = kc.state >= 0 ? str_(sh.getRange(row, kc.state + 1).getValue()) : '';
-      if (['', '계획', '상신', '승인'].indexOf(st0) < 0) { out.skipped.push(name + ' — 진행상태 ' + st0 + '(계획 · 상신 · 승인만 취소)'); out.skippedIds.push(xid); return; }
+      if (['', '계획', '상신', '승인'].concat(withOrdered ? ['발주'] : []).indexOf(st0) < 0) { out.skipped.push(name + ' — 진행상태 ' + st0 + '(계획 · 상신 · 승인만 취소)'); out.skippedIds.push(xid); return; }
       var doc = cDoc >= 0 ? str_(sh.getRange(row, cDoc + 1).getValue()) : '';
       if (doc) { sh.getRange(row, cDoc + 1).setValue(''); audits.push({ tab: RB.STATUS_TAB, row: row, col: cDoc + 1, what: '품의번호(품의 취소)', before: doc, after: '', item: name + ' — ' + why }); }
       if (cAp >= 0) { var ap = str_(sh.getRange(row, cAp + 1).getValue()); if (ap) { sh.getRange(row, cAp + 1).setValue(''); audits.push({ tab: RB.STATUS_TAB, row: row, col: cAp + 1, what: '결재문서번호(품의 취소)', before: ap, after: '', item: name }); } }
-      if (kc.state >= 0) { var st = st0; if (st === '상신' || st === '승인') { sh.getRange(row, kc.state + 1).setValue('계획'); audits.push({ tab: RB.STATUS_TAB, row: row, col: kc.state + 1, what: '진행상태(품의 취소)', before: st, after: '계획', item: name }); } }
+      if (kc.state >= 0) { var st = st0; if (st === '상신' || st === '승인' || (withOrdered && st === '발주')) { sh.getRange(row, kc.state + 1).setValue('계획'); audits.push({ tab: RB.STATUS_TAB, row: row, col: kc.state + 1, what: '진행상태(품의 취소)', before: st, after: '계획', item: name }); } }
       var id = str_((x.expect || {}).id || x.id);
       if (id) ids.push({ id: id, meta: { doc: '', name: name, batch: str_((x.expect || {}).batch), code: str_((x.expect || {}).code) }, doc: doc });
       out.n++;

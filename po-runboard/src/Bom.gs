@@ -1255,9 +1255,18 @@ function apiBomSave(product, round, changes, meta) {
 function bomOrderFollow_(meta, code) {
   var f = meta && meta.follow;
   if (!f || !(Number(f.statusRow) >= 2) || !code) return null;
-  var patch = { code: code, batch: str_(f.batch) || '1차' };
-  try { editOrder_(Number(f.statusRow), f.expect || {}, patch, null); return { ok: true, code: code, batch: patch.batch }; }
+  var patch = { code: code, batch: str_(f.batch) || '1차' }, ex = f.expect || {}, out;
+  try { editOrder_(Number(f.statusRow), ex, patch, null); out = { ok: true, code: code, batch: patch.batch }; }
   catch (e) { return { err: str_(e && e.message || e) }; }
+  // 품목코드가 바뀌면 그 발주의 기안(품의번호 · 결재문서번호 · 상신 · 승인)은 옛 코드 기준 — 원복해서 기안을 다시 쓰게 한다(입고 전 '발주' 건까지)
+  if (f.redraft && str_(ex.code).toUpperCase() !== code) {
+    try {
+      var rc = poCancel_([{ id: str_(ex.id), statusRow: Number(f.statusRow), expect: { id: str_(ex.id), doc: str_(ex.doc), code: code, batch: patch.batch, name: str_(ex.name) } }],
+        '품목코드 ' + str_(ex.code) + ' → ' + code + ' (BOM 사양 · 업체 변경) — 기안 다시', true);
+      out.redraft = { n: rc.n || 0, skipped: rc.skipped || [] };
+    } catch (eR) { out.redraft = { err: str_(eR && eR.message || eR) }; }
+  }
+  return out;
 }
 /**
  * BOM 탭 맨 아래에 줄을 덧붙여도 되는지 — 탭 안 수식이 줄 범위를 못 박아(예: $D$3:$D$1950) 가리키면

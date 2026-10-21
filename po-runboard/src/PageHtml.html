@@ -10160,7 +10160,9 @@ function dateSlots_(steps, cfg, mode) {
       bomQuote(want, function (q) {
         if (!NG[r] || NG[r].code !== want) return;            // 그새 다른 품목으로 바꿨으면 그대로
         if (q) { if (q.vendor) NG[r].vendor = q.vendor; NG[r].price = String(q.price); if (q.cur) NG[r].cur = q.cur; NG[r]._sagup = q.sagup; ngSetRow(r); ngMoneyCell(r); }
-        $("ng-msg").textContent = (r + 1) + "번 줄 " + bomQuoteText(want, q);
+        var br9 = bvR(NG[r].batch) || 0;
+        $("ng-msg").textContent = (r + 1) + "번 줄 " + bomQuoteText(want, q) +
+          (q && q.max && br9 && q.max > br9 ? " ⚠ BOM 은 " + q.max + "차까지 미리 만들어져 있는데 이 줄 차수는 " + NG[r].batch + " 입니다 — BOM 차수 = 발주 차수, 맞는지 확인해 주세요(단가는 BOM " + q.max + "차 기준)." : "");
       });
     }
     var q = document.querySelector('#ng-rows [data-r="' + r + '"][data-k="qty"]');
@@ -10789,7 +10791,7 @@ function dateSlots_(steps, cfg, mode) {
         return v.type === "제품" && String(v.code || "").toUpperCase() !== String(d.code).toUpperCase() && act.some(function (q) { return q.row > v.row && q.row <= v.row + 3 && q.type !== "제품"; });
       }).map(function (v) { return v.code + " " + v.row + "행~"; });
       var pc = bvPriceCur(q);
-      cb({ odd: odd, vendor: q.vendor, price: pc.price, cur: pc.cur, curLabel: pc.label || "", fx: pc.fx, round: bvSegLabel(bvSegOf(max, pts), pts), how: q.how,
+      cb({ odd: odd, vendor: q.vendor, price: pc.price, cur: pc.cur, curLabel: pc.label || "", fx: pc.fx, round: bvSegLabel(bvSegOf(max, pts), pts), max: max, how: q.how,
         sagup: act.filter(function (v) { return q.sep[v.row]; }).map(function (v) { return (v.type || "") + " " + v.code + (v.vendor ? " (" + v.vendor + ")" : ""); }) });
     }).withFailureHandler(function () { cb(null); }).apiBomGet(code);
   }
@@ -11376,7 +11378,7 @@ function dateSlots_(steps, cfg, mode) {
     opt = opt || {};
     BV.order = opt.order || null;
     BV.mods = {}; BV.ckPend = {}; BV.adds = []; BV.edit = null; BV.code = ""; BV.draft = null; BV.newProduct = null; BV.fix = null; BV.semi = null;
-    BV.nv = null; BV.assignTo = null; BV.ngRow = opt.ngRow != null ? opt.ngRow : null; BV.nvTarget = null; BV.toFirst = false; BV.prev = null;
+    BV.nv = null; BV.keepCode = false; BV.nvChosen = false; BV.assignTo = null; BV.ngRow = opt.ngRow != null ? opt.ngRow : null; BV.nvTarget = null; BV.toFirst = false; BV.prev = null;
     REV.items = []; bomRevMode(false);
     bvTypesLoad();
     $("bomv").hidden = false;
@@ -12542,11 +12544,12 @@ function dateSlots_(steps, cfg, mode) {
     var ob = bvEditRound();
     if (!kind || BV.semi || ((kind === "chg" || kind === "view") && !bvFixRows().length)) { el.hidden = true; el.innerHTML = ""; return; }
     if (kind === "view") {             // 보기 중(상단 [BOM 보기] · 다른 차수) — 바로 고치기 · 정정을 여기서 고른다
-      var lo = bvOrderRound() ? null : bvLiveOrder(), vn = bvOrderRound() || (lo ? bvR(lo.batch) : (BV.bomMax || 0) + 1);
+      var lo = bvOrderRound() ? null : bvLiveOrder(), vn = bvOrderRound() || (lo ? bvR(lo.batch) : (BV.bomMax || 0) + 1), vnew = Math.max(BV.bomMax || 0, lo ? bvR(lo.batch) : 0) + 1;
       el.hidden = false; el.className = "bvmode";
-      el.innerHTML = '<span class="seg"><button type="button" data-bvmode="chg" title="' + (bvOrderRound() ? "이 발주 차수(" + vn + "차) 화면으로 — 바꾼 값은 " + vn + "차부터 새 줄" : lo ? "진행 중인 " + vn + "차 발주(" + (lo.doc || lo.id) + ")와 연결해 " + vn + "차부터 바꿉니다 — 저장 뒤 그 발주 단가와 비교 · [발주 단가를 …로]" : "최종 " + (BV.bomMax || 0) + "차 구성을 가져와 " + vn + "차를 만들고 바로 고칩니다(= [차수 추가] " + vn + "차) — 앞 차수는 그대로") + '">' + vn + '차부터 바꾸기</button>' +
+      el.innerHTML = '<span class="seg"><button type="button" data-bvmode="chg" title="' + (bvOrderRound() ? "이 발주 차수(" + vn + "차) 화면으로 — 바꾼 값은 " + vn + "차부터 새 줄" : lo ? "진행 중인 " + vn + "차 발주(" + (lo.doc || lo.id) + ")와 연결해 " + vn + "차부터 바꿉니다 — 저장 뒤 그 발주 단가와 비교 · [발주 단가를 …로]" : "최종 " + (BV.bomMax || 0) + "차 구성을 가져와 " + vn + "차를 만들고 바로 고칩니다(= [차수 추가] " + vn + "차) — 앞 차수는 그대로") + '">' + (lo ? vn + "차에 적용(진행 중 발주)" : vn + "차부터 바꾸기") + '</button>' +
+        (lo ? '<button type="button" data-bvnew="1" title="진행 중 ' + vn + '차 발주는 그대로 두고, 다음 발주용 ' + vnew + '차 BOM 을 미리 만듭니다(최종 구성에서) — 새 발주에서 품목을 고르면 ' + vnew + '차 · 이 단가로 채워집니다">' + vnew + "차 새로 만들기(다음 발주용)</button>" : "") +
         '<button type="button" data-bvmode="fix" title="잘못 넣은 값을 그 줄 그대로 덮어씀 — 새 줄 · 새 코드 없음 · 같은 줄을 쓰는 앞 차수도 같이 바뀜">값 바로잡기(정정)</button></span>' +
-        '<span class="what"><b>보기 중</b> — 사양 · 업체 · 단가가 실제로 바뀌면 [' + vn + '차부터 바꾸기](BOM 차수 = 제품 발주 차수' + (lo ? " · 진행 중인 " + vn + "차 발주와 연결" : "") + '), 잘못 넣은 값이면 [값 바로잡기(정정)].</span>';
+        '<span class="what"><b>보기 중</b> — ' + (lo ? "진행 중인 " + vn + "차 발주에 바뀐 사양 · 단가를 넣으면 [" + vn + "차에 적용], 다음 발주용 BOM 을 미리 만들면 [" + vnew + "차 새로 만들기]" : "사양 · 업체 · 단가가 실제로 바뀌면 [" + vn + "차부터 바꾸기]") + "(BOM 차수 = 제품 발주 차수 · 제품 줄 업체 · 사양이 바뀌면 새 품목코드 1차), 잘못 넣은 값이면 [값 바로잡기(정정)].</span>";
       return;
     }
     var lab = (kind === "fix" ? bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints()) : (ob || BV.round) + "차");
@@ -12583,11 +12586,17 @@ function dateSlots_(steps, cfg, mode) {
     return best;
   }
   /** 보기 중 막대 [N차부터 바꾸기] — 발주 건에서 열었으면 그 발주 차수 화면으로, 아니면 최종 차수 + 1 을 [차수 추가]처럼 만든다 */
-  function bvChgStart() {
+  function bvChgStart(fresh) {
     var ob = bvOrderRound();
-    if (ob) { BV.round = ob; bomShow(); return; }
+    if (ob && !fresh) { BV.round = ob; bomShow(); return; }
     if (bvDirtyN() && !confirm("저장하지 않은 변경 " + bvDirtyN() + "건이 있습니다. 버리고 새 차수를 만들까요?")) return;
     var lo = bvLiveOrder();
+    if (fresh) {                               // 다음 발주용 — 진행 중 발주와 연결하지 않는다
+      var nf = Math.max(BV.bomMax || 0, lo ? bvR(lo.batch) : 0) + 1;
+      BV.order = null; BV.mods = {}; BV.ckPend = {}; BV.adds = []; BV.edit = null; BV.draft = nf; BV.round = nf;
+      $("bomv-msg").textContent = nf + "차 새 BOM(다음 발주용) — 최종 구성을 가져왔습니다. 바꿀 칸을 고치고 사유를 적은 뒤 [저장]. 제품 줄 업체 · 사양이 바뀌면 새 품목코드 1차로 저장됩니다. 새 발주에서 품목을 고르면 이 차수 · 단가로 채워집니다.";
+      bomShow(); return;
+    }
     if (lo) {                                  // 진행 중인 최신 차수 발주가 있으면 그 발주 건에서 연 것처럼(BOM 차수 = 발주 차수)
       BV.order = lo; BV.mods = {}; BV.ckPend = {}; BV.adds = []; BV.edit = null; BV.draft = null; BV.round = bvR(lo.batch);
       $("bomv-msg").textContent = "진행 중인 " + BV.round + "차 발주(" + (lo.doc || lo.name) + ")와 연결했습니다 — 바꿀 칸을 고치고 사유를 적은 뒤 [저장]. 저장 뒤 아래에서 그 발주 단가와 비교합니다.";
@@ -13083,7 +13092,10 @@ function dateSlots_(steps, cfg, mode) {
     }
     $("bomv-name").textContent = bvTitle() + (BV.newProduct ? " · 신제품" : "");
     var ob = bvEditRound(), orderR = bvOrderRound();
-    var pts = bvPoints(), opts = "", list = pts.map(function (p) { return { v: p, t: bvSegLabel(p, pts) + (p === pts[pts.length - 1] ? " · 최신" : "") }; });
+    var pts = bvPoints(), opts = "", ordR = {};
+    if (mode === "po" && !BV.semi) (DATA.rows || []).forEach(function (r) { if (!r.cancelled && String(r.code || "").toUpperCase() === BV.code) ordR[bvR(r.batch) || 0] = 1; });
+    var noOrd = function (p, i) { var e = i + 1 < pts.length ? pts[i + 1] - 1 : Math.max(BV.bomMax || p, p); for (var n = p; n <= e; n++) if (ordR[n]) return false; return true; };      // 그 구간 차수에 발주가 하나도 없음 = 미리 만든 차수
+    var list = pts.map(function (p, i) { return { v: p, t: bvSegLabel(p, pts) + (p === pts[pts.length - 1] ? " · 최신" : "") + (mode === "po" && !BV.semi && !BV.newProduct && noOrd(p, i) ? " · 발주 전" : "") }; });
     [orderR, BV.draft].forEach(function (x, k) {
       if (!x) return;
       var hit = list.filter(function (o) { return o.v === x; })[0];
@@ -13241,8 +13253,11 @@ function dateSlots_(steps, cfg, mode) {
     bvModeBar(canEdit && !BV.newProduct && !BV.nvTarget ? "chg" : (viewBar ? "view" : ""));
     if (viewBar) $("bomv-fixbtn").hidden = true;              // 같은 [값 바로잡기(정정)]이 막대에 있다
     var box = $("bomv-pend");
-    var pr0 = canEdit ? bvProdRenum() : null;
-    if (pr0 && !BV.nv) BV.nv = { name: BV.name, why: pr0.why || "", auto: true };
+    var prRaw = canEdit ? bvProdRenum() : null, pr0 = prRaw && !BV.keepCode ? prRaw : null;
+    // 진행 중 발주 건(발주 DB)에서 연 BOM: 제품 줄 업체 · 사양이 바뀌면 새 품목코드로 할지 묻는다(BOM 보기 · 새 발주는 새 코드 1차 그대로)
+    var odC = BV.order && BV.order.statusRow ? BV.order : null, askCode = !!(pr0 && odC && !BV.nvChosen && !BV.nvTarget);
+    var odRecv = odC && Number(odC.inQty) > 0, odDraft = odC && (odC.doc || ["상신", "승인", "발주"].indexOf(String(odC.state || "")) > -1);
+    if (pr0 && !askCode && !BV.nv) BV.nv = { name: BV.name, why: pr0.why || "", auto: true };
     if (!pr0 && BV.nv && BV.nv.auto) BV.nv = null;
     if (!canEdit || !(bvPendCount() || carry || BV.nvTarget)) box.hidden = true;
     else {
@@ -13251,9 +13266,14 @@ function dateSlots_(steps, cfg, mode) {
       box.innerHTML = '<div class="bomform">' + whyBox + (BV.nvTarget ? "<b>" + esc(BV.nvTarget) + " 1차 BOM · 바꾼 자재 " + bvPendCount() + "건</b>"
           : "<b>" + ob + "차 " + (BV.newProduct ? "신제품 BOM" : "변경 " + bvPendCount() + "건" + (carry ? " · 이어 쓰기" : "")) + '</b><span class="nghelp">저장하면 실행판 BOM 탭에 ' + ob + "차부터 적용하고 BOM변경이력 탭 · 변동사항 칸에 남깁니다.</span>") +
         (BV.nvTarget ? '<span class="nghelp"><b>' + esc(BV.nvTarget) + ' 1차 BOM으로 저장합니다</b>(' + esc(BV.code) + ' 최신 구성에서) — 아래 [저장 (새 품목코드)].</span>'
+          : askCode ? '<span class="nghelp"><b>제품 줄의 업체 · 사양 · 소요량이 바뀌었습니다 — 새 품목코드로 채번할까요?</b></span>' +
+              (odRecv ? '<button type="button" class="btn btn-sm" disabled title="입고가 시작된 발주는 코드를 바꾸지 않습니다">새 품목코드로 (입고 시작 — 안 됨)</button>' : '<button type="button" class="btn btn-sm btn-solid" id="bomv-codenew">새 품목코드로 (1차)</button>') +
+              '<button type="button" class="btn btn-sm" id="bomv-codekeep">코드 그대로 ' + ob + '차부터</button>' +
+              '<span class="nghelp">' + (odRecv ? "입고가 시작된 발주라 코드는 그대로 둡니다 — 남은 수량을 새 코드로 하려면 새 발주로." : "새 코드로 하면 이 발주 건도 새 코드 · 1차로 바뀝니다" + (odDraft ? " — <b>이미 기안된 발주라 기안(품의번호 " + esc(odC.doc || "") + " · 결재 · 상신 · 승인)이 원복되어 기안을 다시 써야 합니다</b>" + (odC.state === "발주" ? "(업체에 낸 발주서도 새 코드로 다시)" : "") : "") + ".") + "</span>"
           : pr0 ? '<span class="nghelp"><b>제품 줄의 업체 · 사양 · 소요량이 바뀌어 품목코드가 바뀝니다</b>(자재코드와 같은 규칙) — 아래 [저장 (새 품목코드)]. 잘못 넣은 값을 바로잡는 거면 [이 차수 구성 정정].</span>'
-          : '<button type="button" class="btn btn-sm btn-solid" id="bomv-save">' + (BV.newProduct ? "저장 (1차 BOM)" : "저장 (" + ob + "차부터 적용)") + "</button>") +
-        (!pr0 && !BV.nvTarget && !BV.newProduct && bvCodeOk2(BV.code) ? '<button type="button" class="btn btn-sm" id="bomv-nvopen" title="BOM이 바뀌면서 품목코드도 바꿔야 할 때 — 다음 버전 코드의 1차 BOM으로 저장">새 품목코드로 저장…</button>' : "") + "</div>" +
+          : '<button type="button" class="btn btn-sm btn-solid" id="bomv-save">' + (BV.newProduct ? "저장 (1차 BOM)" : "저장 (" + ob + "차부터 적용)") + "</button>" +
+            (prRaw && BV.keepCode ? '<span class="nghelp">제품 줄이 바뀌었지만 <b>코드 그대로</b> ' + ob + '차부터 저장합니다 <button type="button" class="btn btn-sm" data-bvcodeask="1">새 코드로 바꾸기…</button></span>' : "")) +
+        (!pr0 && !(prRaw && BV.keepCode) && !BV.nvTarget && !BV.newProduct && bvCodeOk2(BV.code) ? '<button type="button" class="btn btn-sm" id="bomv-nvopen" title="BOM이 바뀌면서 품목코드도 바꿔야 할 때 — 다음 버전 코드의 1차 BOM으로 저장">새 품목코드로 저장…</button>' : "") + "</div>" +
         (BV.nv ? '<div class="bomvnv"><b>새 품목코드로 저장</b><span class="nghelp">' + esc(BV.code) + " → " + (BV.nvTarget ? "<b>" + esc(BV.nvTarget) + "</b>(발주 건 코드)" : "같은 번호 · 같은 국가의 다음 버전(저장할 때 정해짐)") + " · <b>1차</b>부터" + (BV.order && BV.order.statusRow ? " · 이 발주 건도 그 코드 · 1차로 바꿉니다" : "") + ". 바꾸지 않은 자재는 그대로 이어받고, 옛 코드 BOM에는 '→ 새 코드'가 남습니다.</span>" +
           '<label>새 품목명<input id="bomnv-name" value="' + esc(BV.nv.name) + '"></label><label>사유(필수)<input id="bomnv-why" value="' + esc(BV.nv.why || "") + '" placeholder="예: 내용물 리뉴얼로 품목코드 변경"></label>' +
           '<button type="button" class="btn btn-sm btn-solid" id="bomnv-save">저장 (새 품목코드)</button>' + (pr0 || BV.nvTarget ? "" : '<button type="button" class="btn btn-sm" id="bomnv-cancel">취소</button>') + "</div>" : "");
@@ -13359,14 +13379,15 @@ function dateSlots_(steps, cfg, mode) {
   /** BOM 화면의 [저장] — 지금 모드(정정 · 새 품목코드 · 차수 변경 · 신제품)에 맞는 저장. 사람이 누른 [저장] · Enter 에서만 부른다(창 밖으로 나갈 때 등 자동으로 부르지 않는다) */
   function bomSaveAny() {
     if (BV.fix) { bvFixGo(); return; }
-    if (BV.nv || bvProdRenum()) { bomSaveNV(); return; }
+    if (bvProdRenum() && !BV.keepCode && !BV.nv && BV.order && BV.order.statusRow && !BV.nvChosen && !BV.nvTarget) { $("bomv-msg").textContent = "제품 줄이 바뀌었습니다 — 아래에서 [새 품목코드로] 또는 [코드 그대로]를 먼저 골라 주세요."; return; }
+    if (BV.nv || (bvProdRenum() && !BV.keepCode)) { bomSaveNV(); return; }
     bomSave();
   }
   function bomSave() {
     var o = BV.order || {}, ob = bvEditRound();
     if (!ob) return;
     if (!bvFlushEdit()) return;
-    if (bvProdRenum()) { $("bomv-msg").textContent = "제품 줄이 바뀌어 품목코드가 바뀝니다 — 아래 [저장 (새 품목코드)]을 누르세요."; return; }
+    if (bvProdRenum() && !BV.keepCode) { $("bomv-msg").textContent = "제품 줄이 바뀌어 품목코드가 바뀝니다 — 아래 [저장 (새 품목코드)]을 누르세요."; return; }
     if (!bvFlushAdd(String(BV.chgWhy || "").trim())) return;
     if (!bvChgReady()) return;
     var strip = function (c) { var x = {}; Object.keys(c).forEach(function (k) { if (k !== "predict") x[k] = c[k]; }); return x; };
@@ -13461,6 +13482,7 @@ function dateSlots_(steps, cfg, mode) {
   /** 새 품목코드로 저장: 그 차수 구성 그대로(바꾼 칸 · 뺀 줄 · 추가 반영)를 새 코드 1차 BOM으로 */
   function bomSaveNV() {
     if (!bvFlushEdit()) return;
+    if (BV.order && BV.order.statusRow && Number(BV.order.inQty) > 0) { $("bomv-msg").textContent = "입고가 시작된 발주 건이라 품목코드를 바꾸지 않습니다 — 코드 그대로 저장하거나, 남은 수량은 새 발주로."; return; }
     if (!BV.nv) { BV.nv = { name: BV.name, why: "" }; bomShow(); var ni0 = $("bomnv-why"); if (ni0) ni0.focus(); return; }
     var ob = bvEditRound(), o = BV.order || {};
     var name = bvVal("bomnv-name"), why = bvVal("bomnv-why");
@@ -13506,10 +13528,11 @@ function dateSlots_(steps, cfg, mode) {
     var od = BV.order;
     if (!od || !od.statusRow) return null;
     if (!nv && !(BV.toFirst && code && (String(od.code || "").toUpperCase() !== String(code).toUpperCase() || String(od.batch || "") !== "1차"))) return null;
-    return { statusRow: od.statusRow, expect: statusRef(od), batch: "1차" };
+    return { statusRow: od.statusRow, expect: statusRef(od), batch: "1차", redraft: !!nv };
   }
   /** BOM 저장 뒤: [새 발주] 줄에서 열었으면 그 줄을 새 BOM으로 다시 채운다(새 품목코드면 코드 · 이름 · 1차까지) · 코드 없던 발주 건이면 코드를 넣는다 */
   function bvAfterSave(code, nv) {
+    BV.keepCode = false; BV.nvChosen = false;
     setTimeout(function () { oldCodeAfterSave(code); }, 600);
     if (typeof II !== "undefined" && II) { II.at = 0; II.refAt = 0; }          // 품목 정보 목록은 다음에 열 때 새로(BOM 에서 바꾼 이름 · 새 코드가 바로 보이게)
     if (BV.ngRow != null && NG[BV.ngRow]) {
@@ -13525,6 +13548,13 @@ function dateSlots_(steps, cfg, mode) {
     // 발주 건에서 열었고 품목코드가 바뀌었거나(새 품목코드 저장) 새 코드 1차 BOM을 만들었으면: 발주 건 품목코드 · 차수를 그 코드 · 1차로
     var od = BV.order, fw = BV._follow; BV._follow = null;
     if (od && fw && (fw.ok || fw.err)) {                // 서버가 BOM 저장과 같은 호출에서 발주 건도 맞췄다
+      if (fw.ok && fw.redraft && fw.redraft.n) {               // 기안 원복 — 화면 줄도 바로(계획 · 품의번호 · 결재 · 상신 · 승인 지움)
+        od.doc = ""; od.approvalNo = ""; if (["상신", "승인", "발주"].indexOf(String(od.state || "")) > -1) od.state = "계획";
+        if (od.dates) { delete od.dates.submitted; delete od.dates.approved; }
+        var r9 = rowById(od.id); if (r9 && r9 !== od) { r9.doc = ""; r9.approvalNo = ""; r9.state = od.state; if (r9.dates) { delete r9.dates.submitted; delete r9.dates.approved; } }
+        lastSync = 0; setTimeout(revalidate, 300);
+        alert("품목코드가 " + fw.code + " 로 바뀌어 이 발주 건의 기안(품의번호 · 결재문서번호 · 상신 · 승인)을 원복했습니다 — 진행상태 계획. 품의서를 다시 만들어 기안해 주세요.");
+      } else if (fw.ok && fw.redraft && fw.redraft.err) alert("발주 건 코드는 바꿨지만 기안 원복을 못 했습니다: " + fw.redraft.err + " — 선택 → [품의 취소]로 원복해 주세요.");
       if (fw.ok) { od.code = fw.code; od.batch = fw.batch; BV.toFirst = false; renderBoard(); if (currentId === od.id && !$("view-run").hidden) renderRun(); toast("발주 건을 " + fw.code + " · " + fw.batch + "로 바꿨습니다(품목코드가 바뀌면 차수는 1차부터)"); }
       else alert("BOM은 저장했지만 발주 건 품목코드 · 차수를 바꾸지 못했습니다: " + fw.err + " — [발주 수정]에서 " + code + " · 1차로 고쳐 주세요.");
     } else if (od && od.statusRow && code && (nv || BV.toFirst) && (String(od.code || "").toUpperCase() !== code || String(od.batch || "") !== "1차")) {
@@ -13986,6 +14016,7 @@ function dateSlots_(steps, cfg, mode) {
     if (t.closest("#bomv-save")) { bomSave(); return; }
     if (t.closest("#bomv-fixbtn")) { bomFixOpen(); return; }
     if (t.closest("[data-bvrenum]")) { $("bomv-addr").click(); return; }
+    if (t.closest("[data-bvnew]")) { bvChgStart(true); return; }
     if ((x = t.closest("[data-bvmode]"))) {
       if (x.classList.contains("on")) return;
       if (x.dataset.bvmode === "fix") bomFixOpen();
@@ -14117,7 +14148,10 @@ function dateSlots_(steps, cfg, mode) {
     if (t.closest("#bomv-ordx") || t.id === "bomv-ord") { $("bomv-ord").hidden = true; ORD = null; return; }
     if (t.closest("#bomv-rulesx") || t.id === "bomv-rules") { $("bomv-rules").hidden = true; $("bomv-rulebtn").focus(); return; }
     if (t.closest("#bomv-nvopen")) { BV.nv = BV.nv || { name: BV.name, why: "" }; bomShow(); var ni = $("bomnv-name"); if (ni) ni.focus(); return; }
-    if (t.closest("#bomnv-cancel")) { BV.nv = null; bomShow(); return; }
+    if (t.closest("#bomnv-cancel")) { BV.nv = null; BV.nvChosen = false; bomShow(); return; }
+    if (t.closest("#bomv-codenew")) { BV.nvChosen = true; BV.keepCode = false; bomShow(); var nn = $("bomnv-why"); if (nn) nn.focus(); return; }
+    if (t.closest("#bomv-codekeep")) { BV.keepCode = true; BV.nvChosen = false; BV.nv = null; bomShow(); return; }
+    if (t.closest("[data-bvcodeask]")) { BV.keepCode = false; BV.nvChosen = false; bomShow(); return; }
     if (t.closest("#bomnv-save")) { bomSaveNV(); return; }
     if (t.closest("#bomv-mkhere")) { bomMakeHere(); return; }
     if (t.closest("#bomv-fromprev")) { bomFromPrev(); return; }
