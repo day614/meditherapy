@@ -83,7 +83,7 @@ function ordGuardCheck_() {
       if (str_(cell.getValue()) !== '') return;
       var how = ordWriteCell_(sh, rows[0], cOrd, o[id].v);
       fixed.push({ id: id, row: rows[0], v: o[id].v, savedAt: new Date(o[id].at).toISOString(), wipedBy: new Date().toISOString(), who: o[id].who, how: how || '실패' });
-      writeAudits_([{ tab: RB.STATUS_TAB, row: rows[0], col: cOrd + 1, what: '발주일 되살림(저장 뒤 빈칸이 됨 — 실행판 기록 밖에서 지워짐)', before: '', after: o[id].v }]);
+      writeAudits_([{ tab: RB.STATUS_TAB, row: rows[0], col: cOrd + 1, what: '발주일 다시 씀(필터로 숨은 행에 날짜가 안 들어감)', before: '', after: o[id].v }]);
     } finally { lock.releaseLock(); }
   });
   if (fixed.length) {
