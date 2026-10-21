@@ -737,6 +737,7 @@ function apiBomSaveNewVersion(product, items, meta) {
   try { appendHist_([{ kind: 'BOM', code: newCode, item: product + ' → ' + newCode + ' 새 품목코드', before: product, after: newCode, reason: why }], 'p'); } catch (e) { /* 넘어간다 */ }
   var res = apiBomGet(newCode);
   res.newCode = newCode; res.from = product; res.made = regs;
+  res.follow = bomOrderFollow_(meta, newCode);          // 발주 건에서 열었으면 그 건 품목코드 · 차수도 같은 호출에서
   return res;
 }
 
@@ -1240,9 +1241,23 @@ function apiBomSave(product, round, changes, meta) {
     try { bomLogUndoAdd_(str_(product).toUpperCase(), res.logTag, cmPrev); } catch (eL) { /* 넘어간다 */ }
   }
   tm['공용맞추기'] = Date.now() - tw1;
+  res.follow = bomOrderFollow_(meta, str_(product).toUpperCase());
   tm.total = Date.now() - tw0;
   res.timing = tm;
   return res;
+}
+/**
+ * BOM 저장과 같은 호출에서 발주 건 품목코드 · 차수도 맞춘다(2026-10-21).
+ * 예전엔 화면이 BOM 저장 뒤 apiEditOrder 를 따로 불러, 그 사이 창을 닫거나 두 번째 호출이 실패하면 BOM 은 새 코드 · 발주 건은 옛 코드로 남았다.
+ * meta.follow = { statusRow, expect, batch? } — 코드는 서버가 방금 저장한 코드로 넣는다.
+ * 돌려줌: null(할 일 없음) · { ok, code, batch } · { err }
+ */
+function bomOrderFollow_(meta, code) {
+  var f = meta && meta.follow;
+  if (!f || !(Number(f.statusRow) >= 2) || !code) return null;
+  var patch = { code: code, batch: str_(f.batch) || '1차' };
+  try { editOrder_(Number(f.statusRow), f.expect || {}, patch, null); return { ok: true, code: code, batch: patch.batch }; }
+  catch (e) { return { err: str_(e && e.message || e) }; }
 }
 /**
  * BOM 탭 맨 아래에 줄을 덧붙여도 되는지 — 탭 안 수식이 줄 범위를 못 박아(예: $D$3:$D$1950) 가리키면
