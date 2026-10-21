@@ -13,13 +13,43 @@ function ordGuardWrite_(o) {
   if (Object.keys(o).length) P.setProperty(RB_ORDG_PROP, JSON.stringify(o)); else P.deleteProperty(RB_ORDG_PROP);
 }
 
-/** apiWriteSheet 가 발주일을 쓴 직후(잠금 안): 반영 → 다시 읽어 비었으면 저장 실패로 알린다 · 지켜볼 목록에 넣는다 */
+/**
+ * 발주일 한 칸 쓰기 + 확인. 발주 DB 탭에 누가 걸어 둔 필터(예: 구매담당자 = 노바)로 숨은 행은 날짜가 안 남는 일이 있었다(10/21: 숨은 649 · 655행만 빔, 보이는 658행은 남음).
+ * ① 날짜로 쓰고 확인 → ② 비었으면 탭 필터를 풀고 다시 → ③ 그래도 비면 글자(yy/MM/dd)로. 어떻게 들어갔는지 돌려준다(못 넣으면 '').
+ */
+function ordWriteCell_(sh, row, col0, stamp) {
+  var cell = sh.getRange(row, col0 + 1), d = toDate_(stamp);
+  var ok = function () { SpreadsheetApp.flush(); var g = cell.getValue(); return !(g === '' || g == null); };
+  cell.setValue(d || asText_(stamp));
+  if (ok()) return 'date';
+  var f = null;
+  try { f = sh.getFilter(); } catch (e) { f = null; }
+  if (f) {
+    try { f.remove(); } catch (e2) { /* 넘어간다 */ }
+    cell.setValue(d || asText_(stamp));
+    if (ok()) return 'filter-removed';
+  }
+  cell.setValue(asText_(stamp));
+  if (ok()) return 'text';
+  return '';
+}
+function ordWipeLog_(x) {
+  var P = PropertiesService.getScriptProperties(), w = [];
+  try { w = JSON.parse(P.getProperty(RB_ORDG_WIPE) || '[]') || []; } catch (e) { w = []; }
+  P.setProperty(RB_ORDG_WIPE, JSON.stringify(w.concat([x]).slice(-30)));
+}
+
+/** apiWriteSheet 가 발주일을 쓴 직후(잠금 안): 반영 → 다시 읽어 비었으면 필터를 풀거나 글자로 다시 쓴다 · 지켜볼 목록에 넣는다 */
 function ordGuardAfterWrite_(sh, row, cId, items) {
   var it = (items || []).filter(function (x) { return x.name === '발주일'; })[0];
   if (!it) return;
   SpreadsheetApp.flush();
   var got = sh.getRange(row, it.col + 1).getValue();
-  if (got === '' || got == null) throw new Error('발주일이 시트에 들어가지 않았습니다(' + row + '행) — 다시 저장해 주세요. 계속되면 관리자에게 알려 주세요.');
+  if (got === '' || got == null) {
+    var how = ordWriteCell_(sh, row, it.col, str_(it.after));
+    ordWipeLog_({ row: row, v: str_(it.after), at: new Date().toISOString(), where: '저장 직후', how: how || '실패' });
+    if (!how) throw new Error('발주일이 시트에 들어가지 않았습니다(' + row + '행) — 관리자에게 알려 주세요.');
+  }
   var id = cId >= 0 ? str_(sh.getRange(row, cId + 1).getValue()) : '';
   if (!id) return;
   var o = ordGuardRead_(), who = '';
@@ -51,16 +81,13 @@ function ordGuardCheck_() {
     if (!lock.tryLock(20000)) return;
     try {
       if (str_(cell.getValue()) !== '') return;
-      var d = toDate_(o[id].v);
-      cell.setValue(d || asText_(o[id].v));
-      fixed.push({ id: id, row: rows[0], v: o[id].v, savedAt: new Date(o[id].at).toISOString(), wipedBy: new Date().toISOString(), who: o[id].who });
+      var how = ordWriteCell_(sh, rows[0], cOrd, o[id].v);
+      fixed.push({ id: id, row: rows[0], v: o[id].v, savedAt: new Date(o[id].at).toISOString(), wipedBy: new Date().toISOString(), who: o[id].who, how: how || '실패' });
       writeAudits_([{ tab: RB.STATUS_TAB, row: rows[0], col: cOrd + 1, what: '발주일 되살림(저장 뒤 빈칸이 됨 — 실행판 기록 밖에서 지워짐)', before: '', after: o[id].v }]);
     } finally { lock.releaseLock(); }
   });
   if (fixed.length) {
-    var P = PropertiesService.getScriptProperties(), w = [];
-    try { w = JSON.parse(P.getProperty(RB_ORDG_WIPE) || '[]') || []; } catch (e) { w = []; }
-    P.setProperty(RB_ORDG_WIPE, JSON.stringify(w.concat(fixed).slice(-30)));
+    fixed.forEach(ordWipeLog_);
     try { console.warn('발주일 되살림 ' + JSON.stringify(fixed)); } catch (e2) { /* 넘어간다 */ }
     cacheDrop_(rowsCacheKey_('po'));
     try { bumpVer_('r'); } catch (eV) { /* 넘어간다 */ }
@@ -75,4 +102,20 @@ function ordRestore1021_() {
   [['RB261002-42AC3B', '26/10/12'], ['RB261013-D8B4E4', '26/10/13']].forEach(function (x) { if (!o[x[0]]) o[x[0]] = { v: x[1], at: now, who: '되살림 10/21' }; });
   ordGuardWrite_(o);
   return ordGuardCheck_();
+}
+
+/**
+ * 1분 작업: 발주 DB 탭(_실행판_발주)에 걸린 공용 필터를 푼다 — 필터로 숨은 행에 쓴 날짜가 남지 않았다(10/21).
+ * 이 탭은 실행판이 쓰는 숨김 장부라 걸러 보려면 '필터 보기'(사람마다 따로 · 남에게 영향 없음)를 쓴다. 푼 기록은 이력에 남긴다.
+ */
+function ordFilterOff_() {
+  var sh = statusSheet_(), f = null;
+  try { f = sh.getFilter(); } catch (e) { f = null; }
+  if (!f) return false;
+  var hides = false;
+  try { var r = f.getRange(); for (var c = r.getColumn(); c <= r.getLastColumn() && !hides; c++) if (f.getColumnFilterCriteria(c)) hides = true; } catch (e2) { hides = true; }
+  if (!hides) return false;
+  f.remove();
+  try { writeAudits_([{ tab: RB.STATUS_TAB, row: 1, col: 1, what: '발주 DB 탭 필터 풂(숨은 행에 쓴 날짜가 안 남아서 — 걸러 보려면 필터 보기)', before: '필터 켜짐', after: '' }]); } catch (e3) { /* 넘어간다 */ }
+  return true;
 }

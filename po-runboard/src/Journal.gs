@@ -360,6 +360,7 @@ function journalDrain(e) {
   else if (allKeys.indexOf('rb.ordfix1021') < 0) { try { var fo = ordRestore1021_(); PropertiesService.getScriptProperties().setProperty('rb.ordfix1021', 'done ' + new Date().toISOString() + ' ' + fo); } catch (eOf) { try { PropertiesService.getScriptProperties().setProperty('rb.ordfix1021', 'fail ' + String(eOf.message).slice(0, 200)); } catch (eOf2) { /* 넘어간다 */ } } }
   else if (RB_FIX_BATCHES.some(function (b) { return allKeys.indexOf(b.key) < 0; })) { try { RB_EDITOR_OK = true; bomFixBatchNext_(); costTableRefresh_(true); } catch (eB) { try { console.log('BOM 정리 묶음 실패: ' + eB.message); } catch (eB2) { /* 넘어간다 */ } } }
   else { try { costTableRefresh_(); } catch (eC) { try { console.log('원가표 실패: ' + eC.message); } catch (eC2) { /* 넘어간다 */ } } }
+  try { ordFilterOff_(); } catch (eFo) { try { console.log('발주 DB 필터 풀기 실패: ' + eFo.message); } catch (eFo2) { /* 넘어간다 */ } }
   try { if (allKeys.indexOf(RB_ORDG_PROP) > -1) ordGuardCheck_(); } catch (eOg) { try { console.log('발주일 지킴 실패: ' + eOg.message); } catch (eOg2) { /* 넘어간다 */ } }
   var keys = allKeys.filter(function (k) { return k.indexOf(RB_J) === 0; });
   if (allKeys.some(function (k) { return k.indexOf(RB_H) === 0; })) {
