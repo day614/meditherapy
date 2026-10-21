@@ -10,7 +10,7 @@
  * ============================================================
  */
 
-var RB_LINE_KINDS = ['선금', '예정', '입고', '지급월 없음'];
+var RB_LINE_KINDS = ['선금', '예정', '입고', '취소', '지급월 없음'];      // 취소 = 안 받기로 한 수량(AP 에 안 들어감 · 잔량에서 뺌)
 
 
 /** 지급월 고르기 목록: 2025-07 ~ 오늘부터 24개월 뒤 ('yy-mm') */
@@ -215,14 +215,23 @@ function syncOrderFromLines_(sh, C, row, lines) {
     setRowCells_(sh, row, pend);
     return { inQty: sheetIn, remain: 0, closed: true, arrivedAt: keptArr, eta: eta.join(', '), kept: true };
   }
-  var remain = closedNow ? 0 : Math.max(0, qty - inQty);
+  // 취소 줄: 안 받기로 한 수량 — 잔량에서 빼고, 취소가 있고 남은 예정이 없으면(취소 아닌 예정이 다 입고) 마감(진행상태 종결)
+  var cancelQty = lines.filter(function (L) { return L.kind === '취소'; }).reduce(function (a, L) { return a + (num_(L.qty) || 0); }, 0);
+  var autoClose = cancelQty > 0 && !closedNow && !lines.some(function (L) { return L.kind === '예정'; }) && cState >= 0 &&
+    ['', '계획', '상신', '승인', '발주', '입고'].indexOf(str_(cell(cState))) > -1;
+  if (autoClose) {
+    var stWas = str_(cell(cState));
+    put(cState, '종결'); closedNow = true;
+    try { writeAudits_([{ tab: RB.STATUS_TAB, row: row, col: cState + 1, what: '진행상태(자동 · 취소 줄 뒤 남은 예정 없음)', before: stWas, after: '종결' }]); } catch (eA) { /* 넘어간다 */ }
+  }
+  var remain = closedNow ? 0 : Math.max(0, qty - inQty - cancelQty);
   put(S.inQty, inQty);
   put(S.remain, remain);
   put(cArr, asText_(arr.join(', ')));
   if (eta.length || remain === 0) put(cEta, asText_(eta.join(', ')));     // 예정 줄이 없으면 그대로(등록 때 입고목표로 채운 값) — 다 받았으면 비운다
   if (cRec >= 0) put(cRec, asText_(dbRecText_(ins.slice().sort(byDate).map(function (L) { return { d: fmt(L), q: num_(L.qty) || '' }; }))));
   setRowCells_(sh, row, pend);
-  return { inQty: inQty, remain: remain, closed: closedNow, arrivedAt: arr.join(', '), eta: eta.join(', ') };
+  return { inQty: inQty, remain: remain, closed: closedNow, arrivedAt: arr.join(', '), eta: eta.join(', '), cancelQty: cancelQty, autoClosed: autoClose };
 }
 
 /**
@@ -286,9 +295,13 @@ function cleanLine_(L) {
   var date = str_(L.date);
   if (date && !/^\d{4}-\d{1,2}-\d{1,2}$/.test(date)) throw new Error('입고일은 달력에서 골라주세요.');
   var payYm = str_(L.payYm);
-  if (kind !== '지급월 없음' && !/^\d{2}-\d{2}$/.test(payYm)) throw new Error('지급월을 골라주세요(' + kind + ' 줄).');
   var qty = str_(L.qty) === '' ? '' : num_(L.qty), amt = str_(L.amt) === '' ? '' : num_(L.amt);
-  if (kind !== '지급월 없음' && !(amt > 0)) throw new Error('금액을 넣어주세요(' + kind + ' 줄).');
+  if (kind === '취소') {                                   // 지급월 · 금액은 없어도 된다(AP 에 안 들어감) — 취소 수량만
+    if (!(num_(qty) > 0)) throw new Error('취소 줄에 취소할 수량을 넣어주세요.');
+  } else {
+    if (kind !== '지급월 없음' && !/^\d{2}-\d{2}$/.test(payYm)) throw new Error('지급월을 골라주세요(' + kind + ' 줄).');
+    if (kind !== '지급월 없음' && !(amt > 0)) throw new Error('금액을 넣어주세요(' + kind + ' 줄).');
+  }
   var ch = str_(L.ch);
   if (ch) checkChoices_({ channel: ch });
   return { lineId: str_(L.lineId), kind: kind, date: date, qty: qty, amt: amt, payYm: payYm, memo: str_(L.memo), ch: ch };

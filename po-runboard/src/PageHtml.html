@@ -1005,6 +1005,9 @@
   .bomn-load { display: inline-grid; gap: 2px; font-size: 12px; color: var(--ink-2); position: relative; margin: 0 10px; }
   .bomn-load input { font: inherit; font-size: 12.5px; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 6px; width: 300px; max-width: 70vw; background: var(--surface); color: var(--ink); }
   .bomn-load .bomvres { position: absolute; top: 100%; left: 0; z-index: 30; min-width: 360px; }
+  tr.kcan td { background: color-mix(in srgb, var(--ink-3, #888) 10%, var(--surface)); }
+  tr.kcan td input, tr.kcan td select { color: var(--ink-2); text-decoration: line-through; }
+  tr.kcan td.k select { text-decoration: none; }
   .bomt .sepcalc { margin-top: 4px; font-size: 12.5px; color: var(--ink); font-weight: 400; }
   #bomv.fixmode #bomv-wrap { max-height: calc(100vh - 290px); min-height: 220px; overflow: auto; scroll-padding-left: 248px; }
   #bomv.fixmode .bomt th:nth-child(3), #bomv.fixmode .bomt td.g-code { width: 116px; min-width: 116px; max-width: 116px; white-space: normal; overflow-wrap: anywhere; }
@@ -3206,7 +3209,7 @@ function dateSlots_(steps, cfg, mode) {
     // 고친 내용은 묻지 않고 뒤에서 저장한다(저장 중이면 그 저장이 끝난 뒤 이어서). 저장할 수 없는 표(지급월 · 금액 빈 줄)만 묻는다.
     var row = rowById(LN.id);
     var lines = LN.lines.filter(function (L) { return !(L.kind === "예정" && !(lnNum(L.amt) > 0) && !(lnNum(L.qty) > 0)); });
-    var bad = lines.filter(function (L) { return L.kind !== "지급월 없음" && (!L.payYm || !(lnNum(L.amt) > 0)); });
+    var bad = lines.filter(function (L) { return (L.kind === "취소" ? !(lnNum(L.qty) > 0) : (L.kind !== "지급월 없음" && (!L.payYm || !(lnNum(L.amt) > 0)))); });
     if (!row || !row.statusRow || bad.length) {
       if (!confirm("지급 줄 표에 지급월 · 금액이 빈 줄이 있어 저장할 수 없습니다. 고친 내용을 버리고 닫을까요?")) return false;
       LN.dirty = false;
@@ -4979,8 +4982,8 @@ function dateSlots_(steps, cfg, mode) {
       } else {
         if (dates.length !== 1) { renderBoard(); toast("예정 줄이 없어 날짜는 하나만 넣을 수 있습니다"); return; }
         var unit = lnUnit(row), total = Math.round((Number(row.qty) || 0) * unit);
-        var used = lines.reduce(function (a, L) { return a + (L.kind === "지급월 없음" ? 0 : lnNum(L.amt)); }, 0);
-        var inQ = lines.filter(function (L) { return L.kind === "입고"; }).reduce(function (a, L) { return a + lnNum(L.qty); }, 0);
+        var used = lines.reduce(function (a, L) { return a + (L.kind === "지급월 없음" || L.kind === "취소" ? 0 : lnNum(L.amt)); }, 0);
+        var inQ = lines.filter(function (L) { return L.kind === "입고" || L.kind === "취소"; }).reduce(function (a, L) { return a + lnNum(L.qty); }, 0);      // 취소 수량도 빼고
         var amt = Math.round(total - used), q = Math.max(0, (Number(row.qty) || 0) - inQ);
         if (!(amt > 0) || !(q > 0)) { renderBoard(); toast("남은 " + (q > 0 ? "금액" : "수량") + "이 없어 예정 줄을 만들 수 없습니다 — 건 상세의 지급 줄 표에서 넣어 주세요"); return; }
         lines.push({ kind: "예정", date: dates[0], qty: q, amt: amt, payYm: lnYmAdd(dates[0], vendorPayOffset(row)), memo: "", ch: "" });
@@ -6125,7 +6128,7 @@ function dateSlots_(steps, cfg, mode) {
     var oq = Number(row.qty) || 0, q = 0;
     LN.lines.forEach(function (L) {
       if (L === except || L.kind === "지급월 없음") return;
-      if (L.kind === "예정" || L.kind === "입고") q += lnNum(L.qty);
+      if (L.kind === "예정" || L.kind === "입고" || L.kind === "취소") q += lnNum(L.qty);       // 취소 수량도 남은 수량에서 뺀다
     });
     var rq = Math.max(0, oq - q);
     return { q: rq, a: Math.round(rq * lnPayUnit(row, LN.lines)) };          // 금액 = 남은 수량 × 지급 단가(선금 몫 뺀 단가 — 수량을 고칠 때와 같은 셈)
@@ -9292,8 +9295,9 @@ function dateSlots_(steps, cfg, mode) {
   }
   function lnInner(row) {
     if (!LN.months.length && !LN_CACHE[row.id]) return "지급 줄 불러오는 중…";
-    var unit = lnUnit(row), total = Math.round((Number(row.qty) || 0) * unit);
-    var sum = LN.lines.reduce(function (a, L) { return a + (L.kind === "지급월 없음" ? 0 : lnNum(L.amt)); }, 0);
+    var cancelQ = LN.lines.filter(function (L) { return L.kind === "취소"; }).reduce(function (a, L) { return a + lnNum(L.qty); }, 0);
+    var unit = lnUnit(row), total = Math.round(Math.max(0, (Number(row.qty) || 0) - cancelQ) * unit);     // 취소 수량은 발주금액에서 빼고 맞춘다
+    var sum = LN.lines.reduce(function (a, L) { return a + (L.kind === "지급월 없음" || L.kind === "취소" ? 0 : lnNum(L.amt)); }, 0);
     var inQ = LN.lines.filter(function (L) { return L.kind === "입고"; }).reduce(function (a, L) { return a + lnNum(L.qty); }, 0);
     var diff = Math.round(total - sum);
     var opt = function (list, cur) {
@@ -9306,9 +9310,9 @@ function dateSlots_(steps, cfg, mode) {
       return l.map(function (v) { return '<option value="' + esc(v) + '"' + (v === cur ? " selected" : "") + ">" + esc(v) + (v === row.channel ? " (발주)" : "") + "</option>"; }).join("");
     };
     var rows = LN.lines.map(function (L, i) {
-      var cls = (L.kind === "입고" ? "kin" : (L.kind === "선금" ? "kpre" : "")) + (L.ch && L.ch !== row.channel ? " kch" : "");
+      var cls = (L.kind === "입고" ? "kin" : (L.kind === "선금" ? "kpre" : (L.kind === "취소" ? "kcan" : ""))) + (L.ch && L.ch !== row.channel ? " kch" : "");
       return '<tr data-ln="' + i + '" class="' + cls + '">' +
-        '<td class="k"><select data-f="kind">' + ["선금", "예정", "입고", "지급월 없음"].map(function (k) { return "<option" + (k === L.kind ? " selected" : "") + ">" + k + "</option>"; }).join("") + "</select></td>" +
+        '<td class="k"><select data-f="kind">' + ["선금", "예정", "입고", "취소", "지급월 없음"].map(function (k) { return "<option" + (k === L.kind ? " selected" : "") + ">" + k + "</option>"; }).join("") + "</select></td>" +
         '<td class="d"><input type="date" data-f="date" value="' + esc(L.date || "") + '"></td>' +
         '<td class="q"><input data-f="qty" inputmode="numeric" value="' + esc(L.qty === "" || L.qty == null ? "" : commaNum(L.qty)) + '"></td>' +
         '<td class="a"><input data-f="amt" inputmode="numeric" value="' + esc(L.amt === "" || L.amt == null ? "" : Number(L.amt).toLocaleString()) + '"></td>' +
@@ -9346,9 +9350,9 @@ function dateSlots_(steps, cfg, mode) {
     return (LN.etaDraft && LN.dirty ? '<p class="lnwarn">지급 줄이 없어서 목록 입고예정(' + esc(LN.etaDraft) + ')으로 <b>예정 줄을 채웠습니다</b>. 수량 · 금액 · 지급월을 확인하고 <b>[표 저장]</b>을 눌러야 AP 에 들어갑니다.</p>' : "") +
       '<p class="lnhead"><b>AP 업데이트</b> — ' +
         (curMul(row) > 1 ? '<small class="lnfx">' + CUR_LABEL[curOf(row)] + " 단가 · 환율 " + curMul(row).toLocaleString() + "원 기준(단가 × " + curMul(row).toLocaleString() + ")</small> " : "") +
-        "발주금액 " + total.toLocaleString() + "원 / AP 금액 " + Math.round(sum).toLocaleString() + "원" +
+        "발주금액" + (cancelQ ? "(취소 " + cancelQ.toLocaleString() + "개 빼고)" : "") + " " + total.toLocaleString() + "원 / AP 금액 " + Math.round(sum).toLocaleString() + "원" +
         (diff ? ' · <span class="lndiff">차이 ' + diff.toLocaleString() + "원</span>" : " · 맞음") +
-        " · 입고 " + inQ.toLocaleString() + " / " + oq.toLocaleString() + "개 · 잔량 " + Math.max(0, oq - inQ).toLocaleString() + "개</p>" +
+        " · 입고 " + inQ.toLocaleString() + " / " + oq.toLocaleString() + "개" + (cancelQ ? " · 취소 " + cancelQ.toLocaleString() + "개" : "") + " · 잔량 " + Math.max(0, oq - inQ - cancelQ).toLocaleString() + "개</p>" +
       '<div class="lntabwrap"><table class="lntab"><colgroup><col style="width:92px"><col style="width:132px"><col style="width:84px"><col style="width:112px"><col style="width:86px"><col style="width:96px"><col><col style="width:84px"></colgroup><thead><tr><th>종류</th><th>입고일</th><th>수량</th><th>금액(원)</th><th>지급월</th><th>채널</th><th>메모</th><th></th></tr></thead><tbody>' +
         (rows || '<tr><td colspan="8" class="count-note">지급 줄이 없습니다. [+ 예정] · [+ 선금] 으로 더하세요.</td></tr>') + "</tbody></table></div>" +
       '<div class="lnacts">' +
@@ -9664,7 +9668,7 @@ function dateSlots_(steps, cfg, mode) {
     if (staleBlocked()) return;                // 지난 화면(브라우저에 저장해 둔 것)의 지급 줄로 덮어쓰지 않게
     if (LN.saving) { LN.again = true; var m0 = $("lnmsg"); if (m0) m0.textContent = lnMsg(); return; }
     LN.lines = LN.lines.filter(function (L) { return !(L.kind === "예정" && !(lnNum(L.amt) > 0) && !(lnNum(L.qty) > 0)); });
-    var bad = LN.lines.filter(function (L) { return L.kind !== "지급월 없음" && (!L.payYm || !(lnNum(L.amt) > 0)); });
+    var bad = LN.lines.filter(function (L) { return (L.kind === "취소" ? !(lnNum(L.qty) > 0) : (L.kind !== "지급월 없음" && (!L.payYm || !(lnNum(L.amt) > 0)))); });
     if (bad.length) { var m = $("lnmsg"); if (m) m.textContent = "지급월 · 금액이 빈 줄이 있습니다."; return; }
     var send = lnSendOf(LN.lines);
     var why = "";

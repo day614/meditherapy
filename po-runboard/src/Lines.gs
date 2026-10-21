@@ -62,6 +62,7 @@ function apFromLines_(lines, attrs) {
   var H = RB_AP.helpers;
   var rows = [], bad = [];
   lines.forEach(function (L) {
+    if (L.kind === '취소') return;                  // 취소 줄(안 받기로 한 수량)은 AP 에 넣지 않는다
     var o = attrs[L.id];
     if (o && o.excluded) return;                    // 승인 전 · 취소 건은 AP 에 넣지 않는다
     if (!o) {
