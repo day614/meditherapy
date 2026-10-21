@@ -357,6 +357,16 @@
   .chgmemo { font: inherit; font-size: 12.5px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
   .nobom { display: inline-block; font-size: 10.5px; color: var(--late); border: 1px solid var(--late); border-radius: 4px; padding: 0 5px; margin-left: 6px; vertical-align: 1px; font-weight: 600; white-space: nowrap; }
   .nobom.bomp { color: #c2410c; border-color: #c2410c; }
+  .nobom.oldc { color: #6d28d9; border-color: #6d28d9; cursor: pointer; }
+  #runhead .nobom { font-size: 11.5px; padding: 1px 7px; margin-left: 0; vertical-align: 0; background: var(--surface); }       /* 건 상세 머리 딱지는 옆 .tag 와 같은 크기 */
+  /* 발주 목록 알림 딱지 — 품목명 · 코드 줄 아래 한 줄에 모아(예전: 이름 옆 · 다음 줄 · 업체 아래로 제각각) */
+  .cell-name .rflags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .cell-name .rflags > span { margin-left: 0; font-size: 10.5px; line-height: 16px; padding: 0 6px; vertical-align: 0; font-weight: 600; }
+  .oldov .oldit { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+  .oldov .oldit .oldhd { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+  .oldov .oldit .oldrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; border-top: 1px dashed var(--line); }
+  .oldov .oldit .oldrow:first-of-type { border-top: 0; }
+  .oldov .oldit .oldrow .who { flex: 1 1 260px; min-width: 0; font-size: 12.5px; }
   .chgtag { display: inline-block; font-size: 10px; color: var(--accent); border: 1px solid var(--accent);
             border-radius: 4px; padding: 0 4px; margin-left: 4px; vertical-align: 1px; font-weight: 500; }
   .itemrow .chgopts { grid-column: 1 / -1; }
@@ -4174,13 +4184,6 @@ function dateSlots_(steps, cfg, mode) {
         '<td class="cell-name">' + esc(r.name) + (r.batch && mode === "po" ? " " + esc(r.batch) : "") +
           (mode === "sample" && r.links && r.links.length ? '<a class="rowlink" href="' + esc(r.links[0]) + '" target="_blank" rel="noopener" title="' + esc(r.links.join(" ")) + '">🔗' + (r.links.length > 1 ? " " + r.links.length : "") + "</a>" : "") +
           (memoOnlyHit(r) ? ' <span class="memohit" title="검색어가 비고에 있어서 찾았습니다 — 비고: ' + esc(memoOf(r)) + '">비고 일치</span>' : "") +
-          (mode === "po" && r.code && !hasBom(r.code) ? (function () {
-            var nr = bomNear(r.code);
-            return nr.length
-              ? ' <span class="nobom" title="BOM 에는 이 코드가 없고 ' + esc(nr.join(", ")) + ' 로 적혀 있습니다(구분 약호만 다름) — 어느 쪽이 맞는지 확인하고 [BOM 검사] 또는 BOM 보기 [이 차수 구성 정정]에서 코드를 맞추세요">BOM엔 ' + esc(nr[0]) + "</span>"
-              : ' <span class="nobom" title="실행판 BOM 탭에 이 품목코드가 없습니다(제품 · 자재 · 반제품 모두). [BOM 보기]에서 등록하세요">BOM 없음</span>';
-          })() : "") +
-          (mode === "po" && r.code && !r.cancelled ? poBomBadge(r) : "") +
           // 아래 줄: 왼쪽 품목코드(드래그해서 복사) · 업체, 오른쪽 끝 품의번호
           '<small class="subline"><span class="subl">' +
             (r.code ? '<span class="copyable code" title="드래그해서 복사">' + esc(r.code) + "</span>" : "") +
@@ -4189,13 +4192,9 @@ function dateSlots_(steps, cfg, mode) {
               ? ' <span class="srcplan" title="' + (r.doc ? "발주 DB에 아직 없는 건입니다. 발주계획에서만 읽었습니다"
                                                         : "품의번호가 아직 없는 건입니다(발주계획)") + '">계획</span>'
               : "") +
-            (function () {
-              var cs = changesOf(r);
-              return cs.length ? ' <span class="chgtag" title="' + esc(cs.map(function (c) { return c.item + (c.types ? ": " + c.types : ""); }).join(" / ")) + '">변경</span>' : "";
-            })() +
           "</span>" +
           (r.doc ? '<span class="copyable doc" title="드래그해서 복사">' + esc(r.doc) + "</span>" : "") +
-          "</small></td>" +
+          "</small>" + rowFlags(r) + "</td>" +
         (mode === "sample"
           ? '<td class="swrap">' + esc(r.brand || "") + "</td>" +
             '<td class="swrap">' + esc(r.kind || "") + "</td>" +
@@ -5085,6 +5084,8 @@ function dateSlots_(steps, cfg, mode) {
   });
 
   $("rows").addEventListener("click", function (e) {
+    var oc = e.target.closest("[data-oldc]");
+    if (oc) { e.stopPropagation(); oldCodeDlg([rowById(oc.dataset.oldc)]); return; }
     var cc = e.target.closest("[data-closechk]");
     if (cc) { e.stopPropagation(); openRun(cc.dataset.closechk); toast("더 들어올 게 없으면 [입고 완료 처리(잔량 마감)]을 누르세요"); return; }
     var mc = e.target.closest("[data-memo]");
@@ -6554,7 +6555,7 @@ function dateSlots_(steps, cfg, mode) {
           ? '<button type="button" class="tag qptag" id="basBtn" title="품목 · 수량 · 단가 · 업체 · 날짜 · 요청 정보 · 선금/잔금 등 한 곳에서 고치기">' +
             "발주 수정 ✎ · 수량 " + Number(row.qty || 0).toLocaleString() + " · 단가 " + Number(row.price || 0).toLocaleString() + "</button>"
           : "") +
-        (mode === "po" && row.code && !row.pending ? poBomBadge(row, 1) : "") +          // BOM 단가와 다르면 표시 — 누르면 BOM(1단계를 건너뛴 발주도 열 수 있게)
+        (mode === "po" && row.code && !row.pending ? poBomBadge(row, 1) + oldCodeBadge(row, 1) : "") +          // BOM 단가와 다르면 표시 — 누르면 BOM(1단계를 건너뛴 발주도 열 수 있게)
         (mode === "sample" && !(DATA && DATA.canEdit === false) ? '<button type="button" class="tag qptag" id="spEditBtn" title="프로젝트명 · 품목코드 · 브랜드 · 프로젝트 링크를 한 곳에서 고치기">프로젝트 수정 ✎</button>' : "") +
         (mode === "sample" ? '<span class="tag">' + esc(sampleSummary(row)) + "</span>"
           : '<span class="tag' + (u >= total ? " done" : "") + '">' + doneCount(row) + "/" + total + " 단계</span>") +
@@ -9103,6 +9104,7 @@ function dateSlots_(steps, cfg, mode) {
   $("wkBtn").addEventListener("click", function () { wkOpen(""); });
   $("poPendBtn").addEventListener("click", function () { poPendOpen(); poPendPrune(); });
   setTimeout(poPendLoad, 2500);
+  setTimeout(function () { if (mode === "po") oldAckLoad(); }, 2000);
 
   /* ---------- 새 발주 등록 ---------- */
   var RB_STATES = ["계획", "상신", "승인", "발주", "종결", "취소"];
@@ -10836,6 +10838,137 @@ function dateSlots_(steps, cfg, mode) {
     PO_BOMP[key] = out;
     return out;
   }
+  /** 발주 목록 품목 칸 아래 알림 딱지 한 줄 — BOM 없음 · BOM 단가 다름 · 옛 자재코드 · 변경 */
+  function rowFlags(r) {
+    var h = "";
+    if (mode === "po" && r.code && !hasBom(r.code)) {
+      var nr = bomNear(r.code);
+      h += nr.length
+        ? '<span class="nobom" title="BOM 에는 이 코드가 없고 ' + esc(nr.join(", ")) + ' 로 적혀 있습니다(구분 약호만 다름) — 어느 쪽이 맞는지 확인하고 [BOM 검사] 또는 BOM 보기 [이 차수 구성 정정]에서 코드를 맞추세요">BOM엔 ' + esc(nr[0]) + "</span>"
+        : '<span class="nobom" title="실행판 BOM 탭에 이 품목코드가 없습니다(제품 · 자재 · 반제품 모두). [BOM 보기]에서 등록하세요">BOM 없음</span>';
+    }
+    if (mode === "po" && r.code && !r.cancelled) h += poBomBadge(r) + oldCodeBadge(r);
+    var cs = changesOf(r);
+    if (cs.length) h += '<span class="chgtag" title="' + esc(cs.map(function (c) { return c.item + (c.types ? ": " + c.types : ""); }).join(" / ")) + '">변경</span>';
+    return h ? '<div class="rflags">' + h + "</div>" : "";
+  }
+  /* ---------- 옛 자재코드 — BOM 에서 사양 · 업체가 바뀌어 새 코드(CA6 → CA7)가 된 뒤에도 옛 코드로 진행 중인 발주 ---------- */
+  var OLDC = {}, OLDC_SRC = null, OLD_ACK = null, OLD_ACK_ING = false, OLD_SEEN = {};
+  /** 자재 · 반제품 코드가 모든 BOM 에서 끝난 줄에만 있고, 그 BOM 에 같은 앞부분 · 더 큰 번호 코드가 지금 쓰이면 { to, v(새 줄), pc(제품), from(시작 차수) } */
+  function oldCodeOf(code) {
+    var SRC = BV_ALL || BV_ALL_SNAP;
+    if (!SRC) return null;
+    if (OLDC_SRC !== SRC) { OLDC = {}; OLDC_SRC = SRC; }
+    code = String(code || "").toUpperCase();
+    if (code in OLDC) return OLDC[code];
+    var out = null, m = /^([A-Z][PX]\d{4}[A-Z]+)(\d+)$/.exec(code);
+    if (m) {
+      var ended = function (v) { return !!String(v.end || "").trim(); }, mine = [];
+      Object.keys(SRC).forEach(function (pc) { (SRC[pc] || []).forEach(function (v) { if (String(v.code || "").toUpperCase() === code) mine.push({ v: v, pc: pc }); }); });
+      if (mine.length && mine.every(function (x) { return ended(x.v); })) {
+        var best = null, bn = Number(m[2]);
+        mine.forEach(function (x) {
+          (SRC[x.pc] || []).forEach(function (v) {
+            var mm = /^([A-Z][PX]\d{4}[A-Z]+)(\d+)$/.exec(String(v.code || "").toUpperCase());
+            if (mm && mm[1] === m[1] && Number(mm[2]) > bn && !ended(v)) { bn = Number(mm[2]); best = { to: mm[0], v: v, pc: x.pc, from: v.start || "" }; }
+          });
+        });
+        out = best;
+      }
+    }
+    OLDC[code] = out;
+    return out;
+  }
+  /** 아직 끝나지 않은 발주(취소 · 종결 · 다 받은 건 빼고) */
+  function oldCodeOpenRow(r) {
+    if (!r || r.cancelled || isClosed(r) || !r.statusRow) return false;
+    if (Number(r.inQty) > 0 && !(Number(r.remain) > 0)) return false;
+    return true;
+  }
+  function oldAckLoad(cb) {
+    if (OLD_ACK || OLD_ACK_ING) { if (OLD_ACK && cb) cb(); return; }
+    OLD_ACK_ING = true;
+    gsr().withSuccessHandler(function (o) {
+      OLD_ACK = o || {}; OLD_ACK_ING = false;
+      if (cb) { cb(); return; }
+      if ((DATA.rows || []).some(function (r) { return oldCodeHit(r); })) renderBoard();       // 딱지 붙을 건이 있을 때만 다시 그린다(목록을 누르는 중에 줄이 바뀌지 않게)
+    })
+      .withFailureHandler(function () { OLD_ACK = {}; OLD_ACK_ING = false; if (cb) cb(); }).apiOldAcks();
+  }
+  function oldCodeHit(r) {
+    if (mode !== "po" || !oldCodeOpenRow(r)) return null;
+    var o = oldCodeOf(r.code);
+    if (!o) return null;
+    if (!OLD_ACK) { oldAckLoad(); return null; }
+    return OLD_ACK[r.id] === o.to ? null : o;
+  }
+  function oldCodeBadge(r, open) {
+    var o = oldCodeHit(r);
+    if (!o) return "";
+    return '<span class="nobom oldc" data-oldc="' + esc(r.id) + '" role="button" title="BOM 에서 ' + esc(o.pc + " " + o.from) + '부터 ' + esc(o.to) + ' 로 바뀌었습니다(사양 · 업체 변경) — 이 발주는 옛 코드 ' + esc(r.code) + '. 누르면 새 코드로 바꾸거나 그대로 두기">옛 코드 → ' + esc(o.to) + "</span>";
+  }
+  /** 옛 코드로 진행 중인 발주 — 건마다 [새 코드로 바꾸기] · [그대로 두기] */
+  function oldCodeDlg(rows, head) {
+    var list = (rows || []).map(function (r) { var o = oldCodeHit(r); return o ? { r: r, o: o } : null; }).filter(Boolean);
+    var old = $("oldov"); if (old) old.remove();
+    if (!list.length) return;
+    var grp = {}; list.forEach(function (x) { var k = String(x.r.code).toUpperCase() + ">" + x.o.to; (grp[k] = grp[k] || []).push(x); });
+    var ov = document.createElement("div"); ov.className = "nsov oldov"; ov.id = "oldov";
+    var sent = function (r) { return ["", "계획", "상신", "승인"].indexOf(String(r.state || "")) < 0; };
+    ov.innerHTML = '<div class="nsbox" role="dialog" aria-label="옛 자재코드 발주" style="width:820px;max-width:calc(100vw - 32px);box-sizing:border-box"><h3>옛 자재코드로 진행 중인 발주 <small style="font-weight:400;color:var(--ink-3)">' + esc(head || "BOM 에서 사양 · 업체가 바뀌어 자재코드가 새로 생겼습니다") + "</small></h3>" +
+      Object.keys(grp).map(function (k) {
+        var g = grp[k], o = g[0].o, v = o.v, cu = BV_CUR_CODE[bvCur(v)] || "KRW";
+        return '<div class="oldit"><div class="oldhd"><b>' + esc(g[0].r.code) + " → " + esc(o.to) + '</b><span class="tlwho">' + esc(o.pc + " BOM " + o.from + "부터 · " + [v.vendor, v.spec].filter(Boolean).join(" · ") + (bvNum(v.unit) ? " · 단가 " + bvFmt(v.unit) + (cu === "KRW" ? "원" : " " + cu) : "")) + "</span></div>" +
+          g.map(function (x) {
+            var r = x.r;
+            return '<div class="oldrow" data-oldrow="' + esc(r.id) + '"><span class="who">' + esc(r.name + " " + (r.batch || "")) + " · " + esc(r.state || "계획") + " · 발주 " + numCell(r.qty) + (Number(r.inQty) > 0 ? " · 입고 " + numCell(r.inQty) : "") + (r.doc ? " · " + esc(r.doc) : "") +
+              (sent(r) ? ' <b style="color:var(--late)">업체에 이미 발주한 건</b>' : "") + "</span>" +
+              '<button type="button" class="btn btn-sm' + (sent(r) ? "" : " btn-solid") + '" data-oldgo="' + esc(r.id) + '">' + esc(o.to) + "로 바꾸기</button>" +
+              '<button type="button" class="btn btn-sm' + (sent(r) ? " btn-solid" : "") + '" data-oldkeep="' + esc(r.id) + '" title="옛 사양으로 이미 만드는 중 · 재고 소진 등 — 다시 묻지 않습니다">그대로 두기</button></div>';
+          }).join("") + "</div>";
+      }).join("") +
+      '<p class="nghelp">바꾸면 발주 건의 품목코드 · 품목명 · 업체 · 단가(같은 통화일 때)가 새 BOM 줄 값으로, 차수는 새 코드의 다음 차수로 바뀌고 변경 이력에 남습니다. 자재 발주에는 어느 제품 몇 차용인지가 없어 자동으로 바꾸지 않습니다.</p>' +
+      '<div class="sebtn" style="display:flex;gap:6px;justify-content:flex-end;margin-top:8px"><button type="button" class="btn btn-sm" id="oldClose">나중에</button></div></div>';
+    document.body.appendChild(ov);
+    var done = function (id) { var el = ov.querySelector('[data-oldrow="' + CSS.escape(id) + '"]'); if (el) { var it = el.parentNode; el.remove(); if (!it.querySelector(".oldrow")) it.remove(); } if (!ov.querySelector(".oldrow")) ov.remove(); renderBoard(); if (currentId === id && !$("view-run").hidden) renderRun(); };
+    ov.addEventListener("click", function (e) {
+      if (ovBackdrop(e, ov) || e.target.id === "oldClose") { ov.remove(); return; }
+      var t = e.target, id, r, o;
+      if ((id = t.dataset && t.dataset.oldkeep)) {
+        r = rowById(id); o = r && oldCodeOf(r.code); if (!o) return;
+        t.disabled = true;
+        gsr().withSuccessHandler(function (a) { OLD_ACK = a || OLD_ACK; OLD_ACK[id] = o.to; toast(r.name + " — 옛 코드 그대로 둡니다(다시 묻지 않음)"); done(id); })
+          .withFailureHandler(function (er) { t.disabled = false; toast("저장 실패: " + er.message); }).apiOldAck(id, o.to);
+        return;
+      }
+      if ((id = t.dataset && t.dataset.oldgo)) {
+        r = rowById(id); o = r && oldCodeOf(r.code); if (!o) return;
+        if (["", "계획", "상신", "승인"].indexOf(String(r.state || "")) < 0 && !confirm(r.name + " 은(는) 업체에 이미 발주한 건(" + r.state + ")입니다. 업체 발주서도 " + o.to + " 로 바뀌었는지 확인하셨나요?")) return;
+        var v = o.v, patch = { code: o.to }, nOrd = (DATA.rows || []).filter(function (x) { return !x.cancelled && String(x.code || "").toUpperCase() === o.to; }).length;
+        patch.batch = (nOrd + 1) + "차";
+        if (v.name && v.name !== r.name) patch.name = v.name;
+        if (v.vendor && v.vendor !== r.vendor) patch.vendor = v.vendor;
+        var cu = BV_CUR_CODE[bvCur(v)] || "KRW", up = bvNum(v.unit);
+        if (up > 0 && cu === curOf(r) && Math.abs(up - Number(r.price)) > 1e-9) { patch.price = String(up); patch.reason = "BOM 자재코드 변경 " + r.code + " → " + o.to + "(" + o.pc + " " + o.from + "부터) — 단가도 BOM 값으로"; }
+        t.disabled = true; t.textContent = "바꾸는 중…";
+        gsr().withSuccessHandler(function () {
+          var was = r.code;
+          r.code = o.to; r.batch = patch.batch; if (patch.name) r.name = patch.name; if (patch.vendor) r.vendor = patch.vendor; if (patch.price) r.price = Number(patch.price);
+          PO_BOMP = {}; toast(r.name + " — " + was + " → " + o.to + " · " + patch.batch + (patch.price ? " · 단가 " + bvFmt(patch.price) : "")); done(id);
+          lastSync = 0; setTimeout(revalidate, 300);
+        }).withFailureHandler(function (er) { t.disabled = false; t.textContent = o.to + "로 바꾸기"; alert("바꾸지 못했습니다: " + er.message); }).apiEditOrder(r.statusRow, statusRef(r), patch);
+      }
+    });
+  }
+  /** BOM 저장 뒤: 그 BOM 에서 끝난 옛 코드로 진행 중인 발주가 있으면 바로 묻는다 */
+  function oldCodeAfterSave(code) {
+    if (mode !== "po") return;
+    oldAckLoad(function () {
+      var rows = (DATA.rows || []).filter(function (r) { var o = oldCodeHit(r); return o && o.pc === code && !OLD_SEEN[r.id + ">" + o.to]; });
+      rows.forEach(function (r) { OLD_SEEN[r.id + ">" + oldCodeOf(r.code).to] = 1; });
+      if (rows.length) oldCodeDlg(rows, code + " BOM 저장 — 바뀐 자재의 옛 코드로 아직 진행 중인 발주가 있습니다");
+    });
+  }
   function poBomBadge(r, open) {
     if (r.price === "" || r.price == null || isNaN(Number(r.price))) return "";
     var b = poBomPrice(r);
@@ -10845,7 +10978,7 @@ function dateSlots_(steps, cfg, mode) {
     var op = Number(r.price), bp = Number(b.price);
     var diff = cur === "KRW" ? Math.abs(Math.round(op) - Math.round(bp)) > 2 : Math.abs(op - bp) > Math.max(0.01, bp * 0.01);     // 원화 2원 이하는 BOM 단가 소수점 반올림 차이라 표시하지 않는다
     if (!diff) return "";
-    var f = function (n) { return Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 4 }) + (cur === "KRW" ? "원" : " " + cur); };
+    var f = function (n) { return Number(n).toLocaleString("ko-KR", { maximumFractionDigits: cur === "KRW" ? 0 : 4 }) + (cur === "KRW" ? "원" : " " + cur); };
     return ' <span class="nobom bomp"' + (open ? ' data-bomopen="1" role="button" style="cursor:pointer"' : "") + ' title="발주 단가 ' + esc(f(op)) + ' · BOM 단가 ' + esc(f(bp)) + " (" + esc(b.where) + ') — 다릅니다' + (open ? " · 누르면 BOM" : ". BOM 보기에서 확인하세요") + '">BOM 단가 다름 ' + esc(f(bp)) + "</span>";
   }
   function bomQuoteText(code, q) {
@@ -11358,7 +11491,7 @@ function dateSlots_(steps, cfg, mode) {
     if (!BV_GETC[d.code]) { BV_GETQ.push(d.code); if (BV_GETQ.length > 30) delete BV_GETC[BV_GETQ.shift()]; }
     BV_GETC[d.code] = bvCopy(d);
     if (BV_ALL && !d.semi) BV_ALL[d.code] = bvCopy(d.rows);
-    PO_BOMP = {};                                  // 발주 목록 'BOM 단가 다름'도 새 BOM 으로 다시 계산
+    PO_BOMP = {}; OLDC = {};                       // 발주 목록 'BOM 단가 다름' · 옛 코드도 새 BOM 으로 다시 계산
   }
   /** 목록에서 품목에 마우스를 올리면 미리 받아 둔다(누를 때 바로 열리게) — 한 번에 둘까지 */
   function bvPrefetch(code) {
@@ -13248,6 +13381,7 @@ function dateSlots_(steps, cfg, mode) {
   }
   /** BOM 저장 뒤: [새 발주] 줄에서 열었으면 그 줄을 새 BOM으로 다시 채운다(새 품목코드면 코드 · 이름 · 1차까지) · 코드 없던 발주 건이면 코드를 넣는다 */
   function bvAfterSave(code, nv) {
+    setTimeout(function () { oldCodeAfterSave(code); }, 600);
     if (typeof II !== "undefined" && II) { II.at = 0; II.refAt = 0; }          // 품목 정보 목록은 다음에 열 때 새로(BOM 에서 바꾼 이름 · 새 코드가 바로 보이게)
     if (BV.ngRow != null && NG[BV.ngRow]) {
       var r = BV.ngRow, o = NG[r];
@@ -13633,6 +13767,7 @@ function dateSlots_(steps, cfg, mode) {
         : "이 발주 건은 아직 품목코드가 없습니다. [다음: 표에서 확인] → [저장]을 누르면 그 코드가 이 발주 건에도 들어갑니다.";
       return;
     }
+    if ((x = t.closest("[data-oldc]")) && !x.closest("#rows")) { e.preventDefault(); oldCodeDlg([rowById(x.dataset.oldc)]); return; }
     if ((x = t.closest("[data-bomopen]"))) {
       e.preventDefault();
       var orow = rowById(currentId);

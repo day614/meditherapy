@@ -368,3 +368,32 @@ function bomLaterDrain_() {
   if (Object.keys(codes).length) { try { itemDbPriceSync_(Object.keys(codes), null); } catch (e3) { try { console.log('품목 단가(미룸) 실패: ' + e3.message); } catch (e4) { /* 넘어간다 */ } } }
   return keys.length;
 }
+
+
+/* ============================================================
+ * 옛 자재코드 발주 '그대로 두기' (2026-10-21)
+ * BOM 에서 사양 · 업체가 바뀌어 새 코드(CA6 → CA7)가 된 뒤 옛 코드로 진행 중인 발주를 화면이 알린다.
+ * [그대로 두기]를 고른 건은 { 실행판ID: 새 코드 } 로 남겨 다시 묻지 않는다(더 새 코드가 생기면 다시 묻는다).
+ * ============================================================ */
+var RB_OLDACK = 'rb.oldack';
+function oldAckRead_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(RB_OLDACK) || '{}') || {}; } catch (e) { return {}; } }
+/** 화면: 그대로 두기로 한 건 */
+function apiOldAcks() { return oldAckRead_(); }
+/** 화면: 이 발주 건은 옛 코드 그대로(새 코드 to 기준) */
+function apiOldAck(id, to) {
+  requireEditor_();
+  id = str_(id); to = str_(to).toUpperCase();
+  if (!id || !to) throw new Error('발주 건 · 새 코드가 없습니다.');
+  var lock = LockService.getScriptLock();
+  waitLock_(lock);
+  var o;
+  try {
+    o = oldAckRead_();
+    o[id] = to;
+    var ks = Object.keys(o);
+    if (ks.length > 400) ks.slice(0, ks.length - 400).forEach(function (k) { delete o[k]; });     // 속성 한 칸(9KB) 안에
+    PropertiesService.getScriptProperties().setProperty(RB_OLDACK, JSON.stringify(o));
+  } finally { lock.releaseLock(); }
+  try { writeAudit_(RB.T_CONFIG, 1, 1, '옛 자재코드 발주 그대로 두기 ' + id, '', to); } catch (e) { /* 넘어간다 */ }
+  return o;
+}
