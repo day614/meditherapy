@@ -1948,7 +1948,7 @@ function flushVer_() {
 }
 /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
 /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
-var RB_BUILD = '2026-10-21b';
+var RB_BUILD = '2026-10-21c';
 /** 브라우저 탭 아이콘 — 공개 PNG 주소(바꾸려면 이 주소만) */
 var RB_FAVICON = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f44d.png';
 function apiVer() {
@@ -2886,6 +2886,7 @@ function apiBulkOrderDate(items, value) {
       }
     });
     setCellsSame_(sh, put, cOrd, dval);                 // 문자열이 아니라 날짜로 쓴다
+    try { var og = ordGuardRead_(), ogW = me_(); wrote.forEach(function (w) { og[w.id] = { v: stamp, at: Date.now(), who: ogW }; }); ordGuardWrite_(og); } catch (eOg) { /* 지킴 목록은 실패해도 된다 */ }
     setCellsSame_(sh, stUp, ix.kc.state, '발주');
     writeAudits_(audits);
     n = put.length;
@@ -4108,6 +4109,9 @@ function apiWriteSheet(statusRow, payload) {
         }
       }
       setRowCells_(sh, plan.row, cells);   // 칸마다 쓰지 않고 붙은 칸끼리 한 번에(수식 칸은 비켜 간다)
+      // 발주일: 쓴 뒤 시트에서 다시 읽어 확인하고, 1분마다 지워졌는지 지켜본다(저장 직후 칸이 비는 일이 있었다 10/21)
+      if (ordWritten === true) ordGuardAfterWrite_(sh, plan.row, kc9.id, plan.items);
+      else if (ordWritten === false) ordGuardForget_(sh, plan.row, kc9.id);       // 실행판에서 일부러 지운 건 되살리지 않는다
       writeAudits_(audits);
       logQtyPrice_(plan.row, audits, payload);
     } finally {

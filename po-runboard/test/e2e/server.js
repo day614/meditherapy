@@ -31,7 +31,7 @@ http.createServer((req, res) => {
     return;
   }
   if (req.url === '/__log') { res.end(JSON.stringify(log.splice(0))); return; }
-  if (req.url === '/__sheet') { const s = ctx.__main.getSheetByName('_실행판_BOM3'); res.end(JSON.stringify({ v: s.v, f: s.f })); return; }
+  if (req.url.indexOf('/__sheet') === 0) { const tb = decodeURIComponent((req.url.split('tab=')[1] || '_실행판_BOM3')); const s = ctx.__main.getSheetByName(tb); res.end(JSON.stringify({ v: s.v, f: s.f })); return; }
   let page = fs.readFileSync(path.join(SRC, 'PageHtml.html'), 'utf8');
   const inj = SHIM + '<script>window.__BUILD=' + JSON.stringify(ctx.RB_BUILD) + ';window.__EXEC="http://localhost:' + port + '/";window.__UPD="";</script>';
   // 시험용: 화면 코드 안 함수를 밖에서 부를 수 있게(window.__t('식'))

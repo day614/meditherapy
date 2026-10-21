@@ -994,6 +994,14 @@
   #bomv-pend.flash { outline: 2px solid var(--accent); outline-offset: 2px; }
   /* 통화 · 환율: 단가 칸 아래 한 줄(옆 칸을 덮지 않게) */
   /* [이 차수 구성 정정]: 새 발주 시트처럼 — 한 줄 높이 · 칸 안 테두리 없는 입력 · 줄바꿈 없음 · 표 상자 안에서 가로 · 세로 스크롤(스크롤바가 늘 보이게) · 머리 줄과 구분 · 코드 칸 고정 */
+  /* 고치는 화면 모드 막대: [N차부터 바꾸기] · [값 바로잡기(정정)] — 같은 모양 표라 지금 어느 쪽인지 헷갈리던 것 */
+  .bvmode { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 6px; padding: 6px 10px; border-radius: 8px; font-size: 12.5px; border: 1px solid var(--line); background: var(--surface-2); }
+  .bvmode .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 7px; overflow: hidden; }
+  .bvmode .seg button { font: inherit; font-size: 12.5px; padding: 4px 12px; border: 0; background: var(--surface); color: var(--ink-2); cursor: pointer; }
+  .bvmode .seg button + button { border-left: 1px solid var(--line-strong); }
+  .bvmode .seg button.on { background: var(--primary); color: #fff; font-weight: 600; cursor: default; }
+  .bvmode.fix { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+  .bvmode .what { color: var(--ink); }
   .bomt .sepcalc { margin-top: 4px; font-size: 12.5px; color: var(--ink); font-weight: 400; }
   #bomv.fixmode #bomv-wrap { max-height: calc(100vh - 290px); min-height: 220px; overflow: auto; scroll-padding-left: 248px; }
   #bomv.fixmode .bomt th:nth-child(3), #bomv.fixmode .bomt td.g-code { width: 116px; min-width: 116px; max-width: 116px; white-space: normal; overflow-wrap: anywhere; }
@@ -1079,6 +1087,8 @@
   #bomv.fixmode .bomt tr.tot > td, #bomv.fixmode .bomt tr.tot2 > td { padding: 8px 10px; white-space: normal; }
   #bomv.fixmode .bomt td.cxmod input, #bomv.fixmode .bomt td.cxmod select { color: var(--primary); font-weight: 700; }
   #bomv.fixmode .bomt td.cxmod { box-shadow: inset 0 -2px 0 var(--primary); }
+  #bomv.fixmode .bomt td.gx .cxmod { color: var(--primary); font-weight: 700; box-shadow: inset 0 -2px 0 var(--primary); }   /* [N차부터 바꾸기]에서 정정으로 옮겨 온 칸 */
+  #bomv.fixmode .bomt td.g-code .newc input.wantcode { width: 100%; max-width: 100%; box-sizing: border-box; min-width: 0; }
   #bomv.fixmode .bomt tr.cxchg > td.g-code { background: #fff4e5; }
   #bomv.fixmode .bomt td.g-span .cxnote { white-space: normal; max-width: 220px; }
   .bomt .fxcm { white-space: nowrap; flex-wrap: nowrap; }
@@ -1742,6 +1752,7 @@
       <button class="btn btn-sm" type="button" id="bomv-ordbtn" hidden title="화면에 보이는 구성 자재 순서를 바꿉니다 — BOM 탭 '순서' 칸에 저장(실행판 화면 · 배포용 BOM 파일이 이 순서로)">순서 바꾸기</button>
       <span class="bomvhf" id="bomv-hf" hidden></span>
     </div>
+    <div class="bvmode" id="bomv-mode" hidden></div>
     <div class="ngwrap" id="bomv-wrap" hidden><table class="ngt bomt"><thead><tr id="bomv-head">
       <th class="g-ckh" title="체크한 줄만 원가 · 발주 단가에 들어갑니다">원가</th><th>구분</th><th>자재코드</th><th>품목명</th><th>업체명</th><th>매입정보</th><th>사양</th><th>MOQ</th><th>소요량</th><th>내용물/자재</th><th>임가공</th><th>배송비/기타</th><th>소요원가</th><th>적용</th><th>변동사항</th><th id="bomv-acth">변경</th>
     </tr></thead><tbody id="bomv-rows"></tbody></table></div>
@@ -12086,12 +12097,53 @@ function dateSlots_(steps, cfg, mode) {
   }
   function bomFixOpen() {
     if (BV.saving) { $("bomv-msg").textContent = "앞 정정을 저장하는 중입니다 — 잠시 뒤(몇 초) 다시 눌러 주세요."; return; }
-    if (bvDirtyN() && !confirm("저장하지 않은 변경 " + bvDirtyN() + "건이 있습니다. 버리고 정정할까요?")) return;
     if (!bvFixRows().length) { $("bomv-msg").textContent = "이 차수에는 실행판 BOM 탭에 있는 줄이 없어 정정할 게 없습니다."; return; }
-    BV.mods = {}; BV.ckPend = {}; BV.adds = []; BV.edit = null;
-    BV.fix = { plan: null, why: "", del: {} };
-    $("bomv-msg").textContent = "";
+    // [N차부터 바꾸기]에서 고친 칸은 버리지 않고 정정 표로 옮긴다(오타를 고치다 새 코드가 붙는 걸 보고 정정으로 바꾸는 경우) — 빼기는 정정에서 뜻이 달라(줄 삭제) 옮기지 않는다
+    var carry = [], drop = 0, span = bvFixSpanText();
+    Object.keys(BV.mods || {}).forEach(function (r) {
+      var m = BV.mods[r]; if (!m) return;
+      if (m.remove) { drop++; return; }
+      var f = {}; Object.keys(m).forEach(function (k) { if (/^(type|name|vendor|buy|spec|moq|qty|unit|cur|proc|ship)$/.test(k) && m[k] != null) f[k] = m[k]; });
+      if (Object.keys(f).length) carry.push({ row: Number(r), f: f });
+    });
+    var nPend = bvDirtyN();
+    if (nPend) {
+      var q = carry.length
+        ? "고친 칸 " + carry.length + "줄을 [값 바로잡기(정정)]으로 옮깁니다.\n\n정정은 새 줄 · 새 코드 없이 그 줄을 덮어씁니다 — " + span + "\n" + (drop ? "\n(빼기 " + drop + "줄은 옮기지 않습니다 — 정정에서 줄을 지우려면 그 줄 [삭제])" : "") + (BV.adds.length ? "\n(추가할 자재 " + BV.adds.length + "줄도 그대로 둡니다)" : "") + "\n\n옮길까요?"
+        : "저장하지 않은 변경 " + nPend + "건(빼기 · 원가 체크)은 정정으로 옮기지 않습니다. 버리고 정정할까요?";
+      if (!confirm(q)) return;
+    }
+    var keepAdds = carry.length ? BV.adds : [];
+    BV.mods = {}; BV.ckPend = {}; BV.adds = keepAdds; BV.edit = null;
+    BV.fix = { plan: null, why: BV.chgWhy || "", del: {} };
+    $("bomv-msg").textContent = carry.length ? "고친 칸을 정정 표로 옮겼습니다 — 사유를 확인하고 [저장]. " + span : "";
     bomShow();
+    carry.forEach(function (c) { Object.keys(c.f).forEach(function (k) {
+      var el = document.querySelector('#bomv-rows [data-fx="' + c.row + '"][data-f="' + k + '"]');
+      if (el) { el.value = c.f[k]; el.classList.add("cxmod"); }
+    }); });
+  }
+  /** 고치는 화면 위 모드 막대 — kind: "chg"(N차부터 바꾸기) · "fix"(정정) · ""(숨김) */
+  function bvModeBar(kind) {
+    var el = $("bomv-mode"); if (!el) return;
+    var ob = bvEditRound();
+    if (!kind || BV.semi || (kind === "chg" && !bvFixRows().length)) { el.hidden = true; el.innerHTML = ""; return; }
+    var lab = (kind === "fix" ? bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints()) : (ob || BV.round) + "차");
+    var chgOk = !!ob;      // 이 발주 차수(또는 [차수 추가]로 만든 차수)일 때만 'N차부터 바꾸기'
+    el.hidden = false; el.className = "bvmode" + (kind === "fix" ? " fix" : "");
+    el.innerHTML = '<span class="seg">' +
+      (chgOk ? '<button type="button" data-bvmode="chg"' + (kind === "chg" ? ' class="on"' : "") + ' title="바뀐 값은 ' + ob + '차부터 새 줄 — 1~' + (ob - 1) + '차 BOM 은 그대로(업체 · 사양 · 소요량이 바뀌면 새 자재코드)">' + ob + "차부터 바꾸기</button>" : "") +
+      '<button type="button" data-bvmode="fix"' + (kind === "fix" ? ' class="on"' : "") + ' title="잘못 넣은 값을 그 줄 그대로 덮어씀 — 새 줄 · 새 코드 없음 · 같은 줄을 쓰는 앞 차수도 같이 바뀜">값 바로잡기(정정)</button></span>' +
+      '<span class="what">' + (kind === "fix"
+        ? "<b>정정 중</b> — 새 줄 · 새 코드 없이 덮어씁니다. " + esc(bvFixSpanText()) + " 오타 · 잘못 넣은 값일 때."
+        : "<b>" + lab + "부터 바꾸기</b> — 바꾼 줄은 " + lab + "부터 새 줄로 들어가고 앞 차수는 그대로입니다(업체 · 사양 · 소요량을 바꾸면 새 자재코드). 실제로 바뀐 사양 · 단가일 때. 오타면 [값 바로잡기(정정)].") + "</span>";
+  }
+  /** 정정이 실제로 바꾸는 범위 — 이 발주(4차) 화면에서 열어도 줄은 1차~ 처럼 앞 차수와 같이 쓰므로 그 차수들이 다 바뀐다 */
+  function bvFixSpanText() {
+    var fr = bvFixRows(), lo = 1e9, hi = 0, open = false;
+    fr.forEach(function (v) { var a = bvR(v.start) || 1; if (a < lo) lo = a; if (String(v.end || "").trim()) hi = Math.max(hi, bvR(v.end) || 0); else open = true; });
+    if (!fr.length) return "";
+    return "이 표의 줄을 쓰는 " + (lo === 1e9 ? "" : lo + "차") + "~" + (open ? "" : hi + "차") + " BOM이 모두 바뀝니다.";
   }
   function bomFixCancel() {
     if (bvDirtyN() && !confirm("정정 중인 값 · 추가할 자재 · 원가 체크 · 구성 고르기를 버릴까요?")) return;
@@ -12099,7 +12151,7 @@ function dateSlots_(steps, cfg, mode) {
     BV.fix = null; BV.adds = []; BV.edit = null; BV.ckPend = {}; $("bomv-msg").textContent = ""; bomShow();
   }
   function bvFixPendHtml() {
-    var F = BV.fix, h = '<div class="bomform"><b>' + bvSegLabel(BV.round, bvPoints()) + ' 구성 정정</b><span class="nghelp">표의 칸을 바로 고치세요. 코드 · 차수는 그대로, 새 줄 없이 그 줄을 덮어씁니다 · 왼쪽에 색 띠가 있는 줄은 이전 · 다음 차수와 같이 쓰는 줄입니다.</span></div>' +
+    var pts0 = bvPoints(), F = BV.fix, h = '<div class="bomform"><b>' + bvSegLabel(bvSegOf(BV.round, pts0), pts0) + ' 구성 정정(덮어쓰기)</b><span class="nghelp">표의 칸을 바로 고치세요 · 왼쪽에 색 띠가 있는 줄은 이전 · 다음 차수와 같이 쓰는 줄입니다.</span></div>' +
       '<div class="bomform"><label class="wide">정정 사유(필수)<input class="fixwhy" id="bomfx-why" value="' + esc(F.why || "") + '" placeholder="예: BOM 등록 때 업체명 오타"></label>';
     if (!F.plan) return h + '<button type="button" class="btn btn-sm btn-solid" id="bomfx-check">저장</button><button type="button" class="btn btn-sm" id="bomfx-cancel">정정 그만두기</button><span class="nghelp">같은 코드를 쓰는 줄도 같이 고쳐집니다 · BOM변경이력에 남고 되돌릴 수 있습니다.</span></div>';
     var rowOf = function (r) { return BV.rows.filter(function (x) { return x.row === r; })[0]; };
@@ -12494,6 +12546,7 @@ function dateSlots_(steps, cfg, mode) {
     bvHfRender();
     if ($("bomv-ordbtn")) $("bomv-ordbtn").hidden = !BV.code || !!BV.newProduct || !!BV.fix || !!BV.semi || BV.rows.length < 2;
     var has = !!BV.code;
+    if ($("bomv-mode")) $("bomv-mode").hidden = true;
     if (has && ITEMDB === null) loadItemDB();          // 품목 DB 를 아직 못 받았으면 받아서 다시 그린다(위 loadItemDB 성공 처리)
     $("bomv-bar").hidden = !has; $("bomv-wrap").hidden = !has;
     bvListShow();
@@ -12524,7 +12577,8 @@ function dateSlots_(steps, cfg, mode) {
     $("bomv-round").innerHTML = opts;
     // 발주 건에서 열면 그 발주 차수가 곧 바꾸는 차수 — [차수 추가]는 필요 없다(상단 BOM 보기 · 신제품에서만)
     $("bomv-addr").hidden = !!orderR || !!BV.newProduct || !!BV.fix;
-    $("bomv-fixbtn").hidden = !!BV.newProduct || !!BV.fix || !!BV.semi || !bvFixRows().length;
+    $("bomv-fixbtn").hidden = !!BV.newProduct || !!BV.fix || !!BV.semi || !bvFixRows().length || bvGridOn();      // 고치는 차수에선 위 모드 막대 [값 바로잡기(정정)]로
+    bvModeBar("");
     if (BV.semi) $("bomv-addr").hidden = true;
     bvSemiBar();
     var HEAD0 = "<th class='g-ckh' title='체크한 줄만 원가 · 발주 단가에 들어갑니다'>원가</th><th>구분</th><th>자재코드</th><th>품목명</th><th>업체명</th><th>매입정보</th><th>사양</th><th>MOQ</th><th>소요량</th><th>내용물/자재</th><th>임가공</th><th>배송비/기타</th><th>소요원가</th><th>적용</th><th>변동사항</th><th id='bomv-acth'>변경</th>";
@@ -12546,7 +12600,7 @@ function dateSlots_(steps, cfg, mode) {
       var fAdd = BV.adds.reduce(function (a, x) { return a + bvCalc({ unit: x.unit, fx: x.fx || 1, proc: x.proc, ship: x.ship, qty: x.qty }); }, 0);
       var fTot = fLive.reduce(function (a, v) { return a + bvNum(v.cost); }, 0) + fAdd;
       var fCk = fLive.filter(function (v) { return !bvNoCost(v, BV.bomMax); }).reduce(function (a, v) { return a + bvNum(v.cost); }, 0) + fAdd;
-      var fTotRow = '<tr class="tot"><td colspan="13"><span class="totlab">소요원가 합계 (' + BV.round + '차 · 구성 전체 · 저장된 값 기준) <b class="totv">' + bvFmt(Math.round(fTot)) + "원</b>" + (Math.round(fCk) !== Math.round(fTot) ? ' <span class="nghelp">· 원가 체크 줄만 ' + bvFmt(Math.round(fCk)) + "원</span>" : "") + '</span></td><td class="n">' + bvFmt(Math.round(fTot)) +
+      var fTotRow = '<tr class="tot"><td colspan="13"><span class="totlab">소요원가 합계 (' + bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints()) + ' · 구성 전체 · 저장된 값 기준) <b class="totv">' + bvFmt(Math.round(fTot)) + "원</b>" + (Math.round(fCk) !== Math.round(fTot) ? ' <span class="nghelp">· 원가 체크 줄만 ' + bvFmt(Math.round(fCk)) + "원</span>" : "") + '</span></td><td class="n">' + bvFmt(Math.round(fTot)) +
         (Math.round(fCk) !== Math.round(fTot) ? '<div class="nghelp" title="원가 체크한 줄만 — 원가표 · 발주 단가 기준">원가 체크 줄만 ' + bvFmt(Math.round(fCk)) + "</div>" : "") + '</td><td colspan="4"></td></tr>';
       $("bomv-rows").innerHTML = codeList + fr.map(function (v) { return bvFixRowHtml(v) + (BV.fix.pick === v.row && !BV.fix.plan ? bvSemiPickHtml(v, fr) : ""); }).join("") + BV.adds.map(bvAddRowHtml).join("") + fTotRow +
         (BV.fix.plan ? "" : (addOn ? bvAddEditHtml() : '<tr><td colspan="20"><button type="button" class="btn btn-sm" data-bomedit="add" data-row="0" title="이 차수 구성에 빠진 자재를 넣습니다 — ' + BV.round + '차부터 쓰는 새 줄(새 자재코드)">+ 자재 추가 (빠진 자재)</button></td></tr>'));
@@ -12554,6 +12608,7 @@ function dateSlots_(steps, cfg, mode) {
       $("bomv-acth").style.display = "";
       bvColSize();
       $("bomv-info").textContent = "정정 중 · 자재 " + fr.length + "줄 · " + fr.filter(bvShared).length + "줄은 다른 차수와 같이 쓰는 줄 · 소요원가 합계 " + bvFmt(Math.round(fTot)) + "원";
+      bvModeBar("fix");
       var pb = $("bomv-pend"); pb.hidden = false; pb.innerHTML = bvFixPendHtml();
       bvLogShow();
       return;
@@ -12651,6 +12706,7 @@ function dateSlots_(steps, cfg, mode) {
       (canEdit ? (BV.newProduct ? " · 신제품 1차 BOM" : (carry ? " · " + ob + "차 — " + BV.bomMax + "차(최종) 구성을 그대로 가져왔습니다 · 손대지 않은 자재는 저장 때 " + ob + "차까지 이어 씁니다"
         : (BV.draft ? " · " + ob + "차 새 BOM(최종 구성에서 시작) · 바뀐 자재만 시트에 들어갑니다" : " · 이 발주(" + ob + "차) 구성 · 바꾸면 " + ob + "차부터 적용")))
         : (ob ? " · 변경은 " + ob + "차를 고르면 할 수 있습니다" : " · 바꾸려면 [차수 추가]")) + " · 소요원가 합계 " + bvFmt(Math.round(total)) + "원";
+    bvModeBar(canEdit && !BV.newProduct && !BV.nvTarget ? "chg" : "");
     var box = $("bomv-pend");
     var pr0 = canEdit ? bvProdRenum() : null;
     if (pr0 && !BV.nv) BV.nv = { name: BV.name, why: pr0.why || "", auto: true };
@@ -13325,6 +13381,11 @@ function dateSlots_(steps, cfg, mode) {
     if ((x = t.closest("[data-bomrevert]"))) { bomRevert(x.dataset.bomrevert); return; }
     if (t.closest("#bomv-save")) { bomSave(); return; }
     if (t.closest("#bomv-fixbtn")) { bomFixOpen(); return; }
+    if ((x = t.closest("[data-bvmode]"))) {
+      if (x.classList.contains("on")) return;
+      if (x.dataset.bvmode === "fix") bomFixOpen(); else if (BV.fix) bomFixCancel();
+      return;
+    }
     if ((x = t.closest("[data-cxdel]"))) {
       var dr = Number(x.dataset.cxdel), dvv = BV.rows.filter(function (q) { return q.row === dr; })[0];
       if (dvv) { BV.mods[dr] = { row: dvv.row, id: dvv.id || "", code: dvv.code, start: dvv.start, end: String(dvv.end || ""), remove: true, why: "" }; bvShowKeep(); }
