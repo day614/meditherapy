@@ -12536,29 +12536,47 @@ function dateSlots_(steps, cfg, mode) {
     var ob = bvEditRound();
     if (!kind || BV.semi || ((kind === "chg" || kind === "view") && !bvFixRows().length)) { el.hidden = true; el.innerHTML = ""; return; }
     if (kind === "view") {             // 보기 중(상단 [BOM 보기] · 다른 차수) — 바로 고치기 · 정정을 여기서 고른다
-      var vn = bvOrderRound() || (BV.bomMax || 0) + 1;
+      var lo = bvOrderRound() ? null : bvLiveOrder(), vn = bvOrderRound() || (lo ? bvR(lo.batch) : (BV.bomMax || 0) + 1);
       el.hidden = false; el.className = "bvmode";
-      el.innerHTML = '<span class="seg"><button type="button" data-bvmode="chg" title="' + (bvOrderRound() ? "이 발주 차수(" + vn + "차) 화면으로 — 바꾼 값은 " + vn + "차부터 새 줄" : "최종 " + (BV.bomMax || 0) + "차 구성을 가져와 " + vn + "차를 만들고 바로 고칩니다(= [차수 추가] " + vn + "차) — 앞 차수는 그대로") + '">' + vn + '차부터 바꾸기</button>' +
+      el.innerHTML = '<span class="seg"><button type="button" data-bvmode="chg" title="' + (bvOrderRound() ? "이 발주 차수(" + vn + "차) 화면으로 — 바꾼 값은 " + vn + "차부터 새 줄" : lo ? "진행 중인 " + vn + "차 발주(" + (lo.doc || lo.id) + ")와 연결해 " + vn + "차부터 바꿉니다 — 저장 뒤 그 발주 단가와 비교 · [발주 단가를 …로]" : "최종 " + (BV.bomMax || 0) + "차 구성을 가져와 " + vn + "차를 만들고 바로 고칩니다(= [차수 추가] " + vn + "차) — 앞 차수는 그대로") + '">' + vn + '차부터 바꾸기</button>' +
         '<button type="button" data-bvmode="fix" title="잘못 넣은 값을 그 줄 그대로 덮어씀 — 새 줄 · 새 코드 없음 · 같은 줄을 쓰는 앞 차수도 같이 바뀜">값 바로잡기(정정)</button></span>' +
-        '<span class="what"><b>보기 중</b> — 사양 · 업체 · 단가가 실제로 바뀌면 [' + vn + '차부터 바꾸기](BOM 차수 = 제품 발주 차수), 잘못 넣은 값이면 [값 바로잡기(정정)].</span>';
+        '<span class="what"><b>보기 중</b> — 사양 · 업체 · 단가가 실제로 바뀌면 [' + vn + '차부터 바꾸기](BOM 차수 = 제품 발주 차수' + (lo ? " · 진행 중인 " + vn + "차 발주와 연결" : "") + '), 잘못 넣은 값이면 [값 바로잡기(정정)].</span>';
       return;
     }
     var lab = (kind === "fix" ? bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints()) : (ob || BV.round) + "차");
     if (!ob && kind === "fix" && !BV.newProduct) ob = bvOrderRound() || (BV.bomMax || 0) + 1;      // 보기 중에 정정을 골랐어도 [N차부터 바꾸기]로 돌아갈 수 있게
     var chgOk = !!ob;      // 이 발주 차수(또는 [차수 추가]로 만든 차수)일 때만 'N차부터 바꾸기'
     el.hidden = false; el.className = "bvmode" + (kind === "fix" ? " fix" : "");
+    var renum = kind === "chg" && BV.draft && !bvOrderRound() && !BV.newProduct ? ' <button type="button" class="btn btn-sm" data-bvrenum="1" title="BOM 차수 = 제품 발주 차수 — 발주 차수와 어긋나 번호를 맞춰야 할 때(예: BOM 6차인데 실제 발주는 8차)">차수 번호 바꾸기</button>' : "";
     el.innerHTML = '<span class="seg">' +
       (chgOk ? '<button type="button" data-bvmode="chg"' + (kind === "chg" ? ' class="on"' : "") + ' title="바뀐 값은 ' + ob + '차부터 새 줄 — 1~' + (ob - 1) + '차 BOM 은 그대로(업체 · 사양 · 소요량이 바뀌면 새 자재코드)">' + ob + "차부터 바꾸기</button>" : "") +
-      '<button type="button" data-bvmode="fix"' + (kind === "fix" ? ' class="on"' : "") + ' title="잘못 넣은 값을 그 줄 그대로 덮어씀 — 새 줄 · 새 코드 없음 · 같은 줄을 쓰는 앞 차수도 같이 바뀜">값 바로잡기(정정)</button></span>' +
+      '<button type="button" data-bvmode="fix"' + (kind === "fix" ? ' class="on"' : "") + ' title="잘못 넣은 값을 그 줄 그대로 덮어씀 — 새 줄 · 새 코드 없음 · 같은 줄을 쓰는 앞 차수도 같이 바뀜">값 바로잡기(정정)</button></span>' + renum +
       '<span class="what">' + (kind === "fix"
         ? "<b>정정 중</b> — 새 줄 · 새 코드 없이 덮어씁니다. " + esc(bvFixSpanText()) + " 오타 · 잘못 넣은 값일 때."
         : "<b>" + lab + "부터 바꾸기</b> — 바꾼 줄은 " + lab + "부터 새 줄로 들어가고 앞 차수는 그대로입니다(업체 · 사양 · 소요량을 바꾸면 새 자재코드). 실제로 바뀐 사양 · 단가일 때. 오타면 [값 바로잡기(정정)].") + "</span>";
+  }
+  /** 이 품목의 진행 중인 최신 차수 발주(BOM 최종 차수 이상 · 취소 · 종결 아님) — [BOM 보기]로 열어도 그 발주와 연결 */
+  function bvLiveOrder() {
+    if (!BV.code || BV.semi || BV.newProduct || mode !== "po") return null;
+    var best = null;
+    (DATA.rows || []).forEach(function (r) {
+      if (!r.statusRow || r.cancelled || isClosed(r) || String(r.code || "").toUpperCase() !== BV.code) return;
+      var n = bvR(r.batch) || 0;
+      if (n >= (BV.bomMax || 0) && (!best || n > bvR(best.batch))) best = r;
+    });
+    return best;
   }
   /** 보기 중 막대 [N차부터 바꾸기] — 발주 건에서 열었으면 그 발주 차수 화면으로, 아니면 최종 차수 + 1 을 [차수 추가]처럼 만든다 */
   function bvChgStart() {
     var ob = bvOrderRound();
     if (ob) { BV.round = ob; bomShow(); return; }
     if (bvDirtyN() && !confirm("저장하지 않은 변경 " + bvDirtyN() + "건이 있습니다. 버리고 새 차수를 만들까요?")) return;
+    var lo = bvLiveOrder();
+    if (lo) {                                  // 진행 중인 최신 차수 발주가 있으면 그 발주 건에서 연 것처럼(BOM 차수 = 발주 차수)
+      BV.order = lo; BV.mods = {}; BV.ckPend = {}; BV.adds = []; BV.edit = null; BV.draft = null; BV.round = bvR(lo.batch);
+      $("bomv-msg").textContent = "진행 중인 " + BV.round + "차 발주(" + (lo.doc || lo.name) + ")와 연결했습니다 — 바꿀 칸을 고치고 사유를 적은 뒤 [저장]. 저장 뒤 아래에서 그 발주 단가와 비교합니다.";
+      bomShow(); return;
+    }
     var n = (BV.bomMax || 0) + 1;
     BV.mods = {}; BV.ckPend = {}; BV.adds = []; BV.edit = null; BV.draft = n; BV.round = n;
     $("bomv-msg").textContent = n + "차 새 BOM — " + (BV.bomMax || 0) + "차(최종) 구성을 그대로 가져왔습니다. 바꿀 칸을 표에서 바로 고치고(빼기 · [+ 자재 추가]) 사유를 적은 뒤 [저장]. 다른 차수 번호면 [차수 추가]로.";
@@ -12578,7 +12596,7 @@ function dateSlots_(steps, cfg, mode) {
   }
   function bvFixPendHtml() {
     var pts0 = bvPoints(), F = BV.fix, h = '<div class="bomform"><b>' + bvSegLabel(bvSegOf(BV.round, pts0), pts0) + ' 구성 정정(덮어쓰기)</b><span class="nghelp">표의 칸을 바로 고치세요 · 왼쪽에 색 띠가 있는 줄은 이전 · 다음 차수와 같이 쓰는 줄입니다.</span></div>' +
-      '<div class="bomform"><label class="wide">정정 사유(필수)<input class="fixwhy" id="bomfx-why" value="' + esc(F.why || "") + '" placeholder="예: BOM 등록 때 업체명 오타"></label>';
+      '<div class="bomform"><label class="wide">정정 사유(필수)<input class="fixwhy" id="bomfx-why" value="' + esc(F.why || "") + '" placeholder="예: BOM 등록 때 업체명 오타"></label>' + bvFixOnlySel();
     if (!F.plan) return h + '<button type="button" class="btn btn-sm btn-solid" id="bomfx-check">저장</button><button type="button" class="btn btn-sm" id="bomfx-cancel">정정 그만두기</button><span class="nghelp">같은 코드를 쓰는 줄도 같이 고쳐집니다 · BOM변경이력에 남고 되돌릴 수 있습니다.</span></div>';
     var rowOf = function (r) { return BV.rows.filter(function (x) { return x.row === r; })[0]; };
     var li = F.plan.map(function (q) {
@@ -12594,6 +12612,56 @@ function dateSlots_(steps, cfg, mode) {
     Object.keys(ckP).forEach(function (r) { var v = rowOf(Number(r)); if (v) li += "<li><b>원가 체크</b> · " + esc(v.type + " " + v.code + " · " + (v.vendor || "")) + " → " + (ckP[r] ? "원가에 넣음" : "원가에서 뺌") + "</li>"; });
     return h + '</div><ol class="fixlist">' + li + '</ol><div class="bomform"><button type="button" class="btn btn-sm btn-solid" id="bomfx-save">저장 (' + (F.plan.length + BV.adds.length + bvShareN(F.shares) + (F.commons || []).length + ckN) + "줄)</button>" +
       '<button type="button" class="btn btn-sm" id="bomfx-back">다시 고치기</button><span class="nghelp">BOM변경이력에 ‘정정’으로 남고 되돌릴 수 있습니다.</span></div>';
+  }
+  /** 정정 범위 고르기 — 이 줄을 쓰는 전체 차수(덮어쓰기) · 이 구간 안의 한 차수만(줄을 나눈다) */
+  function bvFixOnlyRounds() {
+    var pts = bvPoints(), seg = bvSegOf(BV.round, pts), i = pts.indexOf(seg), end = i > -1 && i + 1 < pts.length ? pts[i + 1] - 1 : Math.max(BV.bomMax || seg, seg), out = [];
+    for (var n = seg; n <= end && out.length < 40; n++) out.push(n);
+    return out;
+  }
+  function bvFixOnlySel() {
+    var F = BV.fix, L = bvFixOnlyRounds();
+    if (!F || F.plan) return F && F.only ? '<span class="nghelp"><b>' + F.only + "차만</b> 바로잡습니다</span>" : "";
+    return '<label title="이 줄 쓰는 전체 = 그 줄을 같이 쓰는 앞 · 뒤 차수도 다 같이 바뀜(원래부터 틀린 값) · N차만 = 그 차수만 바로잡은 값으로 줄을 나눔(앞 · 뒤 차수는 원래 값 그대로)">범위 <select id="bomfx-only">' +
+      '<option value="">이 줄 쓰는 전체 차수</option>' + L.map(function (n) { return '<option value="' + n + '"' + (F.only === n ? " selected" : "") + ">" + n + "차만</option>"; }).join("") + "</select></label>";
+  }
+  /** 정정 — 이 차수만: 줄을 나눠 그 차수만 바로잡은 값(서버 apiBomFixOnly) */
+  function bomFixOnlySave() {
+    var F = BV.fix, N = F.only, why = bvVal("bomfx-why");
+    F.why = why;
+    if (BV.saving) { $("bomv-msg").textContent = "앞 정정을 저장하는 중입니다 — 잠시 뒤 다시 눌러 주세요."; return; }
+    if (!why) { $("bomv-msg").textContent = "정정 사유를 적어 주세요 — BOM변경이력 탭과 변동사항 칸에 남습니다."; var w = $("bomfx-why"); if (w) w.focus(); return; }
+    var items = bvFixDiff();
+    if (BV.adds.length || bvFixShares().length || bvFixCommons().length || Object.keys(BV.ckPend || {}).length || Object.keys(F.del || {}).some(function (k) { return F.del[k]; })) { $("bomv-msg").textContent = N + "차만 정정에서는 칸 값만 바로잡을 수 있습니다 — 줄 삭제 · 자재 추가 · 공용 · 원가 체크는 범위를 '이 줄 쓰는 전체 차수'로 두고 따로 저장해 주세요."; return; }
+    var badK = { code: 1, start: 1, end: 1, type: 1 }, bad = items.filter(function (it) { return Object.keys(it.fields).some(function (k) { return badK[k]; }); });
+    if (bad.length) { $("bomv-msg").textContent = N + "차만 정정은 품목명 · 업체 · 매입 · 사양 · MOQ · 소요량 · 단가 · 통화 · 환율 · 임가공 · 배송비만 됩니다 — 코드 · 구분 · 시작/끝 차수는 범위를 '이 줄 쓰는 전체 차수'로."; return; }
+    if (!items.length) { $("bomv-msg").textContent = "바뀐 칸이 없습니다."; return; }
+    var NLB = { moq: "MOQ", qty: "소요량", unit: "단가", fx: "환율", proc: "임가공", ship: "배송비" }, nbad = "";
+    items.forEach(function (it) { Object.keys(it.fields).forEach(function (f) { var x = String(it.fields[f]).replace(/,/g, "").trim(); if (BV_NUM[f] && x !== "" && isNaN(Number(x))) nbad = nbad || (NLB[f] || f) + " '" + it.fields[f] + "'"; }); });
+    if (nbad) { $("bomv-msg").textContent = "숫자만 넣을 수 있습니다 — " + nbad; return; }
+    var rowOf = function (r) { return BV.rows.filter(function (x) { return x.row === r; })[0]; };
+    var L = items.map(function (it) {
+      var v = rowOf(it.row) || {}, s0 = bvR(v.start) || 1, e0 = String(v.end || "").trim() ? bvR(v.end) : 0;
+      var parts = (s0 < N ? s0 + "~" + (N - 1) + "차 원래 값 · " : "") + N + "차 바로잡은 값" + (!e0 || e0 > N ? " · " + (N + 1) + "~" + (e0 ? e0 + "차" : "") + " 원래 값" : "");
+      return "· " + (v.type || "") + " " + v.code + " (" + bvSpanText(v) + ") → " + parts + " — " + Object.keys(it.fields).map(function (k) { return (BV_FIX_LAB[k] || k) + " " + (v[k] == null ? "" : v[k]) + " → " + it.fields[k]; }).join(" · ");
+    });
+    if (!confirm(N + "차만 바로잡습니다 — 줄을 나눠 앞 · 뒤 차수는 원래 값 그대로 둡니다(코드는 그대로):\n\n" + L.join("\n") + "\n\nBOM변경이력에 '" + N + "차만 정정'으로 남습니다.")) return;
+    var code = BV.code, keepRound = BV.round;
+    BV.saving = code; busy(true);
+    $("bomv-msg").textContent = N + "차만 정정 저장하는 중…";
+    gsr().withSuccessHandler(function (d) {
+      BV.saving = 0; busy(false); BV.fix = null; BV.adds = []; BV.ckPend = {};
+      var msg = N + "차만 정정 " + items.length + "줄 저장했습니다 — 앞 · 뒤 차수는 원래 값 그대로(BOM변경이력에 남음). 그 차수 발주 단가가 다르면 발주 건에서 BOM 을 열어 [발주 단가를 …로].";
+      if (BV.code === code && !bvUserBusy()) { bomSet(d); BV.round = N; bomShow(); $("bomv-msg").textContent = msg; }
+      else { bvGetPut(d); toast(code + " " + msg); }
+      bvAfterSave(code, null);
+    }).withFailureHandler(function (e) {
+      BV.saving = 0; busy(false);
+      var em = String((e && e.message) || e || "").replace(/^Error:\s*/, "");
+      delete BV_GETC[code];
+      if (BV.code === code) { BV.msgNext = "저장하지 못했습니다: " + em; bomLoad(code, true); }
+      $("bomv-msg").textContent = "저장하지 못했습니다: " + em;
+    }).apiBomFixOnly(code, N, items.map(function (it) { return { row: it.row, id: it.id, code: it.code, start: it.start, end: it.end, fields: it.fields }; }), why);
   }
   function bvShareN(sh) { return (sh || []).reduce(function (a, x) { return a + x.items.length; }, 0); }
   /* 정정 확인 · 저장(2026-10-17): 서버를 기다리지 않는다 —
@@ -12722,6 +12790,8 @@ function dateSlots_(steps, cfg, mode) {
    */
   function bvFixGo() {
     if (!BV.fix) return;
+    var os = $("bomfx-only"); if (os) BV.fix.only = Number(os.value) || 0;
+    if (BV.fix.only) { bomFixOnlySave(); return; }
     if (!BV.fix.plan) bomFixCheck();
     var F = BV.fix;
     if (!F || !F.plan) return;
@@ -13002,7 +13072,7 @@ function dateSlots_(steps, cfg, mode) {
     list.forEach(function (o) { opts += '<option value="' + o.v + '"' + (o.v === BV.round ? " selected" : "") + ">" + esc(o.t) + "</option>"; });
     $("bomv-round").innerHTML = opts;
     // 발주 건에서 열면 그 발주 차수가 곧 바꾸는 차수 — [차수 추가]는 필요 없다(상단 BOM 보기 · 신제품에서만)
-    $("bomv-addr").hidden = !!orderR || !!BV.newProduct || !!BV.fix;
+    $("bomv-addr").hidden = true;          // [차수 추가]는 위 모드 막대 [N차부터 바꾸기] · [차수 번호 바꾸기]로 합침(2026-10-21) — 단추는 숨기고 동작만 쓴다
     $("bomv-fixbtn").hidden = !!BV.newProduct || !!BV.fix || !!BV.semi || !bvFixRows().length || bvGridOn();      // 고치는 차수에선 위 모드 막대 [값 바로잡기(정정)]로
     bvModeBar("");
     if (BV.semi) $("bomv-addr").hidden = true;
@@ -13140,7 +13210,7 @@ function dateSlots_(steps, cfg, mode) {
       (canEdit ? (BV.newProduct ? " · 신제품 1차 BOM" : (carry ? " · " + ob + "차 — " + BV.bomMax + "차(최종) 구성을 그대로 가져왔습니다 · 손대지 않은 자재는 저장 때 " + ob + "차까지 이어 씁니다"
         : (BV.draft ? " · " + ob + "차 새 BOM(최종 구성에서 시작) · 바뀐 자재만 시트에 들어갑니다" : " · 이 발주(" + ob + "차) 구성 · 바꾸면 " + ob + "차부터 적용")))
         : (ob ? " · 변경은 " + ob + "차를 고르면 할 수 있습니다" : " · 바꾸려면 [차수 추가]")) + " · 소요원가 합계 " + bvFmt(Math.round(total)) + "원";
-    var viewBar = !canEdit && !BV.fix && !BV.newProduct && !BV.nvTarget && !BV.semi && BV.rows.length && (bvOrderRound() || bvSegOf(BV.round, pts) === bvSegOf(BV.bomMax, pts));
+    var viewBar = !canEdit && !BV.fix && !BV.newProduct && !BV.nvTarget && !BV.semi && BV.rows.length;
     bvModeBar(canEdit && !BV.newProduct && !BV.nvTarget ? "chg" : (viewBar ? "view" : ""));
     if (viewBar) $("bomv-fixbtn").hidden = true;              // 같은 [값 바로잡기(정정)]이 막대에 있다
     var box = $("bomv-pend");
@@ -13453,6 +13523,13 @@ function dateSlots_(steps, cfg, mode) {
     if (BV.saving) { $("bomv-msg").textContent = "저장하는 중입니다 — 저장이 끝난 뒤(몇 초) 되돌려 주세요."; return; }      // 저장 중에 되돌리면 저장이 되돌린 줄을 다시 덮거나 엉뚱한 줄을 찾았다
     var l = BV.log.filter(function (x) { return x.id === id; })[0];
     if (!l) return;
+    // 'N차만 정정'은 두 건(N차 바로잡은 값 · N+1차부터 원래 값)으로 남는다 — 앞 건을 되돌리려면 뒤 건부터(뒤 건이 앞 건이 만든 줄을 닫았다)
+    var om = /^(\d+)차만 정정/.exec(String(l.kind || ""));
+    if (om) {
+      var nx = (Number(om[1]) + 1) + "차부터 원래 값(" + om[1] + "차만 정정)";
+      var pair = BV.log.filter(function (x) { return x.id !== id && String(x.kind || "").indexOf(nx) === 0 && x.codeA === l.codeA && x.state === "유효"; })[0];
+      if (pair) { $("bomv-msg").textContent = om[1] + "차만 정정을 되돌리려면 먼저 위의 '" + nx + "' 줄을 되돌려 주세요(둘이 한 쌍입니다)."; return; }
+    }
     var why = prompt(l.round + " " + l.kind + " (" + l.type + " " + l.codeA + (l.codeB && l.codeB !== l.codeA ? " → " + l.codeB : "") + ")를 되돌립니다. 새로 넣은 줄은 지우고, 닫았던 줄은 원래 종료 차수로 돌아갑니다. 되돌리는 사유를 적어 주세요", "");
     if (why === null) return;
     if (!String(why).trim()) { $("bomv-msg").textContent = "되돌리는 사유를 적어야 되돌릴 수 있습니다."; return; }
@@ -13881,6 +13958,7 @@ function dateSlots_(steps, cfg, mode) {
     if ((x = t.closest("[data-bomrevert]"))) { bomRevert(x.dataset.bomrevert); return; }
     if (t.closest("#bomv-save")) { bomSave(); return; }
     if (t.closest("#bomv-fixbtn")) { bomFixOpen(); return; }
+    if (t.closest("[data-bvrenum]")) { $("bomv-addr").click(); return; }
     if ((x = t.closest("[data-bvmode]"))) {
       if (x.classList.contains("on")) return;
       if (x.dataset.bvmode === "fix") bomFixOpen();
@@ -14155,6 +14233,7 @@ function dateSlots_(steps, cfg, mode) {
     if (e.target && e.target.id === "rev-kind") { REV.kind = e.target.value; REV.show = 60; bomRevRender(); }
   });
   $("bomv-q").addEventListener("focus", function () { if (bomList.length && String($("bomv-q").value).trim() && !bvListMode()) bvDropRender(); });
+  $("bomv").addEventListener("change", function (e) { if (e.target && e.target.id === "bomfx-only" && BV.fix) BV.fix.only = Number(e.target.value) || 0; });
   $("bomv-round").addEventListener("change", function () {
     // 고친 값은 그 차수 기준 — 다른 차수로 가면 버린다(예전엔 추가 줄 · 원가 체크가 남아 다른 차수로 저장됐다)
     var dn = bvDirtyN();

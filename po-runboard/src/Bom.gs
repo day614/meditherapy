@@ -1304,7 +1304,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
   mk('잠금대기');
   var hist = [], made = [], logs = [];
   var who = me_(), batch = Utilities.getUuid().slice(0, 8);
-  var addedRows = [], clearedCodes = [], clearedRows = [], hfRes = null;        // 핸들링피 넣을 새 줄(줄ID) · 지운 줄 코드(품목 DB 맞추기) — BomExtra.gs
+  var addedRows = [], clearedCodes = [], clearedRows = [], hfRes = null, splitMap = {};        // 핸들링피 넣을 새 줄(줄ID) · 지운 줄 코드(품목 DB 맞추기) — BomExtra.gs
   try {
     var ss = bomSS_(), sh = bomSheet_(), C = bomCols_(sh);
     var lastData = sh.getLastRow();
@@ -1426,7 +1426,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
       var anySet = Object.keys(setK).length > 0;
       if (!c.remove && !c.extend && !anySet) return;
       // 새 코드: 업체 · 데이터(사양) · 소요량이 바뀔 때만(채번 형식인 코드일 때). 단가 · MOQ 등은 코드 그대로.
-      var renumber = !c.remove && (setK.vendor || setK.spec || setK.qty) && /^[A-Z]{2}\d{4}[A-Z]{2}\d+$/.test(oldCode);
+      var renumber = !c.remove && !c.keep && (setK.vendor || setK.spec || setK.qty) && /^[A-Z]{2}\d{4}[A-Z]{2}\d+$/.test(oldCode);      // keep: 정정(이 차수만) — 코드 그대로
       var newCode = oldCode, parts = [], before = [], after = [];
       // 같은 자재(같은 코드)를 같은 값으로 바꾼 줄이 여럿이면(반제품마다 한 줄씩 있는 자재) 새 코드도 하나 — 예전엔 줄마다 새 번호가 따로 나왔다
       var rnKey = renumber ? [oldCode, setK.vendor ? str_(c.vendor) : str_(cur('vendor')), setK.spec ? str_(c.spec) : str_(cur('spec')), setK.qty ? num_(c.qty) : num_(cur('qty')), str_(c.want).toUpperCase()].join('|') : '';
@@ -1451,6 +1451,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
       });
       if (c.remove) { parts = [oldCode + ' 빠짐']; before = ['사용']; after = ['빠짐']; }
       var kind = c.remove ? '빼기' : (c.extend && !anySet ? '이어 씀' : Object.keys(setK).map(function (k) { return RB_BOM_EDIT_LABEL[k]; }).join(' · ') + ' 변경');
+      if (c.label && !c.remove) kind = str_(c.label).slice(0, 60) + ' · ' + kind;
       if (c.extend && !anySet) { parts = [x[C.end] + ' 종료 → ' + N + '차부터도 사용']; before = ['종료 ' + x[C.end]]; after = ['계속 사용']; }
       p.x = x; p.cur = cur; p.setK = setK; p.anySet = anySet; p.renumber = renumber; p.oldCode = oldCode; p.newCode = newCode;
       p.parts = parts; p.before = before; p.after = after; p.kind = kind;
@@ -1545,6 +1546,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
             cell(target, 'oldCode', '');             // 원가 체크는 원래 줄에서 복사된 그대로
             var newId = (nidA = nidA || bomIdGen_(sh, C))(); cell(target, 'id', newId);
             undo.newRef = { code: newCode, start: N + '차', id: newId };
+            splitMap[C.id >= 0 ? str_(x[C.id]) : ''] = newId;           // 정정(이 차수만)이 둘째 단계에서 이 새 줄을 찾는다
           }
         }
         if (target) {
@@ -1640,7 +1642,58 @@ function apiBomSaveCore_(product, round, changes, meta) {
   fresh.saved = logs.length;
   fresh.timing = TM;
   fresh.logTag = batch;
+  fresh.splitMap = splitMap;
   return fresh;
+}
+
+/**
+ * 정정 — 이 차수만(2026-10-21). 3~6차가 같이 쓰는 줄에서 5차 값만 잘못 들어갔을 때:
+ *   원래 줄 3~4차(원래 값) · 5차만 바로잡은 값 · 6차~ 원래 값 — 세 줄로 나눈다(코드는 그대로 · 새 코드 없음).
+ * 차수 변경 저장(apiBomSaveCore_)을 두 번: ① N차부터 바로잡은 값 ② N+1차부터 원래 값. BOM변경이력엔 'N차만 정정'으로 두 건(되돌리기는 ② → ① 순서).
+ * items = [{ row, id, code, start, end, fields: { unit: .., ... } }] — 바꿀 수 있는 칸: 품목명 · 업체 · 매입 · 사양 · MOQ · 소요량 · 단가 · 통화 · 환율 · 임가공 · 배송비
+ */
+function apiBomFixOnly(product, round, items, why) {
+  requireEditor_();
+  product = str_(product).toUpperCase();
+  var N = Number(round) || 0;
+  why = str_(why).slice(0, 200);
+  if (!why) throw new Error('정정 사유를 적어 주세요.');
+  if (!(N >= 1)) throw new Error('바로잡을 차수가 없습니다.');
+  items = (items || []).filter(function (it) { return it && it.row && it.fields && Object.keys(it.fields).length; });
+  if (!items.length) throw new Error('바뀐 값이 없습니다.');
+  var sh = bomSheet_(), C = bomCols_(sh), all = bomReadProduct_(sh, C, product);
+  var ch1 = [], back = [];
+  items.forEach(function (it) {
+    var r = Number(it.row), x = all[r - 3];
+    if (!x || str_(x[C.product]).toUpperCase() !== product || str_(x[C.code]).toUpperCase() !== str_(it.code).toUpperCase() || str_(x[C.start]) !== str_(it.start) || bomIdDiff_(C, x, it.id))
+      throw new Error('BOM 시트가 그사이 바뀌었습니다(' + it.code + '). BOM 보기를 다시 열어 주세요.');
+    var s0 = bomRnum_(x[C.start]), e0 = bomRnum_(x[C.end]);
+    if (s0 > N || (e0 && e0 < N)) throw new Error(it.code + ' 줄은 ' + N + '차에 쓰지 않습니다(' + str_(x[C.start]) + '~' + str_(x[C.end]) + ').');
+    var c = { row: r, id: it.id || '', code: str_(x[C.code]), start: str_(x[C.start]), end: str_(x[C.end]), keep: 1, label: N + '차만 정정', why: why }, orig = {};
+    Object.keys(it.fields).forEach(function (k) {
+      if (RB_BOM_EDIT.indexOf(k) < 0) throw new Error('이 차수만 정정은 ' + RB_BOM_EDIT.map(function (q) { return RB_BOM_EDIT_LABEL[q]; }).join(' · ') + ' 칸만 됩니다(' + k + ').');
+      if (C[k] < 0) return;
+      c[k] = it.fields[k]; orig[k] = x[C[k]];
+    });
+    ch1.push(c);
+    if (!e0 || e0 > N) back.push({ id: C.id >= 0 ? str_(x[C.id]) : '', s0: s0, code: str_(x[C.code]), end: str_(x[C.end]), orig: orig });     // N+1차부터 원래 값으로 돌릴 줄
+  });
+  var r1 = apiBomSaveCore_(product, N, ch1, {});
+  if (!back.length) { r1.fixOnly = { n: ch1.length, round: N }; return r1; }
+  // ② N+1차부터 원래 값 — ①에서 N차에 시작한 줄(원래 줄이 N차 시작이면 그 줄 · 아니면 새 줄)을 줄ID 로 찾는다
+  var byId = {}; (r1.rows || []).forEach(function (v) { if (v.id) byId[str_(v.id)] = v; });
+  var ch2 = back.map(function (b) {
+    var nid = b.s0 === N ? b.id : (r1.splitMap || {})[b.id], v = nid && byId[nid];
+    if (!v) throw new Error(N + '차 정정은 저장됐지만 ' + (N + 1) + '차부터 원래 값으로 돌리는 줄(' + b.code + ')을 찾지 못했습니다 — BOM 보기에서 ' + (N + 1) + '차부터 바꾸기로 원래 값을 넣어 주세요.');
+    var c2 = { row: v.row, id: nid, code: v.code, start: str_(v.start), end: str_(v.end), keep: 1, label: (N + 1) + '차부터 원래 값(' + N + '차만 정정)', why: why };
+    Object.keys(b.orig).forEach(function (k) { c2[k] = b.orig[k]; });
+    return c2;
+  });
+  var r2;
+  try { r2 = apiBomSaveCore_(product, N + 1, ch2, {}); }
+  catch (e) { throw new Error(N + '차 정정은 저장됐지만 ' + (N + 1) + '차부터 원래 값으로 나누지 못했습니다(일부만 저장됐을 수 있음): ' + e.message); }
+  r2.fixOnly = { n: ch1.length, round: N };
+  return r2;
 }
 
 /**
