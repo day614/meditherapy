@@ -1294,3 +1294,6 @@ function poCancel_(items, why, withOrdered) {
   try { bumpVer_('r'); apRefreshSoon_(); } catch (eV) { /* 넘어간다 */ }
   return out;
 }
+
+/** 화면: 기안 원복 — 기안(품의 · 결재 · 상신 · 승인)된 발주의 단가 · 수량 · 품목코드가 바뀌어 품의를 다시 써야 할 때. 입고 전 '발주' 건까지(poCancel_) */
+function apiPoRedraft(items, why) { return poCancel_(items, str_(why) || '단가 · 수량 변경 — 기안 다시', true); }

@@ -10157,13 +10157,14 @@ function dateSlots_(steps, cfg, mode) {
     if (o.code) {
       var want = o.code;
       $("ng-msg").textContent = want + ": BOM에서 매입처 · 단가를 찾는 중…";
+      var wantR = bvR(o.batch) || 0;
       bomQuote(want, function (q) {
         if (!NG[r] || NG[r].code !== want) return;            // 그새 다른 품목으로 바꿨으면 그대로
-        if (q) { if (q.vendor) NG[r].vendor = q.vendor; NG[r].price = String(q.price); if (q.cur) NG[r].cur = q.cur; NG[r]._sagup = q.sagup; ngSetRow(r); ngMoneyCell(r); }
+        if (q && !q.noCost) { if (q.vendor) NG[r].vendor = q.vendor; NG[r].price = String(q.price); if (q.cur) NG[r].cur = q.cur; NG[r]._sagup = q.sagup; ngSetRow(r); ngMoneyCell(r); }
         var br9 = bvR(NG[r].batch) || 0;
         $("ng-msg").textContent = (r + 1) + "번 줄 " + bomQuoteText(want, q) +
-          (q && q.max && br9 && q.max > br9 ? " ⚠ BOM 은 " + q.max + "차까지 미리 만들어져 있는데 이 줄 차수는 " + NG[r].batch + " 입니다 — BOM 차수 = 발주 차수, 맞는지 확인해 주세요(단가는 BOM " + q.max + "차 기준)." : "");
-      });
+          (q && q.max && br9 && q.max > br9 ? " ⚠ BOM 은 " + q.max + "차까지 미리 만들어져 있는데 이 줄 차수는 " + NG[r].batch + " 입니다 — BOM 차수 = 발주 차수, 맞는지 확인해 주세요(단가는 BOM " + (q.at || q.max) + "차 기준 · 차수를 바꾸면 품목을 다시 골라 주세요)." : "");
+      }, wantR);
     }
     var q = document.querySelector('#ng-rows [data-r="' + r + '"][data-k="qty"]');
     if (q) q.focus();
@@ -10764,7 +10765,7 @@ function dateSlots_(steps, cfg, mode) {
    * 새 발주용 BOM 견적: 최종 차수 BOM으로 매입처(제조사 · 반제품이면 그 업체)와 발주 단가(턴키까지), 따로 발주할 사급 자재.
    * cb({ vendor, price, round, sagup: ["단상자 HP… (업체)"], how }) — BOM이 없으면 cb(null)
    */
-  function bomQuote(code, cb) {
+  function bomQuote(code, cb, round) {
     // 자재(사급 · 턴키 부자재) 발주: 그 자재를 쓰는 BOM 줄(지금 쓰는 줄)의 업체 · 단가 · 통화 · MOQ
     if (/^[A-Z]P\d{4}/.test(String(code || "").toUpperCase())) {
       gsr().withSuccessHandler(function (m) {
@@ -10781,17 +10782,19 @@ function dateSlots_(steps, cfg, mode) {
       var rows = ((d && d.rows) || []).map(function (x) { return Object.assign({}, x); });
       if (!rows.length) { cb(null); return; }
       var max = bvPlan(rows); bvGroupsOf(rows, d.code);
-      var act = rows.filter(function (v) { return v._s <= max && max <= v._e; });
+      var atR = round && round >= 1 && round < max ? round : max;          // 새 발주 줄 차수의 BOM(미리 만든 다음 차수가 있어도 그 줄 차수 단가) — 없으면 최종
+      var act = rows.filter(function (v) { return v._s <= atR && atR <= v._e; });
       if (semiMat) { var actS = bvLiveSemis(act); act = act.filter(function (v) { return v.code === semiMat || bvInGrp(v, semiMat, actS); }); }
-      var q = bvPriceOf(act, d.code, semiMat, function (v) { return bvNum(v.cost); }, max, d.compMats);
-      if (!q) { cb(null); return; }
+      var q = bvPriceOf(act, d.code, semiMat, function (v) { return bvNum(v.cost); }, atR, d.compMats);
+      // BOM 은 있는데 원가 체크된 줄이 없으면(제품 줄까지 체크 빠짐) 단가를 못 셀 뿐 — 'BOM 없음'이 아니다
+      if (!q) { cb(act.length ? { noCost: 1, round: atR + "차", n: act.length } : null); return; }
       var bp = {}; rows.forEach(function (v) { bp[v._s] = 1; if (v._e < 1e9 && v._e + 1 <= max) bp[v._e + 1] = 1; });
       var pts = Object.keys(bp).map(Number).sort(function (a, c) { return a - c; });
       var odd = semiMat || act.some(function (v) { return v.type === "세트"; }) ? [] : act.filter(function (v) {
         return v.type === "제품" && String(v.code || "").toUpperCase() !== String(d.code).toUpperCase() && act.some(function (q) { return q.row > v.row && q.row <= v.row + 3 && q.type !== "제품"; });
       }).map(function (v) { return v.code + " " + v.row + "행~"; });
       var pc = bvPriceCur(q);
-      cb({ odd: odd, vendor: q.vendor, price: pc.price, cur: pc.cur, curLabel: pc.label || "", fx: pc.fx, round: bvSegLabel(bvSegOf(max, pts), pts), max: max, how: q.how,
+      cb({ odd: odd, vendor: q.vendor, price: pc.price, cur: pc.cur, curLabel: pc.label || "", fx: pc.fx, round: bvSegLabel(bvSegOf(atR, pts), pts), max: max, at: atR, how: q.how,
         sagup: act.filter(function (v) { return q.sep[v.row]; }).map(function (v) { return (v.type || "") + " " + v.code + (v.vendor ? " (" + v.vendor + ")" : ""); }) });
     }).withFailureHandler(function () { cb(null); }).apiBomGet(code);
   }
@@ -10987,9 +10990,10 @@ function dateSlots_(steps, cfg, mode) {
   }
   function bomQuoteText(code, q) {
     if (!q) return code + ": BOM 없음 — 매입처 · 단가는 지난 발주 값입니다. 확인해 주세요.";
+    if (q.noCost) return code + ": BOM 은 있지만(" + q.round + " · " + q.n + "줄) 원가 체크된 줄이 없어 발주 단가를 계산하지 못했습니다 — 매입처 · 단가는 지난 발주 값입니다. BOM 보기에서 원가 체크를 켜 주세요.";
     if (q.mat) return code + ": BOM 자재 줄(" + q.round + (q.live ? "" : " · 지금은 안 쓰는 줄") + (q.rows > 1 ? " · 같은 코드 " + q.rows + "줄 중 최신" : "") + ") 기준으로 매입처 " + (q.vendor || "-") + " · 단가 " + bvFmt(q.price) + (q.cur && q.cur !== "KRW" ? " " + q.curLabel : "원") +
       (q.moq ? " · MOQ " + bvFmt(q.moq) : "") + "을 채웠습니다." + (q.buy && q.buy !== "사급" ? " (BOM 매입정보는 " + q.buy + " — 제조사가 사는 자재면 따로 발주하지 않습니다)" : "");
-    return code + ": BOM 최종 구성(" + q.round + ") 기준으로 매입처 " + (q.vendor || "-") + " · 단가 " + bvFmt(q.price) + (q.cur && q.cur !== "KRW" ? " " + q.curLabel + "(설정 환율 ×" + bvFmt(q.fx) + "로 환산)" : "") + " (턴키 자재까지 포함)을 넣었습니다 — 예외면 고쳐서 저장하세요." +
+    return code + ": BOM " + (q.at && q.max && q.at < q.max ? q.round + " 구성(이 줄 차수)" : "최종 구성(" + q.round + ")") + " 기준으로 매입처 " + (q.vendor || "-") + " · 단가 " + bvFmt(q.price) + (q.cur && q.cur !== "KRW" ? " " + q.curLabel + "(설정 환율 ×" + bvFmt(q.fx) + "로 환산)" : "") + " (턴키 자재까지 포함)을 넣었습니다 — 예외면 고쳐서 저장하세요." +
       (q.odd && q.odd.length ? " ⚠ BOM에 다른 제품(" + q.odd.join(", ") + ") 구성이 들어 있어 세트가 아니면 단가가 틀립니다 — 실행판 BOM 탭 D열 확인." : "") +
       (q.sagup.length ? " ⚠ 사급 자재 " + q.sagup.length + "개는 따로 발주해야 합니다: " + q.sagup.join(", ") : " 사급 자재 없음.");
   }
@@ -11103,10 +11107,32 @@ function dateSlots_(steps, cfg, mode) {
     return m;
   }
   /** 발주 건 단가를 BOM 단가로(BOM 보기 '이 발주 단가 … BOM과 차이' 옆 단추) — [발주 수정]과 같은 저장(apiEditOrder) */
+  /** 기안(품의번호 · 상신 · 승인 · 발주)된 발주 — 단가 · 수량이 바뀌면 승인된 품의 금액과 달라진다 */
+  function ordDrafted(r) { return !!(r && (r.doc || ["상신", "승인", "발주"].indexOf(String(r.state || "")) > -1)); }
+  /** 기안된 발주를 바꿀 때 묻기: "redraft"(바꾸고 기안 원복) · "keep"(기안 그대로) · null(그만). 입고가 시작된 건은 원복하지 않는다(정산은 마감) */
+  function ordRedraftAsk(r, what) {
+    if (!ordDrafted(r) || Number(r.inQty) > 0) return "keep";
+    if (confirm(what + " — 이미 기안된 발주입니다(품의 " + (r.doc || "-") + " · " + (r.state || "") + "). 승인된 품의 금액과 달라집니다.\n\n[확인] 바꾸고 기안 원복(품의번호 · 결재 · 상신 · 승인을 지우고 계획으로 — 품의서를 다시 만들어 기안)\n[취소] 다음 선택으로")) return "redraft";
+    return confirm("기안은 그대로 두고 " + what + "만 바꿀까요? (품의 금액과 다르게 남습니다)") ? "keep" : null;
+  }
+  function ordRedraft(r, why) {
+    gsr().withSuccessHandler(function (res) {
+      if (res && res.n) {
+        r.doc = ""; r.approvalNo = ""; if (["상신", "승인", "발주"].indexOf(String(r.state || "")) > -1) r.state = "계획";
+        if (r.dates) { delete r.dates.submitted; delete r.dates.approved; }
+        renderBoard(); if (currentId === r.id && !$("view-run").hidden) renderRun();
+        alert(r.name + " — 기안을 원복했습니다(진행상태 계획). 품의서를 다시 만들어 기안해 주세요.");
+        lastSync = 0; setTimeout(revalidate, 300);
+      } else toast("기안 원복을 못 했습니다: " + ((res && res.skipped) || []).join(", "));
+    }).withFailureHandler(function (e) { alert("기안 원복 실패: " + e.message + " — 선택 → [품의 취소]로 원복해 주세요."); })
+      .apiPoRedraft([{ id: r.id, statusRow: r.statusRow, expect: statusRef(r) }], why);
+  }
   function bvSetOrderPrice(to, btn) {
     var od = BV.order;
     if (!od || !od.statusRow || !(to > 0)) return;
     if (od.cancelled || isClosed(od) || (Number(od.inQty) > 0 && !(Number(od.remain) > 0))) { alert("종결 · 입고 끝난 발주는 단가를 바꾸지 않습니다 — 차액은 마감에서 정산해 주세요."); return; }
+    var rd = ordRedraftAsk(od, "발주 단가 " + bvFmt(od.price) + " → " + bvFmt(to));
+    if (!rd) return;
     var why = prompt("발주 단가 " + bvFmt(od.price) + " → " + bvFmt(to) + " 로 바꿉니다(BOM " + bvEditRound() + "차 단가).\n사유(수량단가 변경 이력에 남음):", "BOM " + (bvEditRound() || "") + "차 단가로 맞춤");
     if (why === null) return;
     if (!String(why).trim()) { alert("사유를 적어 주세요."); return; }
@@ -11118,6 +11144,7 @@ function dateSlots_(steps, cfg, mode) {
       try { renderBoard(); if (currentId === od.id && !$("view-run").hidden) renderRun(); } catch (e) { /* 다음에 */ }
       if (!$("bomv").hidden) bvShowKeep();
       $("bomv-msg").textContent = "발주 단가를 " + bvFmt(to) + " 로 바꿨습니다 — 수량단가 변경 이력에 남았습니다.";
+      if (rd === "redraft") ordRedraft(od, "BOM 단가 맞춤 " + String(why).trim() + " — 기안 다시");
     }).withFailureHandler(function (e) { busy(false); btn.disabled = false; alert("발주 단가를 바꾸지 못했습니다: " + e.message); })
       .apiEditOrder(od.statusRow, statusRef(od), { price: to, reason: String(why).trim() });
   }
@@ -13274,7 +13301,8 @@ function dateSlots_(steps, cfg, mode) {
       box.hidden = false;
       var whyBox = bvPendCount() ? '<label class="wide">변경 사유(필수 · 바꾼 줄 · 추가 줄 · 원가 체크 모두에 남음)<input class="fixwhy" id="bomv-why" value="' + esc(BV.chgWhy || "") + '" placeholder="예: 업체 단가 인상 9/30"></label>' : "";
       box.innerHTML = '<div class="bomform">' + whyBox + (BV.nvTarget ? "<b>" + esc(BV.nvTarget) + " 1차 BOM · 바꾼 자재 " + bvPendCount() + "건</b>"
-          : "<b>" + ob + "차 " + (BV.newProduct ? "신제품 BOM" : "변경 " + bvPendCount() + "건" + (carry ? " · 이어 쓰기" : "")) + '</b><span class="nghelp">저장하면 실행판 BOM 탭에 ' + ob + "차부터 적용하고 BOM변경이력 탭 · 변동사항 칸에 남깁니다.</span>") +
+          : "<b>" + ob + "차 " + (BV.newProduct ? "신제품 BOM" : "변경 " + bvPendCount() + "건" + (carry ? " · 이어 쓰기" : "")) + '</b><span class="nghelp">저장하면 실행판 BOM 탭에 ' + ob + "차부터 적용하고 BOM변경이력 탭 · 변동사항 칸에 남깁니다." +
+            (!BV.newProduct && ob < (BV.bomMax || 0) ? " <b>뒤 차수 " + (ob + 1) + "~" + BV.bomMax + "차" + (function () { var L = bvOrdersIn(ob + 1, BV.bomMax); return L.length ? "(발주 " + L.length + "건)" : "(발주 전)"; })() + "도 바꾼 줄을 같이 쓰면 함께 바뀝니다</b>(그 차수에 따로 바뀐 줄이 있으면 그 줄은 그대로)." : "") + "</span>") +
         (BV.nvTarget ? '<span class="nghelp"><b>' + esc(BV.nvTarget) + ' 1차 BOM으로 저장합니다</b>(' + esc(BV.code) + ' 최신 구성에서) — 아래 [저장 (새 품목코드)].</span>'
           : askCode ? '<span class="nghelp"><b>제품 줄의 업체 · 사양 · 소요량이 바뀌었습니다 — 새 품목코드로 채번할까요?</b></span>' +
               (odRecv ? '<button type="button" class="btn btn-sm" disabled title="입고가 시작된 발주는 코드를 바꾸지 않습니다">새 품목코드로 (입고 시작 — 안 됨)</button>' : '<button type="button" class="btn btn-sm btn-solid" id="bomv-codenew">새 품목코드로 (1차)</button>') +
@@ -13551,9 +13579,9 @@ function dateSlots_(steps, cfg, mode) {
       ngSetRow(r);
       bomQuote(code, function (q) {
         if (!NG[r] || NG[r].code !== code) return;
-        if (q) { if (q.vendor) NG[r].vendor = q.vendor; NG[r].price = String(q.price); if (q.cur) NG[r].cur = q.cur; ngSetRow(r); }
+        if (q && !q.noCost) { if (q.vendor) NG[r].vendor = q.vendor; NG[r].price = String(q.price); if (q.cur) NG[r].cur = q.cur; ngSetRow(r); }
         $("ng-msg").textContent = (r + 1) + "번 줄 " + (nv ? "새 품목코드 " + code + " · 1차로 바꿨습니다. " : "") + bomQuoteText(code, q);
-      });
+      }, bvR(o.batch) || 0);
     }
     // 발주 건에서 열었고 품목코드가 바뀌었거나(새 품목코드 저장) 새 코드 1차 BOM을 만들었으면: 발주 건 품목코드 · 차수를 그 코드 · 1차로
     var od = BV.order, fw = BV._follow; BV._follow = null;
@@ -13591,6 +13619,10 @@ function dateSlots_(steps, cfg, mode) {
     var l = BV.log.filter(function (x) { return x.id === id; })[0];
     if (!l) return;
     // 'N차만 정정'은 두 건(N차 바로잡은 값 · N+1차부터 원래 값)으로 남는다 — 앞 건을 되돌리려면 뒤 건부터(뒤 건이 앞 건이 만든 줄을 닫았다)
+    if (/새 품목코드|신제품/.test(String(l.kind || "")) && l.codeB) {           // 새 코드를 되돌리면 그 코드로 바꾼 발주는 BOM 없는 코드가 된다
+      var useN = (DATA.rows || []).filter(function (r) { return !r.cancelled && String(r.code || "").toUpperCase() === String(l.codeB).toUpperCase(); });
+      if (useN.length && !confirm(l.codeB + " 를 쓰는 발주 " + useN.length + "건이 있습니다(" + useN.slice(0, 3).map(function (r) { return r.name + " " + (r.batch || ""); }).join(", ") + ") — 되돌리면 그 발주는 'BOM 없음'이 됩니다. 발주 건 품목코드는 [발주 수정]에서 따로 되돌려야 합니다. 계속할까요?")) return;
+    }
     var om = /^(\d+)차만 정정/.exec(String(l.kind || ""));
     if (om) {
       var nx = (Number(om[1]) + 1) + "차부터 원래 값(" + om[1] + "차만 정정)";
@@ -14450,6 +14482,16 @@ function dateSlots_(steps, cfg, mode) {
     var reason = String(f.reason.value || "").trim();
     if (qpCh && !reason) { $("bas-reason-wrap").hidden = false; $("bas-msg").textContent = "수량 · 단가를 바꾼 사유를 넣어주세요."; f.reason.focus(); return; }
     if (qpCh) patch.reason = reason;
+    var rdB = qpCh ? ordRedraftAsk(row, "수량 · 단가 변경") : "keep";
+    if (!rdB) return;
+    // 차수를 바꾸면 BOM 차수와 맞는지(BOM 차수 = 발주 차수)
+    if ("batch" in patch && patch.batch && (BV_ALL || BV_ALL_SNAP)) {
+      var SRCb = BV_ALL || BV_ALL_SNAP, cb0 = String(patch.code || row.code || "").toUpperCase(), nb = bvR(patch.batch) || 0;
+      if (SRCb[cb0] && nb) {
+        var mxb = bvPlan(SRCb[cb0].map(function (x) { return Object.assign({}, x); }));
+        if (nb !== mxb && !confirm("차수를 " + patch.batch + " 로 바꿉니다 — " + cb0 + " BOM 은 " + mxb + "차까지 있습니다(BOM 차수 = 발주 차수). " + (nb > mxb ? nb + "차 BOM 은 아직 없어 단가 비교는 " + mxb + "차 구성 기준입니다." : nb + "차 BOM 구성과 비교됩니다.") + " 맞나요?")) return;
+      }
+    }
     // 선금은 검사를 다 통과한 뒤, 바꾼 수량 · 단가 기준으로(예전에는 옛 수량 · 단가로 선금 금액을 잡았다)
     // 단가 · 수량도 같이 바꿨으면 선금은 그 저장(지급 줄이 새 단가 · 수량으로 바뀜)이 끝난 뒤에 — 두 저장이 지급 줄을 서로 덮지 않게
     var preAfter = !!(preNew && (("price" in patch) || ("qty" in patch)));
@@ -14497,6 +14539,7 @@ function dateSlots_(steps, cfg, mode) {
         } else if (res && res.linesError) toast("발주는 저장했지만 지급 줄은 못 고쳤습니다(" + res.linesError + ") — 지급 줄 표에서 고쳐 주세요");
         else if (res && res.linesQtyNeed) alert("발주수량이 바뀌었는데 고칠 예정 줄(지급 전)이 없어 지급 줄은 그대로입니다 — 지급 줄 표에서 " + (res.linesQtyNeed > 0 ? res.linesQtyNeed + "개 예정 줄을 더해" : (-res.linesQtyNeed) + "개만큼 줄여") + " 주세요(AP 금액이 맞지 않습니다).");
         if (preAfter && !basSavePre(row, preNew, {})) toast("선금은 저장하지 않았습니다 — [발주 수정]에서 다시 넣어 주세요");
+        if (rdB === "redraft") ordRedraft(row, "수량 · 단가 변경(" + reason + ") — 기안 다시");
       })
       .withFailureHandler(function (err) {
         busy(false);
