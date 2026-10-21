@@ -23,6 +23,7 @@ function lenient(obj) {
 }
 
 class Sheet {
+  getProtections() { return []; }        // 실제 Sheets 는 Protection 배열(isWarningOnly 등) — 시험에선 보호 없음
   constructor(ss, name, data) {
     this.ss = ss; this.name = name; this.hidden = !!(data && data.hidden);
     this.v = data ? data.v.map(r => r.map(revive)) : []; this.f = data ? data.f.map(r => r.slice()) : [];

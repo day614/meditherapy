@@ -12612,8 +12612,7 @@ function dateSlots_(steps, cfg, mode) {
     var fr = bvFixRows(), lo = 1e9, hi = 0, open = false;
     fr.forEach(function (v) { var a = bvR(v.start) || 1; if (a < lo) lo = a; if (String(v.end || "").trim()) hi = Math.max(hi, bvR(v.end) || 0); else open = true; });
     if (!fr.length) return "";
-    var on = bvOrdNote(bvOrdersIn(lo === 1e9 ? 1 : lo, open ? 9999 : hi));
-    return "이 표의 줄을 쓰는 " + (lo === 1e9 ? "" : lo + "차") + "~" + (open ? "" : hi + "차") + " BOM이 모두 바뀝니다" + (on ? " — " + on : "") + ". 한 차수만 틀렸으면 아래 범위에서 'N차만'.";
+    return "고친 줄만 바뀝니다 — 그 줄이 쓰는 차수가 다 같이(왼쪽 색 띠 = 다른 차수와 같이 쓰는 줄). 저장할 때 바뀌는 차수 · 그 차수 발주(종결 포함)를 보여 드립니다. 한 차수 값만 틀렸으면 아래 범위에서 'N차만'.";
   }
   function bomFixCancel() {
     if (bvDirtyN() && !confirm("정정 중인 값 · 추가할 자재 · 원가 체크 · 구성 고르기를 버릴까요?")) return;
@@ -12648,8 +12647,8 @@ function dateSlots_(steps, cfg, mode) {
   function bvFixOnlySel() {
     var F = BV.fix, L = bvFixOnlyRounds();
     if (!F || F.plan) return F && F.only ? '<span class="nghelp"><b>' + F.only + "차만</b> 바로잡습니다</span>" : "";
-    return '<label title="이 줄 쓰는 전체 = 그 줄을 같이 쓰는 앞 · 뒤 차수도 다 같이 바뀜(원래부터 틀린 값) · N차만 = 그 차수만 바로잡은 값으로 줄을 나눔(앞 · 뒤 차수는 원래 값 그대로)">범위 <select id="bomfx-only">' +
-      '<option value="">이 줄 쓰는 전체 차수</option>' + L.map(function (n) { return '<option value="' + n + '"' + (F.only === n ? " selected" : "") + ">" + n + "차만</option>"; }).join("") + "</select></label>";
+    return '<label title="고친 줄 그대로 = 고친 그 줄(그 줄의 시작~끝 차수)만 바뀜 — 끝 차수 늘리기 · 원래부터 틀린 값 · N차만 = 그 차수만 바로잡은 값으로 줄을 나눔(앞 · 뒤 차수는 원래 값 그대로 · 칸 값만)">범위 <select id="bomfx-only">' +
+      '<option value="">고친 줄 그대로(그 줄의 차수 · 끝 차수 늘리기)</option>' + L.map(function (n) { return '<option value="' + n + '"' + (F.only === n ? " selected" : "") + ">" + n + "차만(줄 나눠 값만)</option>"; }).join("") + "</select></label>";
   }
   /** 정정 — 이 차수만: 줄을 나눠 그 차수만 바로잡은 값(서버 apiBomFixOnly) */
   function bomFixOnlySave() {
@@ -12658,9 +12657,9 @@ function dateSlots_(steps, cfg, mode) {
     if (BV.saving) { $("bomv-msg").textContent = "앞 정정을 저장하는 중입니다 — 잠시 뒤 다시 눌러 주세요."; return; }
     if (!why) { $("bomv-msg").textContent = "정정 사유를 적어 주세요 — BOM변경이력 탭과 변동사항 칸에 남습니다."; var w = $("bomfx-why"); if (w) w.focus(); return; }
     var items = bvFixDiff();
-    if (BV.adds.length || bvFixShares().length || bvFixCommons().length || Object.keys(BV.ckPend || {}).length || Object.keys(F.del || {}).some(function (k) { return F.del[k]; })) { $("bomv-msg").textContent = N + "차만 정정에서는 칸 값만 바로잡을 수 있습니다 — 줄 삭제 · 자재 추가 · 공용 · 원가 체크는 범위를 '이 줄 쓰는 전체 차수'로 두고 따로 저장해 주세요."; return; }
+    if (BV.adds.length || bvFixShares().length || bvFixCommons().length || Object.keys(BV.ckPend || {}).length || Object.keys(F.del || {}).some(function (k) { return F.del[k]; })) { $("bomv-msg").textContent = N + "차만 정정에서는 칸 값만 바로잡을 수 있습니다 — 줄 삭제 · 자재 추가 · 공용 · 원가 체크는 범위를 '고친 줄 그대로'로 두고 저장해 주세요."; return; }
     var badK = { code: 1, start: 1, end: 1, type: 1 }, bad = items.filter(function (it) { return Object.keys(it.fields).some(function (k) { return badK[k]; }); });
-    if (bad.length) { $("bomv-msg").textContent = N + "차만 정정은 품목명 · 업체 · 매입 · 사양 · MOQ · 소요량 · 단가 · 통화 · 환율 · 임가공 · 배송비만 됩니다 — 코드 · 구분 · 시작/끝 차수는 범위를 '이 줄 쓰는 전체 차수'로."; return; }
+    if (bad.length) { $("bomv-msg").textContent = "시작 · 끝 차수 · 코드 · 구분을 바꾸는 건 '" + N + "차만'이 아니라 범위 '고친 줄 그대로'로 저장하세요 — 그 줄만 바뀝니다(예: 끝 차수 18차 → 21차면 19~21차에도 이 자재가 들어감)."; return; }
     if (!items.length) { $("bomv-msg").textContent = "바뀐 칸이 없습니다."; return; }
     var NLB = { moq: "MOQ", qty: "소요량", unit: "단가", fx: "환율", proc: "임가공", ship: "배송비" }, nbad = "";
     items.forEach(function (it) { Object.keys(it.fields).forEach(function (f) { var x = String(it.fields[f]).replace(/,/g, "").trim(); if (BV_NUM[f] && x !== "" && isNaN(Number(x))) nbad = nbad || (NLB[f] || f) + " '" + it.fields[f] + "'"; }); });
@@ -12829,7 +12828,18 @@ function dateSlots_(steps, cfg, mode) {
     if (F.recode) L.push("품목코드 변경 · " + F.recode.from + " → " + F.recode.to + " (이 품목 BOM 전부)");
     // 직접 고친 줄이 다른 차수와 같이 쓰는 줄이면 — 그 차수 발주(종결 포함) 원가도 바뀐다고 묻는다
     var lo2 = 1e9, hi2 = 0, open2 = false;
-    F.plan.forEach(function (q) { if (!q.own || q.del) return; var v = BV.rows.filter(function (x) { return x.row === q.row; })[0]; if (!v) return; var a = bvR(v.start) || 1; if (a < lo2) lo2 = a; if (String(v.end || "").trim()) hi2 = Math.max(hi2, bvR(v.end) || 0); else open2 = true; });
+    var grow = [];
+    F.plan.forEach(function (q) {
+      if (!q.own || q.del) return; var v = BV.rows.filter(function (x) { return x.row === q.row; })[0]; if (!v) return;
+      var fd = ((F.items || []).filter(function (it) { return it.row === q.row; })[0] || {}).fields || {};
+      var s1 = fd.start != null ? fd.start : v.start, e1 = fd.end != null ? fd.end : v.end;
+      [[v.start, v.end], [s1, e1]].forEach(function (se) { var a = bvR(se[0]) || 1; if (a < lo2) lo2 = a; if (String(se[1] || "").trim()) hi2 = Math.max(hi2, bvR(se[1]) || 0); else open2 = true; });
+      // 끝 · 시작 차수를 넓히면 새로 들어가는 차수 — 그 차수 BOM 원가 · 발주(종결 포함)에 이 자재가 더해진다
+      var e0n = String(v.end || "").trim() ? bvR(v.end) : 9999, e1n = String(e1 || "").trim() ? bvR(e1) : 9999, s0n = bvR(v.start) || 1, s1n = bvR(s1) || 1;
+      if (e1n > e0n) grow.push(v.code + " 끝 " + (v.end || "") + " → " + (e1 || "계속") + ": " + (e0n + 1) + "~" + (e1n === 9999 ? "" : e1n + "차") + "에도 들어감" + (function () { var n = bvOrdNote(bvOrdersIn(e0n + 1, e1n)); return n ? " — " + n : ""; })());
+      if (s1n < s0n) grow.push(v.code + " 시작 " + v.start + " → " + s1 + ": " + s1n + "~" + (s0n - 1) + "차에도 들어감" + (function () { var n = bvOrdNote(bvOrdersIn(s1n, s0n - 1)); return n ? " — " + n : ""; })());
+    });
+    grow.forEach(function (g) { L.unshift("기간 늘림 · " + g); });
     if (lo2 < 1e9) {
       var cur2 = Number(BV.round) || bvR(BV.round) || 0, others = bvOrdersIn(lo2, open2 ? 9999 : hi2).filter(function (r) { return bvR(r.batch) !== cur2; });
       if (others.length) L.unshift("⚠ 고친 줄은 " + lo2 + "차~" + (open2 ? "" : hi2 + "차") + "가 같이 쓰는 줄입니다 — " + bvOrdNote(others) + ". " + cur2 + "차만 틀렸으면 [취소] 뒤 범위에서 '" + cur2 + "차만'");
