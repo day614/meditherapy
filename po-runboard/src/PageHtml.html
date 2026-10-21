@@ -8797,17 +8797,47 @@ function dateSlots_(steps, cfg, mode) {
   /* ---------- 상신 대기 — 품의서를 내려받은 품의. 아마란스에 올린 뒤 결재문서번호를 넣어 [상신 완료] ---------- */
   var PO_PEND = [];
   function poPendShow() { var b = $("poPendBtn"); if (!b) return; $("poPendN").textContent = PO_PEND.length; b.hidden = mode !== "po" || !PO_PEND.length; b.classList.toggle("btn-solid", !!PO_PEND.length); }
-  function poPendLoad() { gsr().withSuccessHandler(function (L) { PO_PEND = L || []; poPendShow(); if ($("popend")) poPendOpen(); }).withFailureHandler(function () { /* 조용히 */ }).apiPoPendList(); }
+  function poPendLoad() { gsr().withSuccessHandler(function (L) { PO_PEND = L || []; poPendShow(); poPendPrune(); if ($("popend")) poPendOpen(); }).withFailureHandler(function () { /* 조용히 */ }).apiPoPendList(); }
+  /** 상신 대기 품의의 건이 지금 어떤지 — gone: 취소됐거나 이미 다른 품의번호로 상신된 건 · changed: 품의서를 받은 뒤 선금 · 지급일 · 채널이 바뀌어 다른 품의로 묶일 건 */
+  function poPendState(p) {
+    var out = { gone: [], changed: [], live: 0, known: 0 };
+    (p.rows || []).forEach(function (q) {
+      var row = rowById(q.id); if (!row) return;
+      out.known++;
+      if (row.cancelled || row.state === "취소" || (row.doc && row.doc !== p.no)) { out.gone.push(row); return; }
+      out.live++;
+      try { var c = poCalc(row); if (c.key !== p.bucket + " | " + p.type + " | " + p.base) out.changed.push(row); } catch (e) { /* 넘어간다 */ }
+    });
+    return out;
+  }
+  /** 건이 모두 취소됐거나 다른 품의번호로 이미 상신된 품의는 상신 대기에서 자동으로 뺀다(취소 · 재등록한 건의 옛 품의가 남아 결재문서번호를 따로 넣게 하던 것) */
+  var PO_PEND_PRUNING = false;
+  function poPendPrune() {
+    if (PO_PEND_PRUNING || mode !== "po" || snapStale || !(DATA.rows || []).length) return;
+    var dead = (PO_PEND || []).filter(function (p) { var st = poPendState(p); return st.known && st.known === (p.rows || []).length && !st.live; });
+    if (!dead.length) return;
+    PO_PEND_PRUNING = true;
+    var next = function () {
+      var p = dead.shift();
+      if (!p) { PO_PEND_PRUNING = false; poPendShow(); if ($("popend")) poPendOpen(); return; }
+      gsr().withSuccessHandler(function (L) { PO_PEND = L || []; toast(p.no + " — 건이 취소됐거나 이미 다른 품의로 상신돼 상신 대기에서 뺐습니다"); next(); })
+        .withFailureHandler(function () { next(); }).apiPoPendDrop(p.no);
+    };
+    next();
+  }
   function poPendOpen() {
     var old = $("popend"); if (old) old.remove();
     var ov = document.createElement("div"); ov.className = "nsov"; ov.id = "popend";
     var rowsOf = function (p) { return (p.rows || []).map(function (x) { return (x.expect && x.expect.name || "") + (x.expect && x.expect.batch ? " " + x.expect.batch : ""); }); };
     ov.innerHTML = '<div class="nsbox" role="dialog" aria-label="상신 대기" style="width:760px;max-width:calc(100vw - 32px);box-sizing:border-box"><h3>상신 대기 <small style="font-weight:400;color:var(--ink-3)">품의서를 내려받은 품의 — 아마란스에 올린 뒤 결재문서번호를 넣고 [상신 완료]</small></h3>' +
       (PO_PEND.length ? PO_PEND.map(function (p) {
-        var L = rowsOf(p);
+        var L = rowsOf(p), stt = poPendState(p), warn = [];
+        if (stt.gone.length) warn.push("취소됐거나 이미 다른 품의로 상신된 건 " + stt.gone.length + "개: " + stt.gone.map(function (r) { return r.name + " " + (r.batch || "") + (r.doc ? " (" + r.doc + ")" : " (취소)"); }).join(", ") + " — 상신 완료해도 이 건에는 안 들어가게 품의서를 다시 받는 게 맞습니다");
+        if (stt.changed.length) warn.push("품의서를 받은 뒤 선금 · 지급일 · 채널이 바뀐 건 " + stt.changed.length + "개(" + stt.changed.map(function (r) { var c = poCalc(r); return r.name + " → " + c.type + " · 지급 " + c.base; }).join(", ") + ") — 이 품의서는 옛 값입니다. [버리기] 후 품의서를 다시 받아 주세요");
         return '<div class="ppitem" data-ppno="' + esc(p.no) + '" style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0">' +
           '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:baseline"><b>' + esc(p.no) + '</b><span class="tlwho">' + esc([p.bucket, p.type, p.base ? "지급 " + p.base : ""].filter(String).join(" · ")) + " · " + L.length + "건 · " + esc((p.at || "") + " " + String(p.by || "").split("@")[0]) + "</span></div>" +
           '<div class="tlwho" style="margin:4px 0 8px">' + esc(L.slice(0, 6).join(", ") + (L.length > 6 ? " 외 " + (L.length - 6) + "건" : "")) + "</div>" +
+          (warn.length ? '<div class="nghelp" style="color:var(--accent);margin:-4px 0 8px">⚠ ' + warn.map(esc).join("<br>⚠ ") + "</div>" : "") +
           '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><input data-ppap="' + esc(p.no) + '" placeholder="결재문서번호 (예: 주식회사 메디테라피-2026-1944)" style="flex:1 1 280px;min-width:0">' +
           '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px">상신일 <input type="date" data-ppday="' + esc(p.no) + '" value="' + todayIso() + '"></label>' +
           '<button type="button" class="btn btn-sm btn-solid" data-ppgo="' + esc(p.no) + '">상신 완료</button><button type="button" class="btn btn-sm" data-ppdrop="' + esc(p.no) + '" title="안 올린 품의 — 목록에서 뺍니다(발주건은 그대로)">버리기</button></div></div>';
@@ -9071,7 +9101,7 @@ function dateSlots_(steps, cfg, mode) {
   ["nego-q", "nego-y", "nego-up"].forEach(function (id) { $(id).addEventListener(id === "nego-q" ? "input" : "change", negoRender); });
   $("nego").addEventListener("change", function (e) { if (e.target && e.target.dataset && e.target.dataset.negoq) negoQtySave(e.target); });
   $("wkBtn").addEventListener("click", function () { wkOpen(""); });
-  $("poPendBtn").addEventListener("click", function () { poPendOpen(); });
+  $("poPendBtn").addEventListener("click", function () { poPendOpen(); poPendPrune(); });
   setTimeout(poPendLoad, 2500);
 
   /* ---------- 새 발주 등록 ---------- */
