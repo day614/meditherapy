@@ -10670,7 +10670,19 @@ function dateSlots_(steps, cfg, mode) {
   }
   /** rows: 그 차수에 쓰는 줄 · code: 완제품 코드 · semiMat: 반제품이면 그 코드 · cost: 줄 → 소요원가 */
   /** compMats: 세트면 { 자재코드: 그 자재가 든 구성 완제품 코드 } (서버 apiBomGet) */
+  /** 중국 업체 줄(업체명 '중국' · 통화 위안)의 배송비(원, 소요량 곱) — 중국 발주 단가에는 배송비가 안 들어가서 발주 단가 계산에서 뺀다 */
+  function bvCnShip(v, useMods) {
+    if (!(bvCur(v) === "위안" || /중국/.test(String(v.vendor || "")))) return 0;
+    var m = useMods && BV.mods && BV.mods[v.row] || {}, sh = bvNum(m.ship != null ? m.ship : v.ship), q = m.qty != null ? m.qty : v.qty;
+    return sh ? sh * (q === "" || q == null ? 1 : bvNum(q)) : 0;
+  }
   function bvPriceOf(live, code, semiMat, cost, maxR, compMats) {
+    var ship = 0, useMods = cost === bvCostNow;
+    var q = bvPriceOf0(live, code, semiMat, function (v) { var s = bvCnShip(v, useMods); ship += s; return cost(v) - s; }, maxR, compMats);
+    if (q) q.ship = ship;
+    return q;
+  }
+  function bvPriceOf0(live, code, semiMat, cost, maxR, compMats) {
     var sep = {}, sum = 0;
     // 원가 체크 칸이 빈 '지금 쓰는 줄'은 참고 줄(예: 코드 X 원재료 줄)이라 단가에 넣지 않는다. 끝난 옛 줄은 F가 비어 있어도 그 차수엔 쓴다.
     var liveS = bvLiveSemis(live);
@@ -10761,7 +10773,7 @@ function dateSlots_(steps, cfg, mode) {
   })();
   function bomAllSnapSave(m) {
     var slim = {};
-    Object.keys(m || {}).forEach(function (k) { slim[k] = (m[k] || []).map(function (v) { return { row: v.row, code: v.code, type: v.type, start: v.start, end: v.end, unit: v.unit, cur: v.cur, fx: v.fx, cost: v.cost, buy: v.buy, costKey: v.costKey, semi: v.semi, vendor: v.vendor }; }); });
+    Object.keys(m || {}).forEach(function (k) { slim[k] = (m[k] || []).map(function (v) { return { row: v.row, code: v.code, type: v.type, start: v.start, end: v.end, unit: v.unit, cur: v.cur, fx: v.fx, cost: v.cost, ship: v.ship, qty: v.qty, buy: v.buy, costKey: v.costKey, semi: v.semi, vendor: v.vendor }; }); });
     var run = function () { snapWrite("rb_snap_v1_bomall", { at: Date.now(), m: slim }); };
     if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 8000 }); else setTimeout(run, 500);
   }
@@ -12907,11 +12919,12 @@ function dateSlots_(steps, cfg, mode) {
         else [["사급", sepL.filter(isSag)], ["따로 발주", sepL.filter(function (v) { return !isSag(v); })]].forEach(function (g) {
           if (!g[1].length) return; var c = g[1].reduce(function (a, v) { return a + bvCostNow(v); }, 0); used += c; parts.push(g[0] + " " + g[1].length + "줄 " + bvFmt(Math.round(c)));
         });
+        if (pr.ship >= 0.5) { parts.push("중국 배송비(발주 단가 미포함) " + bvFmt(Math.round(pr.ship))); used += pr.ship; }
         var rest = total - pr.sum - used;
         if (Math.abs(rest) >= 1) parts.push("그 밖(구성 완제품 자재 · 원가 체크 안 한 줄) " + bvFmt(Math.round(rest)));
         sepTxt = '<div class="sepcalc">소요원가 합계 ' + bvFmt(Math.round(total)) + parts.map(function (x) { return " − " + x; }).join("") + " = <b>" + bvFmt(Math.round(pr.sum)) + "</b> (이 값과 발주 단가를 비교)</div>";
       }
-      html += '<tr class="tot2"><td colspan="' + cs1 + '">' + esc(pr.vendor || "제조사") + '에 줄 발주 단가 <span class="nghelp">' + esc(pr.how) + " — 우리가 따로 사서 보내는 자재(사급) · 다른 업체 반제품은 빠짐(따로 발주 · 매입정보 칸에 발주 상태)</span>" + sepTxt + "</td>" +
+      html += '<tr class="tot2"><td colspan="' + cs1 + '">' + esc(pr.vendor || "제조사") + '에 줄 발주 단가 <span class="nghelp">' + esc(pr.how) + " — 우리가 따로 사서 보내는 자재(사급) · 다른 업체 반제품은 빠짐(따로 발주 · 매입정보 칸에 발주 상태)" + (pr.ship >= 0.5 ? " · 중국 업체 배송비는 발주 단가에 안 들어가서 빠짐" : "") + "</span>" + sepTxt + "</td>" +
         '<td class="n">' + bvFmt(Math.round(pr.sum)) + (pcx.cur !== "KRW" ? '<div class="nghelp">= ' + bvFmt(pcx.price) + " " + pcx.label + " (×" + bvFmt(pcx.fx) + ")</div>" : "") + '</td><td colspan="' + cs2 + '">' + cmp + "</td></tr>";
     }
     if (canEdit && !(BV.edit && BV.edit.field === "add")) html += '<tr><td colspan="20"><button type="button" class="btn btn-sm" data-bomedit="add" data-row="0">+ 자재 추가</button></td></tr>';
