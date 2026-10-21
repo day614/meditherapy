@@ -928,6 +928,15 @@
   .ghead { margin: 14px 0 8px; font-size: 12px; color: var(--ink-3); letter-spacing: .02em; }
   #rem { position: fixed; inset: 0; z-index: 70; background: rgba(12, 22, 28, .45); display: flex; align-items: flex-start; justify-content: center; padding: 60px 20px 20px; }
   #rem[hidden] { display: none; }
+  #nego { position: fixed; inset: 0; z-index: 70; background: rgba(12, 22, 28, .45); display: flex; align-items: flex-start; justify-content: center; padding: 60px 20px 20px; }
+  #nego[hidden] { display: none; }
+  #nego .qin-box { width: min(1400px, 100%); }
+  .nego-table td { vertical-align: top; }
+  .nego-table td.sv { color: var(--ok, #1b7f4b); font-weight: 600; }
+  .nego-table td.up { color: var(--accent); font-weight: 600; }
+  .nego-table input.nq { width: 100%; box-sizing: border-box; text-align: right; font: inherit; font-size: 12.5px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+  .nego-table input.nq.man { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+  .nego-table .mats { font-size: 12px; color: var(--ink-2); line-height: 1.5; }
   #bas, #sped { position: fixed; top: 64px; right: 16px; bottom: 16px; z-index: 72; width: min(440px, calc(100% - 32px)); display: flex; }
   #bas[hidden], #sped[hidden] { display: none; }
   #ngrid { position: fixed; inset: 0; z-index: 74; background: rgba(12, 22, 28, .45); display: flex; align-items: center; justify-content: center; padding: 20px 16px; }
@@ -1416,6 +1425,7 @@
     <button class="btn btn-sm" type="button" id="bomView" title="품목을 검색해 BOM 구성을 봅니다">BOM 보기</button>
     <button class="btn btn-sm" type="button" id="quickIn" title="입고를 빠르게 기록합니다 (단축키 I)">빠른 입고</button>
     <button class="btn btn-sm" type="button" id="remBtn" title="품목별 발주잔량을 봅니다 · 엑셀로 받을 수 있습니다">발주잔량</button>
+    <button class="btn btn-sm" type="button" id="negoBtn" title="BOM 차수가 바뀔 때 원가가 준 만큼 × 연간 발주량 = 절감액(네고 실적) · 엑셀로 받기">네고 실적</button>
     <button class="btn btn-sm" type="button" id="poPendBtn" hidden title="품의서를 내려받고 아직 상신 완료하지 않은 품의 — 아마란스에 올린 뒤 결재문서번호를 넣어 상신 완료">상신 대기 <b id="poPendN">0</b></button>
     <button class="btn btn-sm" type="button" id="wkBtn" title="주간보고 — 지난 금요일 ~ 이번 목요일 실행판 기록으로 채운 보고서 · 엑셀로 받기">주간보고</button>
     <button class="btn btn-sm" type="button" id="sampleBulkV" hidden title="여러 프로젝트에 걸친 같은 업체 샘플을 한 번에 수신 · 드롭 처리합니다">업체 일괄 처리</button>
@@ -1609,6 +1619,26 @@
     <div class="pv-foot">
       <button class="btn" type="button" id="rem-close">닫기</button>
       <button class="btn btn-solid" type="button" id="rem-xlsx">엑셀 다운로드</button>
+    </div>
+  </div>
+</div>
+<div id="nego" hidden>
+  <div class="qin-box" role="dialog" aria-modal="true" aria-labelledby="nego-title">
+    <h3 id="nego-title">네고 실적 <small class="rem-note">BOM 차수가 바뀔 때 원가 차이 × 연간 발주량 — BOM · 발주 DB 에서 자동</small></h3>
+    <div class="rem-tools">
+      <input type="search" id="nego-q" placeholder="품목명 · 품목코드 · 자재 · 업체 검색">
+      <select id="nego-y"></select>
+      <label class="rem-note"><input type="checkbox" id="nego-up"> 원가 오른 것도</label>
+      <span class="rem-note" id="nego-note"></span>
+    </div>
+    <div class="qin-wrap"><table class="qin-table rem-table nego-table"><colgroup>
+      <col style="width:100px"><col style="width:220px"><col style="width:96px"><col style="width:80px"><col style="width:84px"><col style="width:84px"><col style="width:78px"><col style="width:58px"><col style="width:120px"><col style="width:112px"><col>
+    </colgroup><thead><tr>
+      <th>품목코드</th><th>품목명</th><th>차수</th><th>적용(첫 발주)</th><th class="num">이전 원가</th><th class="num">이후 원가</th><th class="num" title="이전 − 이후(줄면 +)">차이</th><th class="num">%</th><th class="num" title="기본 = 지난 12개월 발주수량 · 칸에 넣으면 그 값(비우면 자동으로)">연간 발주량</th><th class="num">절감액</th><th>바뀐 자재</th>
+    </tr></thead><tbody id="nego-rows"></tbody><tfoot id="nego-foot"></tfoot></table></div>
+    <div class="pv-foot">
+      <button class="btn" type="button" id="nego-close">닫기</button>
+      <button class="btn btn-solid" type="button" id="nego-xlsx">엑셀 다운로드</button>
     </div>
   </div>
 </div>
@@ -7975,6 +8005,143 @@ function dateSlots_(steps, cfg, mode) {
     document.head.appendChild(sc);
   }
 
+  /* ---------- 네고 실적 — BOM 차수가 바뀔 때 원가 차이 × 연간 발주량(예전 '구매팀 네고실적' 시트 네고 탭) ---------- */
+  var NEGO = { qty: null, list: null };
+  function negoOpen() {
+    if (mode !== "po") { toast("발주 화면에서만 쓸 수 있습니다"); return; }
+    $("nego").hidden = false;
+    var ys = $("nego-y"), y0 = new Date().getFullYear();
+    if (!ys.options.length) ys.innerHTML = '<option value="">전체 기간</option>' + [y0, y0 - 1, y0 - 2].map(function (y) { return '<option value="' + y + '"' + (y === y0 ? " selected" : "") + ">" + y + "년 적용</option>"; }).join("");
+    NEGO.list = null;
+    if (NEGO.qty === null) gsr().withSuccessHandler(function (o) { NEGO.qty = o || {}; NEGO.list = null; negoRender(); }).withFailureHandler(function () { NEGO.qty = {}; negoRender(); }).apiNegoQty();
+    if (!BV_ALL) bomAllEnsure(0);
+    negoRender();
+    $("nego-q").focus();
+  }
+  function negoClose() { $("nego").hidden = true; }
+  /** 지난 12개월 발주수량(취소 건 빼고) */
+  function negoAutoQty(code) {
+    var d = new Date(); d.setFullYear(d.getFullYear() - 1);
+    var from = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    return (DATA.rows || []).filter(function (r) { return !r.cancelled && String(r.code || "").toUpperCase() === code && dateNum(r.orderedAt, r) >= from; })
+      .reduce(function (a, r) { return a + (Number(r.qty) || 0); }, 0);
+  }
+  /** 품목마다 차수 구간을 나눠 이웃 구간 원가(원가 체크 줄 소요원가 합)를 견준다 */
+  function negoCalc() {
+    var out = [], src = BV_ALL || {};
+    var firstOrd = {};
+    (DATA.rows || []).forEach(function (r) {
+      if (r.cancelled || !r.code) return;
+      var k = String(r.code).toUpperCase() + "|" + (bvR(r.batch) || 0), d = dateNum(r.orderedAt, r);
+      if (d && (!firstOrd[k] || d < firstOrd[k])) firstOrd[k] = d;
+    });
+    var orderOf = function (code, a, b) {          // 그 구간 차수 중 가장 이른 발주일
+      var best = 0; for (var n = a; n <= b && n < a + 60; n++) { var d = firstOrd[code + "|" + n]; if (d && (!best || d < best)) best = d; } return best;
+    };
+    Object.keys(src).forEach(function (code) {
+      var rows = (src[code] || []).map(function (x) { return Object.assign({}, x); }).filter(function (v) { return v.code && !/^X$/i.test(String(v.code)); });
+      if (rows.length < 2) return;
+      var max = bvPlan(rows);
+      var pts = {}; rows.forEach(function (v) { pts[v._s] = 1; if (v._e < 1e9 && v._e + 1 <= max) pts[v._e + 1] = 1; });
+      var P = Object.keys(pts).map(Number).sort(function (a, b) { return a - b; });
+      if (P.length < 2) return;
+      var ck = function (v) { return !!String(v.costKey || "").trim(); };
+      var at = function (p) { return rows.filter(function (v) { return v._s <= p && p <= v._e; }); };
+      var cost = function (list) { return list.filter(ck).reduce(function (a, v) { return a + bvNum(v.cost); }, 0); };
+      var nm = (rows.filter(function (v) { return String(v.code).toUpperCase() === code; })[0] || rows[0]).name || "";
+      for (var i = 1; i < P.length; i++) {
+        var A = at(P[i - 1]), B = at(P[i]), ca = cost(A), cb = cost(B), df = ca - cb;
+        if (Math.abs(df) < 0.5) continue;
+        var gone = A.filter(function (v) { return B.indexOf(v) < 0 && ck(v); }), came = B.filter(function (v) { return A.indexOf(v) < 0 && ck(v); });
+        var types = {}; gone.concat(came).forEach(function (v) { types[v.type || "기타"] = 1; });
+        var lab = function (l) { return l.map(function (v) { return v.code + (v.vendor ? "(" + v.vendor + ")" : ""); }).join("+") || "없음"; };
+        // 같은 자재 종류가 양쪽에 다 있고 단가가 둘 다 있는 것만 네고로 친다(빠지거나 새로 들어온 자재 · 단가 빈 자재는 구성 변경)
+        var mats = [], skip = [];
+        Object.keys(types).forEach(function (t) {
+          var o = gone.filter(function (v) { return (v.type || "기타") === t; }), n = came.filter(function (v) { return (v.type || "기타") === t; });
+          var oc = cost(o), nc = cost(n), txt = t + " " + lab(o) + " " + bvFmt(Math.round(oc)) + " → " + lab(n) + " " + bvFmt(Math.round(nc));
+          if (Math.abs(oc - nc) < 0.5) return;
+          if (o.length && n.length && oc > 0 && nc > 0) mats.push({ t: t, txt: txt, d: oc - nc });
+          else skip.push({ t: t, txt: txt + (!o.length ? " (새로 들어옴)" : !n.length ? " (빠짐)" : " (단가 없음)") });
+        });
+        mats.sort(function (a, b) { return b.d - a.d; });
+        df = mats.reduce(function (a, m) { return a + m.d; }, 0);
+        if (Math.abs(df) < 0.5) continue;
+        var segEnd = i + 1 < P.length ? P[i + 1] - 1 : max;
+        var auto = negoAutoQty(code), man = NEGO.qty && NEGO.qty[code] != null ? Number(NEGO.qty[code]) : null;
+        out.push({ code: code, name: nm, from: P[i - 1], to: P[i], seg: P[i] + (segEnd > P[i] ? "~" + (segEnd >= max && !rows.some(function (v) { return v._e < 1e9 && v._e >= P[i]; }) ? "" : segEnd) : "") + "차",
+          ord: orderOf(code, P[i], Math.max(P[i], segEnd)), ca: ca, cb: cb, df: df, pct: ca ? df / ca : 0, auto: auto, man: man, qty: man != null ? man : auto, mats: mats, skip: skip });
+      }
+    });
+    out.forEach(function (x) { x.save = Math.round(x.df * x.qty); });
+    out.sort(function (a, b) { return (b.ord || 0) - (a.ord || 0) || b.save - a.save; });
+    return out;
+  }
+  function negoFiltered() {
+    if (!NEGO.list) NEGO.list = negoCalc();
+    var toks = searchToks($("nego-q").value), y = $("nego-y").value, up = $("nego-up").checked;
+    return NEGO.list.filter(function (x) {
+      if (!up && x.df <= 0) return false;
+      if (y && String(x.ord || "").slice(0, 4) !== y) return false;
+      if (!toks.length) return true;
+      var hay = (x.code + " " + x.name + " " + x.mats.concat(x.skip).map(function (m) { return m.txt; }).join(" ")).toUpperCase();
+      return toks.every(function (t) { return hay.indexOf(String(t).toUpperCase()) > -1; });
+    });
+  }
+  function negoYmd(n) { n = String(n || ""); return n.length === 8 ? n.slice(2, 4) + "/" + n.slice(4, 6) + "/" + n.slice(6) : "발주 전"; }
+  function negoRender() {
+    if ($("nego").hidden) return;
+    if (!BV_ALL) { $("nego-rows").innerHTML = '<tr><td colspan="11" class="rem-note">BOM 줄을 받는 중… (몇 초)</td></tr>'; $("nego-foot").innerHTML = ""; setTimeout(negoRender, 1500); return; }
+    var list = negoFiltered(), tot = list.reduce(function (a, x) { return a + x.save; }, 0);
+    $("nego-rows").innerHTML = list.length ? list.map(function (x, i) {
+      return "<tr><td>" + esc(x.code) + "</td><td>" + esc(x.name) + "</td><td>" + esc(x.from + "차 → " + x.seg) + "</td><td>" + esc(negoYmd(x.ord)) + "</td>" +
+        '<td class="num">' + bvFmt(Math.round(x.ca)) + '</td><td class="num">' + bvFmt(Math.round(x.cb)) + '</td><td class="num ' + (x.df > 0 ? "sv" : "up") + '">' + (x.df > 0 ? "+" : "") + bvFmt(Math.round(x.df)) + "</td>" +
+        '<td class="num">' + (Math.round(x.pct * 1000) / 10) + "%</td>" +
+        '<td class="num"><input class="nq' + (x.man != null ? " man" : "") + '" data-negoq="' + esc(x.code) + '" value="' + (x.man != null ? x.man.toLocaleString() : "") + '" placeholder="' + x.auto.toLocaleString() + '" title="비우면 지난 12개월 발주수량(' + x.auto.toLocaleString() + ') · 넣으면 그 값"></td>' +
+        '<td class="num ' + (x.save > 0 ? "sv" : "up") + '">' + bvFmt(x.save) + '</td><td class="mats">' + x.mats.map(function (m) { return esc(m.txt); }).join("<br>") +
+        (x.skip.length ? '<div class="rem-note" title="절감액 계산에서 뺐습니다">구성 변경(계산 제외): ' + x.skip.map(function (m) { return esc(m.txt); }).join(" · ") + "</div>" : "") + "</td></tr>";
+    }).join("") : '<tr><td colspan="11" class="rem-note">해당하는 차수 변경이 없습니다</td></tr>';
+    $("nego-foot").innerHTML = '<tr><td colspan="9">합계 ' + list.length + "건</td><td class=\"num\">" + bvFmt(tot) + "</td><td></td></tr>";
+    $("nego-note").textContent = "차이 = 같은 자재 종류의 소요원가가 바뀐 만큼(빠지거나 새로 들어온 자재 · 단가 빈 자재는 빼고) · 연간 발주량 칸이 비면 지난 12개월 발주수량";
+  }
+  function negoQtySave(inp) {
+    var code = inp.dataset.negoq, v = String(inp.value || "").replace(/,/g, "").trim();
+    if (v !== "" && !(Number(v) >= 0)) { toast("숫자로 넣어 주세요"); return; }
+    NEGO.qty = NEGO.qty || {};
+    if (v === "") delete NEGO.qty[code]; else NEGO.qty[code] = Number(v);
+    NEGO.list = null; setTimeout(negoRender, 0);
+    gsr().withSuccessHandler(function (o) { NEGO.qty = o || NEGO.qty; toast(code + " 연간 발주량 " + (v === "" ? "자동(지난 12개월)" : Number(v).toLocaleString()) + "으로 저장"); })
+      .withFailureHandler(function (e) { toast("저장 실패: " + e.message); }).apiNegoQtySet(code, v);
+  }
+  function negoDownload() {
+    var list = negoFiltered();
+    if (!list.length) { toast("내려받을 건이 없습니다"); return; }
+    var head = ["품목코드", "품목명", "이전 차수", "바뀐 차수", "적용(첫 발주)", "이전 원가", "이후 원가", "차이(절감 +)", "%", "연간 발주량", "연간 발주량 출처", "절감액", "바뀐 자재", "구성 변경(계산 제외)"];
+    var rows = list.map(function (x) { return [x.code, x.name, x.from + "차", x.seg, negoYmd(x.ord), Math.round(x.ca), Math.round(x.cb), Math.round(x.df), Math.round(x.pct * 1000) / 10, x.qty, x.man != null ? "직접 입력" : "지난 12개월", x.save, x.mats.map(function (m) { return m.txt; }).join(" / "), x.skip.map(function (m) { return m.txt; }).join(" / ")]; });
+    var d = new Date(), fname = "네고실적_" + String(d.getFullYear()).slice(2) + pad2(d.getMonth() + 1) + pad2(d.getDate());
+    var build = function () {
+      try {
+        var wb = XLSX.utils.book_new(), ws = XLSX.utils.aoa_to_sheet([head].concat(rows));
+        ws["!cols"] = [{ wch: 12 }, { wch: 36 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 6 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 80 }, { wch: 60 }];
+        var rng = XLSX.utils.decode_range(ws["!ref"]);
+        for (var R = 1; R <= rng.e.r; R++) [5, 6, 7, 9, 11].forEach(function (C) { var c = ws[XLSX.utils.encode_cell({ r: R, c: C })]; if (c && c.t === "n") c.z = "#,##0"; });
+        XLSX.utils.book_append_sheet(wb, ws, "네고 실적");
+        XLSX.writeFile(wb, fname + ".xlsx");
+        toast("엑셀을 내려받았습니다: " + fname + ".xlsx");
+      } catch (err) { csvFallback(); }
+    };
+    var csvFallback = function () {
+      var q = function (v) { v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+      var NL = String.fromCharCode(13) + String.fromCharCode(10);
+      var blob = new Blob([String.fromCharCode(0xFEFF) + [head].concat(rows).map(function (r) { return r.map(q).join(","); }).join(NL)], { type: "text/csv;charset=utf-8" });
+      var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fname + ".csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      toast("엑셀 모듈을 못 불러와 CSV 로 받았습니다(엑셀에서 열립니다)");
+    };
+    if (window.XLSX) { build(); return; }
+    var sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"; sc.onload = build; sc.onerror = csvFallback; document.head.appendChild(sc);
+  }
+
   /* ---------- 목록 엑셀 — 지금 필터에 걸린 건(체크한 건이 있으면 그 건만) ---------- */
   function listXlsx() {
     var picked = Object.keys(selected).map(rowById).filter(Boolean);
@@ -8896,6 +9063,13 @@ function dateSlots_(steps, cfg, mode) {
   var guideShown = false;
 
   $("remBtn").addEventListener("click", remOpen);
+  $("negoBtn").addEventListener("click", negoOpen);
+  $("nego-close").addEventListener("click", negoClose);
+  $("nego-xlsx").addEventListener("click", negoDownload);
+  $("nego").addEventListener("click", function (e) { if (e.target.id === "nego") negoClose(); });
+  $("nego").addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); negoClose(); } });
+  ["nego-q", "nego-y", "nego-up"].forEach(function (id) { $(id).addEventListener(id === "nego-q" ? "input" : "change", negoRender); });
+  $("nego").addEventListener("change", function (e) { if (e.target && e.target.dataset && e.target.dataset.negoq) negoQtySave(e.target); });
   $("wkBtn").addEventListener("click", function () { wkOpen(""); });
   $("poPendBtn").addEventListener("click", function () { poPendOpen(); });
   setTimeout(poPendLoad, 2500);
@@ -11167,6 +11341,7 @@ function dateSlots_(steps, cfg, mode) {
         bomAllEnsure.busy = 0;
         BV_ALL = m || {}; PO_BOMP = {};
         bomAllSnapSave(BV_ALL);                 // 다음에 열 때 'BOM 단가 다름'을 바로(저장본)
+        if (typeof NEGO !== "undefined") { NEGO.list = null; if (!$("nego").hidden) negoRender(); }
         if (mode === "po") { if (!busyEditing() && saveQueue === 0) { try { renderBoard(); } catch (eR) { /* 다음 그리기 때 */ } } else bomAllRedraw(); }
       }).withFailureHandler(function () { bomAllEnsure.busy = 0; bomAllEnsure(30000); }).apiBomAllRows();
     }, delay || 0);
