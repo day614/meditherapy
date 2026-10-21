@@ -11990,7 +11990,7 @@ function dateSlots_(steps, cfg, mode) {
       if (!v) return;
       var old = f === "cur" ? bvCur(v) : (v[f] == null ? "" : String(v[f]));
       if (BV_NUM[f]) { val = val.replace(/,/g, ""); if (val === "" ? old === "" : bvNum(val) === bvNum(old)) return; }
-      else if (val === old) return;
+      else if (val.replace(/\r\n?/g, "\n") === String(old).replace(/\r\n?/g, "\n").trim()) return;     // 시트 값 앞뒤 공백 · 줄바꿈 차이는 고친 게 아니다(손대지 않은 줄이 같이 저장되던 것)
       var it0 = (by[r] = by[r] || { row: r, id: v.id || "", code: v.code, start: v.start, end: String(v.end || ""), fields: {} });
       it0.fields[f] = val;
       if (/^(name|vendor|spec|moq|qty|unit|proc|ship|buy)$/.test(f)) (it0.prev = it0.prev || {})[f] = v[f] == null ? "" : v[f];     // 화면에 보였던 값 — 그사이 다른 사람이 고쳤으면 서버가 막는다
@@ -12602,7 +12602,14 @@ function dateSlots_(steps, cfg, mode) {
       var fCk = fLive.filter(function (v) { return !bvNoCost(v, BV.bomMax); }).reduce(function (a, v) { return a + bvNum(v.cost); }, 0) + fAdd;
       var fTotRow = '<tr class="tot"><td colspan="13"><span class="totlab">소요원가 합계 (' + bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints()) + ' · 구성 전체 · 저장된 값 기준) <b class="totv">' + bvFmt(Math.round(fTot)) + "원</b>" + (Math.round(fCk) !== Math.round(fTot) ? ' <span class="nghelp">· 원가 체크 줄만 ' + bvFmt(Math.round(fCk)) + "원</span>" : "") + '</span></td><td class="n">' + bvFmt(Math.round(fTot)) +
         (Math.round(fCk) !== Math.round(fTot) ? '<div class="nghelp" title="원가 체크한 줄만 — 원가표 · 발주 단가 기준">원가 체크 줄만 ' + bvFmt(Math.round(fCk)) + "</div>" : "") + '</td><td colspan="4"></td></tr>';
-      $("bomv-rows").innerHTML = codeList + fr.map(function (v) { return bvFixRowHtml(v) + (BV.fix.pick === v.row && !BV.fix.plan ? bvSemiPickHtml(v, fr) : ""); }).join("") + BV.adds.map(bvAddRowHtml).join("") + fTotRow +
+      // 정정 표도 보기처럼 [구성 N]으로 묶는다(반제품 · 세트) — 펼치기 · 접기는 칸을 다시 그리지 않아 고친 값이 그대로
+      var pcF = {}; fr.forEach(function (v) { if (v.type === "제품" || v.type === "세트") pcF[String(v.code || "").toUpperCase()] = 1; });
+      var canTreeF = fr.some(function (v) { return v.type === "반제품"; }) || Object.keys(pcF).length > 1;
+      var treeF = canTreeF && !bvFlatOn() ? bvTree(fr) : null;
+      if (treeF && !BV.fix._open) { BV.fix._open = 1; Object.keys(treeF.kids).forEach(function (k) { BV.open[k] = 1; }); treeF = bvTree(fr); }    // 정정은 처음에 다 펼쳐 둔다(고칠 줄이 숨지 않게)
+      var fbF = $("bomv-flat");
+      if (fbF) { fbF.hidden = !canTreeF; fbF.textContent = treeF ? "구성 풀기(한 표로)" : "구성으로 묶기"; fbF.classList.toggle("on", !treeF); }
+      $("bomv-rows").innerHTML = codeList + (treeF ? treeF.order : fr).map(function (v) { var h0 = bvFixRowHtml(v); if (treeF) h0 = bvTreeWrap(h0, v, treeF); return h0 + (BV.fix.pick === v.row && !BV.fix.plan ? bvSemiPickHtml(v, fr) : ""); }).join("") + BV.adds.map(bvAddRowHtml).join("") + fTotRow +
         (BV.fix.plan ? "" : (addOn ? bvAddEditHtml() : '<tr><td colspan="20"><button type="button" class="btn btn-sm" data-bomedit="add" data-row="0" title="이 차수 구성에 빠진 자재를 넣습니다 — ' + BV.round + '차부터 쓰는 새 줄(새 자재코드)">+ 자재 추가 (빠진 자재)</button></td></tr>'));
       if (addOn) { bvAddPredict(); var tsel2 = $("bomf-type"); if (tsel2) tsel2.onchange = function () { if (tsel2.value === "__new") bvTypeNew(); else bvAddPredict(); }; }
       $("bomv-acth").style.display = "";
