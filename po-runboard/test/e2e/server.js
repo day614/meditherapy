@@ -34,6 +34,8 @@ http.createServer((req, res) => {
   if (req.url === '/__sheet') { const s = ctx.__main.getSheetByName('_실행판_BOM3'); res.end(JSON.stringify({ v: s.v, f: s.f })); return; }
   let page = fs.readFileSync(path.join(SRC, 'PageHtml.html'), 'utf8');
   const inj = SHIM + '<script>window.__BUILD=' + JSON.stringify(ctx.RB_BUILD) + ';window.__EXEC="http://localhost:' + port + '/";window.__UPD="";</script>';
+  // 시험용: 화면 코드 안 함수를 밖에서 부를 수 있게(window.__t('식'))
+  page = page.replace(/\n\}\)\(\);\n/, '\nwindow.__t = function (s) { return eval(s); };\n})();\n');
   page = page.indexOf('<head>') > -1 ? page.replace('<head>', '<head>' + inj) : inj + page;
   res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(page);
 }).listen(port, () => console.log('ready http://localhost:' + port));

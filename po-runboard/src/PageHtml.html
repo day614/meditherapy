@@ -994,8 +994,9 @@
   #bomv-pend.flash { outline: 2px solid var(--accent); outline-offset: 2px; }
   /* 통화 · 환율: 단가 칸 아래 한 줄(옆 칸을 덮지 않게) */
   /* [이 차수 구성 정정]: 새 발주 시트처럼 — 한 줄 높이 · 칸 안 테두리 없는 입력 · 줄바꿈 없음 · 표 상자 안에서 가로 · 세로 스크롤(스크롤바가 늘 보이게) · 머리 줄과 구분 · 코드 칸 고정 */
-  #bomv.fixmode #bomv-wrap { max-height: calc(100vh - 290px); min-height: 220px; overflow: auto; scroll-padding-left: 262px; }
-  #bomv.fixmode .bomt th:nth-child(3), #bomv.fixmode .bomt td.g-code { width: 170px; min-width: 170px; max-width: 170px; white-space: normal; }
+  .bomt .sepcalc { margin-top: 4px; font-size: 12.5px; color: var(--ink); font-weight: 400; }
+  #bomv.fixmode #bomv-wrap { max-height: calc(100vh - 290px); min-height: 220px; overflow: auto; scroll-padding-left: 248px; }
+  #bomv.fixmode .bomt th:nth-child(3), #bomv.fixmode .bomt td.g-code { width: 116px; min-width: 116px; max-width: 116px; white-space: normal; overflow-wrap: anywhere; }
   #bomv.fixmode .bomt td.gx textarea.g-wrap { display: block; border: 0; border-radius: 0; background: transparent; padding: 7px 6px; width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-size: 12.5px; line-height: 1.4; color: var(--ink); outline: none; resize: none; overflow: hidden; field-sizing: content; min-height: 32px; white-space: normal; overflow-wrap: anywhere; }
   #bomv.fixmode .bomt td.gx textarea.g-wrap:focus { box-shadow: inset 0 0 0 2px var(--primary); background: var(--surface); }
   #bomv.fixmode .bomt td.gx textarea.g-wrap:disabled { color: var(--ink-2); background: var(--surface-2); }
@@ -1008,21 +1009,14 @@
   #bomv.fixmode .bomt td.gx input:focus, #bomv.fixmode .bomt td.gx select:focus { box-shadow: inset 0 0 0 2px var(--primary); background: var(--surface); text-overflow: clip; }
   #bomv.fixmode .bomt td.gx input:disabled, #bomv.fixmode .bomt td.gx select:disabled { color: var(--ink-2); background: var(--surface-2); }
   #bomv.fixmode .bomt td.n input { text-align: right; font-variant-numeric: tabular-nums; }
-  #bomv.fixmode .bomt td.g-type { width: 118px; min-width: 118px; }   /* 구분 고르기 칸(이름 + 약호) */
-  #bomv.fixmode .bomt td.g-name { width: 260px; min-width: 260px; }
-  #bomv.fixmode .bomt td.g-vendor { width: 150px; min-width: 150px; }
-  #bomv.fixmode .bomt td.g-buy { width: 72px; min-width: 72px; }
-  #bomv.fixmode .bomt td.g-spec { width: 220px; min-width: 220px; }
-  #bomv.fixmode .bomt td.g-num { width: 84px; min-width: 84px; }
-  #bomv.fixmode .bomt td.g-rd { width: 64px; min-width: 64px; }
-  #bomv.fixmode .bomt td.g-cur { width: 116px; min-width: 116px; padding: 0 6px; }
+  #bomv.fixmode .bomt td.g-cur { padding: 0 4px; }
   #bomv.fixmode .bomt td.g-cur .bvcur { margin: 0; align-items: center; }
   #bomv.fixmode .bomt td.g-cur select { border: 0 !important; background: transparent; }
   #bomv.fixmode .bomt td.g-span { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
-  /* 왼쪽 고정: 원가(44) · 구분(118) · 자재코드 — 넓은 표를 옆으로 밀어도 보인다 */
+  /* 왼쪽 고정: 원가(44) · 구분(88) · 자재코드 — 넓은 표를 옆으로 밀어도 보인다 */
   #bomv.fixmode .bomt th:first-child, #bomv.fixmode .bomt td.g-ck { position: sticky; left: 0; z-index: 1; width: 44px; min-width: 44px; max-width: 44px; box-sizing: border-box; background: var(--surface-2); }
-  #bomv.fixmode .bomt th:nth-child(2), #bomv.fixmode .bomt td.g-ck + td { position: sticky; left: 44px; z-index: 1; width: 118px; min-width: 118px; max-width: 118px; box-sizing: border-box; text-align: left; font-size: 12.5px; background: var(--surface-2); }
-  #bomv.fixmode .bomt th:nth-child(3), #bomv.fixmode .bomt td.g-code { position: sticky; left: 162px; z-index: 1; background: var(--surface-2); box-shadow: 1px 0 0 var(--line-strong); }
+  #bomv.fixmode .bomt th:nth-child(2), #bomv.fixmode .bomt td.g-ck + td { position: sticky; left: 44px; z-index: 1; width: 88px; min-width: 88px; max-width: 88px; box-sizing: border-box; text-align: left; font-size: 12.5px; background: var(--surface-2); }
+  #bomv.fixmode .bomt th:nth-child(3), #bomv.fixmode .bomt td.g-code { position: sticky; left: 132px; z-index: 1; background: var(--surface-2); box-shadow: 1px 0 0 var(--line-strong); }
   #bomv.fixmode .bomt th:first-child, #bomv.fixmode .bomt th:nth-child(2), #bomv.fixmode .bomt th:nth-child(3) { z-index: 3; }
   /* 휴대폰: 세 칸을 다 고정하면 화면 대부분을 덮는다 — 원가 칸만 고정 */
   @media (max-width: 760px) {
@@ -6494,7 +6488,7 @@ function dateSlots_(steps, cfg, mode) {
           ? '<button type="button" class="tag qptag" id="basBtn" title="품목 · 수량 · 단가 · 업체 · 날짜 · 요청 정보 · 선금/잔금 등 한 곳에서 고치기">' +
             "발주 수정 ✎ · 수량 " + Number(row.qty || 0).toLocaleString() + " · 단가 " + Number(row.price || 0).toLocaleString() + "</button>"
           : "") +
-        (mode === "po" && row.code && !row.pending ? poBomBadge(row) : "") +          // BOM 단가와 다르면 표시(BOM 은 1단계 [BOM 보기]로)
+        (mode === "po" && row.code && !row.pending ? poBomBadge(row, 1) : "") +          // BOM 단가와 다르면 표시 — 누르면 BOM(1단계를 건너뛴 발주도 열 수 있게)
         (mode === "sample" && !(DATA && DATA.canEdit === false) ? '<button type="button" class="tag qptag" id="spEditBtn" title="프로젝트명 · 품목코드 · 브랜드 · 프로젝트 링크를 한 곳에서 고치기">프로젝트 수정 ✎</button>' : "") +
         (mode === "sample" ? '<span class="tag">' + esc(sampleSummary(row)) + "</span>"
           : '<span class="tag' + (u >= total ? " done" : "") + '">' + doneCount(row) + "/" + total + " 단계</span>") +
@@ -10554,14 +10548,14 @@ function dateSlots_(steps, cfg, mode) {
           var at = round && round <= max ? round : max;
           var act = rows.filter(function (v) { return v._s <= at && at <= v._e; });
           var q = act.length ? bvPriceOf(act, code, "", function (v) { return bvNum(v.cost); }, at, {}) : null;
-          if (q) { var pc = bvPriceCur(q); out = { price: pc.price, cur: pc.cur, where: code + " BOM " + at + "차 발주 단가(제조사 단가 + 턴키 자재)" }; }
+          if (q) { var pc = bvPriceCur(q), ns = Object.keys(q.sep).length; out = { price: pc.price, cur: pc.cur, sep: ns, where: code + " BOM " + at + "차 발주 단가(제조사 단가 + 턴키 자재" + (ns ? " · 사급 등 따로 발주 " + ns + "줄은 뺌" : "") + ")" }; }
         }
       }
     } catch (e) { out = null; }
     PO_BOMP[key] = out;
     return out;
   }
-  function poBomBadge(r) {
+  function poBomBadge(r, open) {
     if (r.price === "" || r.price == null || isNaN(Number(r.price))) return "";
     var b = poBomPrice(r);
     if (!b || !(b.price > 0)) return "";
@@ -10571,7 +10565,7 @@ function dateSlots_(steps, cfg, mode) {
     var diff = cur === "KRW" ? Math.round(op) !== Math.round(bp) : Math.abs(op - bp) > Math.max(0.01, bp * 0.01);
     if (!diff) return "";
     var f = function (n) { return Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 4 }) + (cur === "KRW" ? "원" : " " + cur); };
-    return ' <span class="nobom bomp" title="발주 단가 ' + esc(f(op)) + ' · BOM 단가 ' + esc(f(bp)) + " (" + esc(b.where) + ') — 다릅니다. BOM 보기에서 확인하세요">BOM 단가 다름 ' + esc(f(bp)) + "</span>";
+    return ' <span class="nobom bomp"' + (open ? ' data-bomopen="1" role="button" style="cursor:pointer"' : "") + ' title="발주 단가 ' + esc(f(op)) + ' · BOM 단가 ' + esc(f(bp)) + " (" + esc(b.where) + ') — 다릅니다' + (open ? " · 누르면 BOM" : ". BOM 보기에서 확인하세요") + '">BOM 단가 다름 ' + esc(f(bp)) + (b.sep ? " (사급 빼고)" : "") + "</span>";
   }
   function bomQuoteText(code, q) {
     if (!q) return code + ": BOM 없음 — 매입처 · 단가는 지난 발주 값입니다. 확인해 주세요.";
@@ -10583,7 +10577,8 @@ function dateSlots_(steps, cfg, mode) {
   }
   /** 따로 발주하는 자재의 발주 상태(실행판 발주 목록에서 자재코드로). 반제품은 다른 버전 코드도 찾는다 */
   function bvOrdBadge(v) {
-    var code = String(v.code || "").toUpperCase(), base = v.type === "반제품" ? code.replace(/\d+$/, "") : "";
+    // 반제품 · 자재는 같은 자재의 다른 버전 코드(HP0011PH1 → PH2) 발주도 찾는다 — 버전만 바뀐 줄에 '발주 없음'이 뜨던 것
+    var code = String(v.code || "").toUpperCase(), base = v.type === "반제품" || /^[A-Z]P\d{4}[A-Z]+\d+$/.test(code) ? code.replace(/\d+$/, "") : "";
     var list = (DATA.rows || []).filter(function (r) {
       var c = String(r.code || "").toUpperCase();
       return c === code || (base && c.indexOf(base) === 0 && /^\d+$/.test(c.slice(base.length)));
@@ -12476,16 +12471,16 @@ function dateSlots_(steps, cfg, mode) {
    * BOM 표 열 너비 규격(보기 · 차수 변경 · 정정 같은 이름 칸은 같은 너비). 내용(원가 체크 · 취소선 · 표시 글자)에 따라 열 너비가 바뀌지 않게
    * 표를 고정 배치(table-layout: fixed)로 두고 머리 칸 너비 합을 표 너비로 쓴다.
    */
-  var BV_COLW = { "원가": 44, "구분": 118, "자재코드": 170, "품목명": 220, "업체명": 120, "매입정보": 96, "매입": 84, "사양": 200, "MOQ": 76, "소요량": 72,
-    "내용물/자재": 110, "통화": 116, "임가공": 80, "배송비/기타": 90, "소요원가": 100, "적용": 80, "변동사항": 200, "초도": 64, "종료": 64, "시작 차수": 72, "끝 차수": 72, "적용 차수": 150, "변경": 96, "": 96 };
-  // 보기 표(고치는 칸 없음)는 좁게 — 1280 폭(실행판 화면)에서 소요원가까지 옆으로 밀지 않고 보이게(품목명 · 사양은 칸 안에서 줄바꿈)
-  var BV_COLW_VIEW = { "구분": 84, "자재코드": 120, "품목명": 200, "업체명": 100, "매입정보": 64, "사양": 140, "MOQ": 64, "소요량": 60, "내용물/자재": 96 };
+  // 보기 · 고치기(이 발주 차수 · 정정 · 신제품) 모두 같은 너비 — 차수를 바꿔도 칸이 움직이지 않게(담당자 10/21). 품목명 · 사양은 칸 안에서 줄바꿈
+  // 1280 폭(실행판 화면)에서 소요원가 칸까지 옆으로 밀지 않고 보이게(원가~소요원가 합 1226)
+  var BV_COLW = { "원가": 44, "구분": 88, "자재코드": 116, "품목명": 200, "업체명": 100, "매입정보": 84, "매입": 84, "사양": 140, "MOQ": 64, "소요량": 60,
+    "내용물/자재": 90, "통화": 84, "임가공": 70, "배송비/기타": 84, "소요원가": 86, "적용": 80, "변동사항": 180, "초도": 64, "종료": 64, "시작 차수": 64, "끝 차수": 64, "적용 차수": 150, "변경": 96, "": 96 };
   function bvColSize() {
     var hd = $("bomv-head"), tb = hd && hd.closest("table");
     if (!tb) return;
-    var sum = 0, view = !$("bomv").classList.contains("fixmode");
+    var sum = 0;
     [].forEach.call(hd.querySelectorAll("th"), function (th) {
-      var k = String(th.textContent || "").trim(), w = (view && BV_COLW_VIEW[k]) || BV_COLW[k] || 96;
+      var k = String(th.textContent || "").trim(), w = BV_COLW[k] || 96;
       th.style.width = w + "px";
       if (th.style.display !== "none") sum += w;
     });
@@ -12596,8 +12591,11 @@ function dateSlots_(steps, cfg, mode) {
         if (ocur === pcx.cur) pr.sumShow = pcx.price;                                  // 같은 통화끼리
         else { op = op * fxRate(ocur); pr.sumShow = Math.round(pr.sum * 100) / 100; }   // 다르면 원으로
       }
-      var cmp = "";
-      if (BV.order && (oc === BV.code || (BV.semi && oc === BV.semi.asked)) && isFinite(op) && op > 0) {
+      var cmp = "", oR = BV.order ? bvR(BV.order.batch) || 0 : 0;
+      // 이 발주 차수와 다른 차수를 보고 있으면 비교하지 않는다(1~2차 구성으로 4차 발주 단가를 견주면 엉뚱한 차이가 나왔다)
+      var sameSeg = !oR || !pts.length || bvSegOf(oR, pts) === bvSegOf(BV.round, pts) || (canEdit && BV.round === oR);
+      if (BV.order && !sameSeg && (oc === BV.code || (BV.semi && oc === BV.semi.asked))) cmp = '<span class="nghelp">이 발주(' + esc(BV.order.batch || "") + ') 단가 비교는 그 차수를 고르면 보입니다</span>';
+      else if (BV.order && (oc === BV.code || (BV.semi && oc === BV.semi.asked)) && isFinite(op) && op > 0) {
         var cmpV = pr.sumShow != null ? pr.sumShow : pr.sum, inCur = ocur === pcx.cur && pcx.cur !== "KRW";
         if (!inCur) { op = Math.round(op); cmpV = Math.round(cmpV); }       // 원화는 소수점 없이(반올림) 비교 · 표시
         var df = Math.round((op - cmpV) * 10000) / 10000;
@@ -12608,7 +12606,20 @@ function dateSlots_(steps, cfg, mode) {
           cmp += ' <button type="button" class="btn btn-sm" data-bomsetprice="' + toP + '" title="이 발주 건 단가를 BOM 단가로 바꿉니다([발주 수정]과 같게 저장 · 수량단가 변경 이력에 남음)">발주 단가를 ' + bvFmt(toP) + (inCur ? " " + pcx.label + "로" : "원으로") + "</button>";
         }
       }
-      html += '<tr class="tot2"><td colspan="' + cs1 + '">' + esc(pr.vendor || "제조사") + '에 줄 발주 단가 <span class="nghelp">' + esc(pr.how) + " — 우리가 따로 사서 보내는 자재(사급) · 다른 업체 반제품은 빠짐(따로 발주 · 매입정보 칸에 발주 상태)</span></td>" +
+      // 소요원가 합계에서 무엇을 뺐는지 숫자로(사급 · 다른 업체 반제품) — '합계와 왜 다르냐'가 바로 보이게
+      // 3줄까지는 줄마다, 많으면(세트 등) 사급 · 따로 발주로 묶어서
+      var sepL = live.filter(function (v) { return pr.sep[v.row]; }), sepTxt = "";
+      if (Math.round(total) !== Math.round(pr.sum)) {
+        var isSag = function (v) { return String(v.buy || "").indexOf("사급") > -1; }, parts = [], used = 0;
+        if (sepL.length <= 3) sepL.forEach(function (v) { var c = bvCostNow(v); used += c; parts.push(esc((v.type || "") + (isSag(v) ? " 사급 " : " 따로 발주 ")) + bvFmt(Math.round(c))); });
+        else [["사급", sepL.filter(isSag)], ["따로 발주", sepL.filter(function (v) { return !isSag(v); })]].forEach(function (g) {
+          if (!g[1].length) return; var c = g[1].reduce(function (a, v) { return a + bvCostNow(v); }, 0); used += c; parts.push(g[0] + " " + g[1].length + "줄 " + bvFmt(Math.round(c)));
+        });
+        var rest = total - pr.sum - used;
+        if (Math.abs(rest) >= 1) parts.push("그 밖(구성 완제품 자재 · 원가 체크 안 한 줄) " + bvFmt(Math.round(rest)));
+        sepTxt = '<div class="sepcalc">소요원가 합계 ' + bvFmt(Math.round(total)) + parts.map(function (x) { return " − " + x; }).join("") + " = <b>" + bvFmt(Math.round(pr.sum)) + "</b> (이 값과 발주 단가를 비교)</div>";
+      }
+      html += '<tr class="tot2"><td colspan="' + cs1 + '">' + esc(pr.vendor || "제조사") + '에 줄 발주 단가 <span class="nghelp">' + esc(pr.how) + " — 우리가 따로 사서 보내는 자재(사급) · 다른 업체 반제품은 빠짐(따로 발주 · 매입정보 칸에 발주 상태)</span>" + sepTxt + "</td>" +
         '<td class="n">' + bvFmt(Math.round(pr.sum)) + (pcx.cur !== "KRW" ? '<div class="nghelp">= ' + bvFmt(pcx.price) + " " + pcx.label + " (×" + bvFmt(pcx.fx) + ")</div>" : "") + '</td><td colspan="' + cs2 + '">' + cmp + "</td></tr>";
     }
     if (canEdit && !(BV.edit && BV.edit.field === "add")) html += '<tr><td colspan="20"><button type="button" class="btn btn-sm" data-bomedit="add" data-row="0">+ 자재 추가</button></td></tr>';
