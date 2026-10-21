@@ -11104,6 +11104,7 @@ function dateSlots_(steps, cfg, mode) {
   function bvSetOrderPrice(to, btn) {
     var od = BV.order;
     if (!od || !od.statusRow || !(to > 0)) return;
+    if (od.cancelled || isClosed(od) || (Number(od.inQty) > 0 && !(Number(od.remain) > 0))) { alert("종결 · 입고 끝난 발주는 단가를 바꾸지 않습니다 — 차액은 마감에서 정산해 주세요."); return; }
     var why = prompt("발주 단가 " + bvFmt(od.price) + " → " + bvFmt(to) + " 로 바꿉니다(BOM " + bvEditRound() + "차 단가).\n사유(수량단가 변경 이력에 남음):", "BOM " + (bvEditRound() || "") + "차 단가로 맞춤");
     if (why === null) return;
     if (!String(why).trim()) { alert("사유를 적어 주세요."); return; }
@@ -12505,6 +12506,11 @@ function dateSlots_(steps, cfg, mode) {
   function bomFixOpen() {
     if (BV.saving) { $("bomv-msg").textContent = "앞 정정을 저장하는 중입니다 — 잠시 뒤(몇 초) 다시 눌러 주세요."; return; }
     if (!bvFixRows().length) { $("bomv-msg").textContent = "이 차수에는 실행판 BOM 탭에 있는 줄이 없어 정정할 게 없습니다."; return; }
+    // 아직 BOM 에 없는 새 차수(예: 7차까지 있고 8차 발주) — 정정하면 최종 구성 줄(1차~ 등)을 덮어써 지난 차수 · 종결된 발주 원가까지 바뀐다. 새 차수 값은 [N차부터 바꾸기]로.
+    if ((BV.draft && BV.round === BV.draft) || BV.round > (BV.bomMax || 0)) {
+      $("bomv-msg").textContent = BV.round + "차는 아직 BOM 에 없는 새 차수라 정정할 줄이 없습니다 — " + BV.round + "차 값은 [" + BV.round + "차부터 바꾸기]로 고치면 1~" + (BV.round - 1) + "차(종결된 발주 포함)는 그대로입니다. 지난 차수 값이 틀렸으면 차수 칸에서 그 차수를 고른 뒤 [값 바로잡기(정정)].";
+      return;
+    }
     // [N차부터 바꾸기]에서 고친 칸은 버리지 않고 정정 표로 옮긴다(오타를 고치다 새 코드가 붙는 걸 보고 정정으로 바꾸는 경우) — 빼기는 정정에서 뜻이 달라(줄 삭제) 옮기지 않는다
     var carry = [], drop = 0, span = bvFixSpanText();
     Object.keys(BV.mods || {}).forEach(function (r) {
@@ -12555,6 +12561,16 @@ function dateSlots_(steps, cfg, mode) {
         ? "<b>정정 중</b> — 새 줄 · 새 코드 없이 덮어씁니다. " + esc(bvFixSpanText()) + " 오타 · 잘못 넣은 값일 때."
         : "<b>" + lab + "부터 바꾸기</b> — 바꾼 줄은 " + lab + "부터 새 줄로 들어가고 앞 차수는 그대로입니다(업체 · 사양 · 소요량을 바꾸면 새 자재코드). 실제로 바뀐 사양 · 단가일 때. 오타면 [값 바로잡기(정정)].") + "</span>";
   }
+  /** 이 품목의 lo~hi 차수 발주(취소 빼고) — 정정이 바꾸는 차수에 걸린 발주(종결 포함)를 알리려고 */
+  function bvOrdersIn(lo, hi) {
+    return (DATA.rows || []).filter(function (r) { var n = bvR(r.batch) || 0; return !r.cancelled && String(r.code || "").toUpperCase() === BV.code && n >= lo && n <= hi; });
+  }
+  function bvOrdNote(list) {
+    if (!list.length) return "";
+    var shut = list.filter(function (r) { return isClosed(r) || (Number(r.inQty) > 0 && !(Number(r.remain) > 0)); });
+    var rs = list.map(function (r) { return bvR(r.batch); }).filter(function (n, i, a) { return a.indexOf(n) === i; }).sort(function (a, b) { return a - b; });
+    return "그 차수 발주 " + list.length + "건(" + rs.join(" · ") + "차" + (shut.length ? " · 종결 · 입고 끝난 " + shut.length + "건 포함" : "") + ")의 BOM 원가도 같이 바뀝니다";
+  }
   /** 이 품목의 진행 중인 최신 차수 발주(BOM 최종 차수 이상 · 취소 · 종결 아님) — [BOM 보기]로 열어도 그 발주와 연결 */
   function bvLiveOrder() {
     if (!BV.code || BV.semi || BV.newProduct || mode !== "po") return null;
@@ -12587,7 +12603,8 @@ function dateSlots_(steps, cfg, mode) {
     var fr = bvFixRows(), lo = 1e9, hi = 0, open = false;
     fr.forEach(function (v) { var a = bvR(v.start) || 1; if (a < lo) lo = a; if (String(v.end || "").trim()) hi = Math.max(hi, bvR(v.end) || 0); else open = true; });
     if (!fr.length) return "";
-    return "이 표의 줄을 쓰는 " + (lo === 1e9 ? "" : lo + "차") + "~" + (open ? "" : hi + "차") + " BOM이 모두 바뀝니다.";
+    var on = bvOrdNote(bvOrdersIn(lo === 1e9 ? 1 : lo, open ? 9999 : hi));
+    return "이 표의 줄을 쓰는 " + (lo === 1e9 ? "" : lo + "차") + "~" + (open ? "" : hi + "차") + " BOM이 모두 바뀝니다" + (on ? " — " + on : "") + ". 한 차수만 틀렸으면 아래 범위에서 'N차만'.";
   }
   function bomFixCancel() {
     if (bvDirtyN() && !confirm("정정 중인 값 · 추가할 자재 · 원가 체크 · 구성 고르기를 버릴까요?")) return;
@@ -12801,6 +12818,13 @@ function dateSlots_(steps, cfg, mode) {
       else if (!q.own) L.push("같은 코드라 같이 고침 · " + (q.product && q.product !== BV.code ? q.product + " " : "") + q.type + " " + q.code + sp(q) + " · " + q.changes.map(function (c) { return c.label + " " + c.before + " → " + c.after; }).join(" · "));
     });
     if (F.recode) L.push("품목코드 변경 · " + F.recode.from + " → " + F.recode.to + " (이 품목 BOM 전부)");
+    // 직접 고친 줄이 다른 차수와 같이 쓰는 줄이면 — 그 차수 발주(종결 포함) 원가도 바뀐다고 묻는다
+    var lo2 = 1e9, hi2 = 0, open2 = false;
+    F.plan.forEach(function (q) { if (!q.own || q.del) return; var v = BV.rows.filter(function (x) { return x.row === q.row; })[0]; if (!v) return; var a = bvR(v.start) || 1; if (a < lo2) lo2 = a; if (String(v.end || "").trim()) hi2 = Math.max(hi2, bvR(v.end) || 0); else open2 = true; });
+    if (lo2 < 1e9) {
+      var cur2 = Number(BV.round) || bvR(BV.round) || 0, others = bvOrdersIn(lo2, open2 ? 9999 : hi2).filter(function (r) { return bvR(r.batch) !== cur2; });
+      if (others.length) L.unshift("⚠ 고친 줄은 " + lo2 + "차~" + (open2 ? "" : hi2 + "차") + "가 같이 쓰는 줄입니다 — " + bvOrdNote(others) + ". " + cur2 + "차만 틀렸으면 [취소] 뒤 범위에서 '" + cur2 + "차만'");
+    }
     (F.commons || []).forEach(function (c) { L.push("공용 · " + c.code + " → " + (c.on ? "공용" : "공용 아님") + " (이 코드를 쓰는 모든 품목 줄)"); });
     (F.shares || []).forEach(function (sh) { sh.items.forEach(function (it) { L.push("공용 · " + sh.semi.code + " 구성에 " + it.code + " 한 줄 더"); }); });
     BV.adds.forEach(function (a) { L.push("자재 추가 · " + a.type + " " + a.predict + " · " + (a.vendor || "")); });
@@ -13159,7 +13183,10 @@ function dateSlots_(steps, cfg, mode) {
         var df = Math.round((op - cmpV) * 10000) / 10000;
         cmp = "이 발주 단가 " + bvFmt(op) + (inCur ? " " + pcx.label : (ocur !== "KRW" ? "원(환산)" : "")) + (Math.abs(df) < (inCur ? 0.01 : 2.5) ? ' <span class="ok">✓ 같음</span>' : ' <span class="ng">BOM과 차이 ' + (df > 0 ? "+" : "") + bvFmt(df) + '</span> <span class="nghelp">(재고 활용 등 예외면 발주 단가 그대로 · 단가는 [발주 수정]에서)</span>');
         // BOM 과 다르면 발주 단가를 BOM 단가로 바로 맞추기(같은 통화일 때 · 사유는 자동으로 남김)
-        if (!(Math.abs(df) < (inCur ? 0.01 : 2.5)) && ocur === pcx.cur && BV.order.statusRow) {
+        // 종결 · 입고 끝난 발주는 단가를 바꾸지 않는다 — 지급 · AP 는 지난 금액 그대로라 발주금액과 지급 합계가 어긋난다(차액은 마감에서 정산)
+        var odDone = BV.order.cancelled || isClosed(BV.order) || (Number(BV.order.inQty) > 0 && !(Number(BV.order.remain) > 0));
+        if (!(Math.abs(df) < (inCur ? 0.01 : 2.5)) && BV.order.statusRow && odDone) cmp += ' <span class="nghelp">종결된 발주라 단가를 바꾸지 않습니다 — 실제 지급이 달랐으면 차액은 마감에서 정산</span>';
+        else if (!(Math.abs(df) < (inCur ? 0.01 : 2.5)) && ocur === pcx.cur && BV.order.statusRow) {
           var toP = inCur ? Math.round(cmpV * 10000) / 10000 : Math.round(cmpV);
           cmp += ' <button type="button" class="btn btn-sm" data-bomsetprice="' + toP + '" title="이 발주 건 단가를 BOM 단가로 바꿉니다([발주 수정]과 같게 저장 · 수량단가 변경 이력에 남음)">발주 단가를 ' + bvFmt(toP) + (inCur ? " " + pcx.label + "로" : "원으로") + "</button>";
         }
