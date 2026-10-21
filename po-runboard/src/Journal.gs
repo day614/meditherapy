@@ -409,16 +409,18 @@ function warmCaches(e) {
 
 /** 첫 화면 캐시(설정 · 발주 목록 · 진행 기록)가 비었으면 시트를 읽어 채운다. 있는지 보기는 캐시 칸 수만(풀지 않는다). */
 function warmBoot_() {
-  var mode = 'po';
-  try {
-    var c = CacheService.getScriptCache();
-    var meta = cacheGet_(metaKey_(mode));
-    if (meta && meta.cfg) {
-      var have = c.getAll([rowsCacheKey_(mode, meta.cfg) + ':n', 'prog:v2:' + mode + ':n']);
-      if (Object.keys(have).length === 2) return;
-    }
-    var t0 = Date.now();
-    apiBootstrap(false, mode);
-    console.log('warmBoot ' + mode + ' ' + (Date.now() - t0) + 'ms');
-  } catch (err) { try { console.log('warmBoot 실패: ' + err.message); } catch (e3) { /* 넘어간다 */ } }
+  // 발주 · 샘플 둘 다(샘플 탭도 아침 첫 사람이 4~5초 기다리지 않게 · 10/21) — 캐시가 차 있으면 칸 수만 보고 끝
+  ['po', 'sample'].forEach(function (mode) {
+    try {
+      var c = CacheService.getScriptCache();
+      var meta = cacheGet_(metaKey_(mode));
+      if (meta && meta.cfg) {
+        var have = c.getAll([rowsCacheKey_(mode, meta.cfg) + ':n', 'prog:v2:' + mode + ':n']);
+        if (Object.keys(have).length === 2) return;
+      }
+      var t0 = Date.now();
+      apiBootstrap(false, mode);
+      console.log('warmBoot ' + mode + ' ' + (Date.now() - t0) + 'ms');
+    } catch (err) { try { console.log('warmBoot ' + mode + ' 실패: ' + err.message); } catch (e3) { /* 넘어간다 */ } }
+  });
 }

@@ -18,7 +18,7 @@ function lenient(obj) {
   return new Proxy(obj, { get(t, k) {
     const f = (k in t) ? t[k] : (typeof k === 'symbol' ? undefined : function () { return lenient(t); });
     if (typeof f !== 'function' || typeof k !== 'string' || CALL_SKIP.test(k)) return f;
-    return function () { CALLS.n++; const nm = (t.name || (t.sh && t.sh.name) || '?') + '.' + k; CALLS.by[nm] = (CALLS.by[nm] || 0) + 1; if (process.env.CALL_TRACE) CALLS.log.push(nm + ' < ' + new Error().stack.split('\n').slice(2, 4).map(x => x.trim().split(' ')[1]).join(' < ')); return f.apply(t, arguments); };
+    return function () { CALLS.n++; const nm = (t.name || (t.sh && t.sh.name) || '?') + '.' + k; CALLS.by[nm] = (CALLS.by[nm] || 0) + 1; if (process.env.CALL_TRACE) CALLS.log.push(nm + ' < ' + new Error().stack.split('\n').slice(2, 4).map(x => x.trim().split(' ')[1]).join(' < ')); return f.apply(this, arguments); };
   } });
 }
 

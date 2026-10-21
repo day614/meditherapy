@@ -2449,7 +2449,8 @@ function dateSlots_(steps, cfg, mode) {
     try { localStorage.setItem(key, t); } catch (e) { /* 저장 못 해도 괜찮다 */ }
   }
   function snapSave(d) {
-    if (!(d && d.rows && d.mode)) return;
+    if (!(d && d.rows && d.mode) || isSnapData(d)) return;
+    try { d._at = Date.now(); } catch (eT) { /* 넘어간다 */ }
     var key = SNAP_KEY + d.mode;
     var run = function () { delete snapPend[key]; snapWrite(key, d); };
     if (snapPend[key]) { if (window.cancelIdleCallback && snapPend[key].idle) cancelIdleCallback(snapPend[key].id); else clearTimeout(snapPend[key].id); }
@@ -3320,14 +3321,29 @@ function dateSlots_(steps, cfg, mode) {
   var MODEDATA = {};
 
   var prefetching = false;
+  function isSnapData(d) { return !!(d && d.timing && d.timing.snapshot); }
+  /** 이 브라우저에 저장해 둔 그 탭 지난 화면(3일 안 · 같은 판) — 탭을 넘기자마자 보이게. 최신 값이 오면 바뀌고, 그 전엔 저장을 막는다(snapStale) */
+  function snapLoadFresh(m) {
+    var sn = snapLoad(m);
+    if (!(sn && sn.rows && sn.mode === m)) return null;
+    if (sn._at && Date.now() - sn._at > 3 * 864e5) return null;
+    sn.timing = { snapshot: true };
+    return sn;
+  }
   function prefetchOther() {
     var other = (mode === "po") ? "sample" : "po";
-    if (MODEDATA[other] || prefetching) return;
+    if ((MODEDATA[other] && !isSnapData(MODEDATA[other])) || prefetching) return;
+    if (!MODEDATA[other]) { var sn0 = snapLoadFresh(other); if (sn0) { MODEDATA[other] = sn0; try { bellUpdate(); } catch (eB0) { /* 넘어간다 */ } } }
     prefetching = true;
     gsr()
       .withSuccessHandler(function (d) {
         prefetching = false;
-        if (d && d.mode && !MODEDATA[d.mode]) MODEDATA[d.mode] = d;
+        if (d && d.mode && d.rows) snapSave(d);
+        if (d && d.mode && (!MODEDATA[d.mode] || isSnapData(MODEDATA[d.mode]))) {
+          var wasSnap = isSnapData(MODEDATA[d.mode]);
+          MODEDATA[d.mode] = d;
+          if (wasSnap && mode === d.mode) { applyFresh(d); return; }        // 저장본으로 보고 있던 탭 — 최신 값으로
+        }
         // 다른 탭 데이터가 오면 종 숫자 · 열려 있는 알림 창도 맞춘다(예전: 3초 뒤 한 번만 세서, 늦게 오면 샘플이 빠졌다)
         try { bellUpdate(); if (!$("alr").hidden && ALR.bell) alrRender(); } catch (eB) { /* 넘어간다 */ }
       })
@@ -3337,6 +3353,7 @@ function dateSlots_(steps, cfg, mode) {
 
   function applyMode(m, d) {
     if (!d || (d.mode && d.mode !== m)) return;
+    if (isSnapData(d)) snapStale = true;           // 저장본 화면 — 최신 값이 올 때까지 일괄 고치기 등은 막는다
     DATA = d;
     primeLines(d);
     MODEDATA[m] = d;
@@ -3377,6 +3394,8 @@ function dateSlots_(steps, cfg, mode) {
     $("view-admin").hidden = true;
 
     if (MODEDATA[m]) { applyMode(m, MODEDATA[m]); return; }   // 미리 받아 둔 게 있으면 즉시
+    var snM = snapLoadFresh(m);
+    if (snM) { MODEDATA[m] = snM; applyMode(m, snM); return; }   // 이 브라우저 저장본(지난번 화면)으로 바로 — 곧 뒤에서 최신 값(applyMode 가 다시 읽음)
 
     $("loading").hidden = false;
     $("loading").textContent = (m === "sample" ? "샘플" : "발주") + " 불러오는 중…";
@@ -10555,22 +10574,36 @@ function dateSlots_(steps, cfg, mode) {
    * 세트는 빼고(구성 완제품을 따로 발주). 모든 품목 BOM 줄(BV_ALL)을 받은 뒤부터 보인다.
    */
   var PO_BOMP = {}, PO_BOMP_SRC = null;
+  /**
+   * 모든 품목 BOM 줄의 지난 저장본(이 브라우저 · 3일 안) — 발주 목록 'BOM 단가 다름'을 서버를 기다리지 않고 바로 보이게만 쓴다.
+   * BOM 보기 · 고치기에는 쓰지 않는다(옛 줄 번호로 고치지 않게). 서버 값(BV_ALL)이 오면 그걸 쓰고 저장본을 새로 쓴다.
+   */
+  var BV_ALL_SNAP = (function () {
+    try { var t = localStorage.getItem("rb_snap_v1_bomall"); if (!t) return null; var o = JSON.parse(t); return o && o.at && Date.now() - o.at < 3 * 864e5 ? o.m : null; } catch (e) { return null; }
+  })();
+  function bomAllSnapSave(m) {
+    var slim = {};
+    Object.keys(m || {}).forEach(function (k) { slim[k] = (m[k] || []).map(function (v) { return { row: v.row, code: v.code, type: v.type, start: v.start, end: v.end, unit: v.unit, cur: v.cur, fx: v.fx, cost: v.cost, buy: v.buy, costKey: v.costKey, semi: v.semi, vendor: v.vendor }; }); });
+    var run = function () { snapWrite("rb_snap_v1_bomall", { at: Date.now(), m: slim }); };
+    if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 8000 }); else setTimeout(run, 500);
+  }
   function poBomPrice(r) {
-    if (!BV_ALL) return null;
-    if (PO_BOMP_SRC !== BV_ALL) { PO_BOMP = {}; PO_BOMP_SRC = BV_ALL; }
+    var SRC = BV_ALL || BV_ALL_SNAP;
+    if (!SRC) return null;
+    if (PO_BOMP_SRC !== SRC) { PO_BOMP = {}; PO_BOMP_SRC = SRC; }
     var code = String(r.code || "").toUpperCase(), round = bvR(r.batch) || 0, key = code + "|" + round;
     if (key in PO_BOMP) return PO_BOMP[key];
     var out = null;
     try {
       if (/^[A-Z]P\d{4}/.test(code)) {
         var best = null;
-        Object.keys(BV_ALL).forEach(function (pc) { (BV_ALL[pc] || []).forEach(function (v) {
+        Object.keys(SRC).forEach(function (pc) { (SRC[pc] || []).forEach(function (v) {
           if (String(v.code || "").toUpperCase() !== code || String(v.end || "").trim() || v.unit === "" || v.unit == null) return;
           var s0 = bvR(v.start) || 0; if (!best || s0 >= best.s) best = { s: s0, v: v, p: pc };
         }); });
         if (best) out = { price: bvNum(best.v.unit), cur: BV_CUR_CODE[bvCur(best.v)] || "KRW", where: best.p + " BOM " + (best.v.start || "") + "~ 자재 줄" };
-      } else if (BV_ALL[code]) {
-        var rows = BV_ALL[code].map(function (x) { return Object.assign({}, x); });
+      } else if (SRC[code]) {
+        var rows = SRC[code].map(function (x) { return Object.assign({}, x); });
         if (rows.length && !rows.some(function (v) { return v.type === "세트"; })) {
           var max = bvPlan(rows); bvGroupsOf(rows, code);
           var at = round && round <= max ? round : max;
@@ -11129,6 +11162,7 @@ function dateSlots_(steps, cfg, mode) {
       gsr().withSuccessHandler(function (m) {
         bomAllEnsure.busy = 0;
         BV_ALL = m || {}; PO_BOMP = {};
+        bomAllSnapSave(BV_ALL);                 // 다음에 열 때 'BOM 단가 다름'을 바로(저장본)
         if (mode === "po") { if (!busyEditing() && saveQueue === 0) { try { renderBoard(); } catch (eR) { /* 다음 그리기 때 */ } } else bomAllRedraw(); }
       }).withFailureHandler(function () { bomAllEnsure.busy = 0; bomAllEnsure(30000); }).apiBomAllRows();
     }, delay || 0);
