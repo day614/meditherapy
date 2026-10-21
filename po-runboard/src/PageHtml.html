@@ -2525,6 +2525,7 @@ function dateSlots_(steps, cfg, mode) {
     if (fromCache) setTimeout(revalidate, 300);
     setTimeout(prefetchOther, 300);            // 다른 탭(발주 ↔ 샘플) 데이터는 바로 — 알림 · 탭 넘기기가 기다리지 않게(예전 1.2~2.5초 뒤)
     setTimeout(bomListPrefetch, 20000);
+    bomAllEnsure(5000);                       // 발주 목록 'BOM 단가 다름'용 BOM 줄은 일찍(못 받으면 다시)
     setTimeout(vendorsLoad, 2500);             // 업체 목록(업체 칸 찾아 고르기)
     bootTail();
     setTimeout(alrStart, 300);                 // 기한 알림(발주 · 샘플) — 받아진 쪽부터 · 업데이트 소식이 떠 있으면 닫은 뒤에
@@ -11091,11 +11092,34 @@ function dateSlots_(steps, cfg, mode) {
       .withFailureHandler(function () { delete BV_PRE[code]; }).apiBomGet(code);
   }
   /** 앱을 연 뒤 한가할 때 BOM 품목 목록을 미리 받아 둔다(처음 [BOM 보기]가 바로 열리게) */
+  /**
+   * 모든 품목 BOM 줄(BV_ALL)을 받을 때까지 — 발주 목록 'BOM 단가 다름'이 이걸로 그려진다.
+   * 예전엔 앱을 연 지 20초 뒤 한 번만 받으러 가서, 그때 다른 탭을 보거나 저장 중이면 건너뛰고 다시 안 받아 표시가 안 나왔다.
+   * 품목 정보 저장 등으로 비우면(iiBomStale) 곧 다시 받는다. 실패하면 30초 뒤 다시.
+   */
+  function bomAllEnsure(delay) {
+    clearTimeout(bomAllEnsure.t);
+    bomAllEnsure.t = setTimeout(function () {
+      if (BV_ALL || bomAllEnsure.busy) return;
+      if (saveQueue > 0) { bomAllEnsure(4000); return; }
+      bomAllEnsure.busy = 1;
+      gsr().withSuccessHandler(function (m) {
+        bomAllEnsure.busy = 0;
+        BV_ALL = m || {}; PO_BOMP = {};
+        if (mode === "po") { if (!busyEditing() && saveQueue === 0) { try { renderBoard(); } catch (eR) { /* 다음 그리기 때 */ } } else bomAllRedraw(); }
+      }).withFailureHandler(function () { bomAllEnsure.busy = 0; bomAllEnsure(30000); }).apiBomAllRows();
+    }, delay || 0);
+  }
+  /** 받았는데 그때 입력 중이라 못 그렸으면, 손을 뗀 뒤 한 번 그린다 */
+  function bomAllRedraw() {
+    clearTimeout(bomAllRedraw.t);
+    bomAllRedraw.t = setTimeout(function () { if (mode !== "po") return; if (busyEditing() || saveQueue > 0) { bomAllRedraw(); return; } try { renderBoard(); } catch (e) { /* 넘어간다 */ } }, 3000);
+  }
   function bomListPrefetch() {
     if (document.hidden || saveQueue > 0) return;
     if (!(typeof BL !== "undefined" && BL.list)) gsr().withSuccessHandler(function (l) { if (!BL.list) BL.list = l || []; }).withFailureHandler(function () { /* 조용히 */ }).apiBomList();
     // 모든 품목 BOM 줄도 한 번에 받아 둔다 — 처음 여는 품목도 서버를 기다리지 않고 바로(최신 값은 열 때 뒤에서 확인)
-    if (!BV_ALL) gsr().withSuccessHandler(function (m) { BV_ALL = m || {}; if (mode === "po" && !busyEditing() && saveQueue === 0) { try { renderBoard(); } catch (eR) { /* 다음 그리기 때 */ } } }).withFailureHandler(function () { /* 조용히 */ }).apiBomAllRows();      // 받으면 목록에 'BOM 단가 다름' 표시
+    bomAllEnsure(0);                    // 모든 품목 BOM 줄(발주 목록 'BOM 단가 다름' · 처음 여는 품목)
   }
   function bomSet(d) {
     var keepFocus = d && BV.code && d.code === BV.code ? BV.focus : null, keepDone = BV.focusDone;      // 같은 품목을 다시 받아 그릴 때 노란 줄 유지
@@ -11296,7 +11320,7 @@ function dateSlots_(steps, cfg, mode) {
     $("ii-saveall").disabled = !Object.keys(II.dirty).length;
   }
   /** 품목 정보를 고친 뒤: BOM 화면이 들고 있던 품목 줄 · 목록은 새로 받는다(품목명 · 업체가 BOM 줄에도 같이 바뀜) */
-  function iiBomStale() { BV_GETC = {}; BV_ALL = null; if (typeof BL !== "undefined") BL.list = null; }
+  function iiBomStale() { BV_GETC = {}; BV_ALL = null; if (typeof BL !== "undefined") BL.list = null; bomAllEnsure(3000); }      // 비우면 곧 다시 받아 발주 목록 'BOM 단가 다름'이 사라지지 않게
   function iiSave(code, done, typo) {
     var it = (II.list || []).filter(function (x) { return x.code === code; })[0], dv = II.dirty[code];
     if (!it || !dv) { if (done) done(); return; }
