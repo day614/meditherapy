@@ -119,3 +119,35 @@ function ordFilterOff_() {
   try { writeAudits_([{ tab: RB.STATUS_TAB, row: 1, col: 1, what: '발주 DB 탭 필터 풂(숨은 행에 쓴 날짜가 안 남아서 — 걸러 보려면 필터 보기)', before: '필터 켜짐', after: '' }]); } catch (e3) { /* 넘어간다 */ }
   return true;
 }
+
+/**
+ * 한 번만(10/21) 시험: 필터로 숨은 행에 날짜 · 글자 · 숫자를 쓰면 남는지 — 임시 탭에서만(끝나면 탭을 지운다). 결과는 변경이력에 한 줄.
+ */
+function ordFilterTest1021_() {
+  var ss = ss_(), name = '_실행판_필터시험', out = [];
+  var old = ss.getSheetByName(name); if (old) ss.deleteSheet(old);
+  var sh = ss.insertSheet(name);
+  try {
+    sh.getRange(1, 1, 4, 5).setValues([['A', 'B', 'C', '담당', '발주일'], ['x', 'x', 'x', '노바', ''], ['x', 'x', 'x', '베카', ''], ['x', 'x', 'x', '베카', '']]);
+    var f = sh.getRange(1, 1, 4, 5).createFilter();
+    f.setColumnFilterCriteria(4, SpreadsheetApp.newFilterCriteria().setHiddenValues(['베카']).build());
+    SpreadsheetApp.flush();
+    var d = new Date(2026, 9, 12);
+    sh.getRange(2, 5).setValue(d);                 // 보이는 행 · 날짜
+    sh.getRange(3, 5).setValue(d);                 // 숨은 행 · 날짜
+    sh.getRange(4, 5).setValue("'26/10/12");       // 숨은 행 · 글자
+    sh.getRange(3, 3).setValue(123);               // 숨은 행 · 숫자(다른 열)
+    sh.getRange(4, 3).setValue('글자');            // 숨은 행 · 글자(다른 열)
+    sh.getRange(3, 1, 1, 5).getValues();
+    SpreadsheetApp.flush();
+    var v = sh.getRange(1, 1, 4, 5).getValues();
+    out.push('보이는행 날짜=' + (v[1][4] ? 'O' : 'X'), '숨은행 날짜=' + (v[2][4] ? 'O' : 'X'), '숨은행 글자날짜=' + (v[3][4] ? 'O' : 'X'),
+      '숨은행 숫자=' + (v[2][2] === 123 ? 'O' : 'X'), '숨은행 글자=' + (v[3][2] === '글자' ? 'O' : 'X'));
+    f.remove(); SpreadsheetApp.flush();
+    sh.getRange(3, 5).setValue(d); SpreadsheetApp.flush();
+    out.push('필터 푼 뒤 날짜=' + (sh.getRange(3, 5).getValue() ? 'O' : 'X'));
+  } catch (e) { out.push('오류 ' + e.message); }
+  finally { try { ss.deleteSheet(sh); } catch (e2) { /* 넘어간다 */ } }
+  try { writeAudits_([{ tab: name, row: 1, col: 1, what: '필터 숨은 행 쓰기 시험', before: '', after: out.join(' · ') }]); } catch (e3) { /* 넘어간다 */ }
+  return out.join(' · ');
+}
