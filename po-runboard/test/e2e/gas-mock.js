@@ -11,8 +11,15 @@ const fromR1C1 = (f, r, c) => f.replace(/R\[(-?\d+)\]C\[(-?\d+)\]/g, (m, dr, dc)
 const revive = x => (x && typeof x === 'object' && x.d ? new Date(x.d) : x);
 
 // 모르는 메서드는 그냥 자기 자신을 돌려준다(서식 · 보호 · 필터 등 화면 시험에 상관없는 것)
+// CALLS: 시트에 가는 호출 수(실제 Apps Script 는 호출마다 왕복 · 쓰기 뒤 읽기는 재계산 대기) — 종류별로 센다
+const CALLS = { n: 0, by: {}, log: [] };
+const CALL_SKIP = /^(getRow|getColumn|getNumRows|getNumColumns|getLastRow\b|getSheet|getName|getParent|getA1Notation|_.*|constructor|toString|valueOf|getSheetId)$/;
 function lenient(obj) {
-  return new Proxy(obj, { get(t, k) { if (k in t) return t[k]; if (typeof k === 'symbol') return undefined; return function () { return lenient(t); }; } });
+  return new Proxy(obj, { get(t, k) {
+    const f = (k in t) ? t[k] : (typeof k === 'symbol' ? undefined : function () { return lenient(t); });
+    if (typeof f !== 'function' || typeof k !== 'string' || CALL_SKIP.test(k)) return f;
+    return function () { CALLS.n++; const nm = (t.name || (t.sh && t.sh.name) || '?') + '.' + k; CALLS.by[nm] = (CALLS.by[nm] || 0) + 1; if (process.env.CALL_TRACE) CALLS.log.push(nm + ' < ' + new Error().stack.split('\n').slice(2, 4).map(x => x.trim().split(' ')[1]).join(' < ')); return f.apply(t, arguments); };
+  } });
 }
 
 class Sheet {
@@ -137,4 +144,4 @@ function makeContext(opt) {
   ctx.__main = main; ctx.__bom = bomFile;
   return ctx;
 }
-module.exports = { makeContext, READS };
+module.exports = { makeContext, READS, CALLS };

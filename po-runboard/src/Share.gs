@@ -79,6 +79,7 @@ function shareOrder_(rows) {
 function shareBomRefresh_(list, costRows) {
   var ss = shareSS_(), fin = shareFinalRows_(), stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
   shareCostSearch_(ss, costRows, stamp);
+  try { shareCostSearchOld_(ss, costRows, stamp); } catch (eOld) { try { console.log('원가검색 탭 맞추기 실패: ' + eOld.message); } catch (eOld2) { /* 넘어간다 */ } }
   var old = ss.getSheetByName(RB_SHARE_OLD_COST_TAB); if (old) { try { ss.deleteSheet(old); } catch (eD) { /* 넘어간다 */ } }   // 잠깐 쓰던 탭 — 원가는 원가검색_자동 으로
 
   var byCode = {}; (list || []).forEach(function (it) { byCode[it.code] = it; });
@@ -158,4 +159,44 @@ function apiShareBomUrl() {
   if (!PropertiesService.getScriptProperties().getProperty(RB_SHARE_PROP)) costTableRefresh_(true);
   var ss = shareSS_(), sh = ss.getSheetByName(RB_SHARE_BOM_TAB);
   return ss.getUrl() + (sh ? '#gid=' + sh.getSheetId() : '');
+}
+
+/**
+ * 예전 '원가검색' 탭(손으로 쓰던 표 · 품목코드 칸에 바코드 · 옛 코드가 섞임)도 실행판 원가로 맞춘다(2026-10-21 담당자 요청 — 연동 안 돼 옛 원가가 남아 있었다).
+ * 품목코드 칸 값 → 품목 DB(품목코드 · 바코드 · 구코드1 · 구코드2)로 실행판 품목코드를 찾고, 그 품목 원가가 있으면 원가 VAT- 칸만 바꾼다.
+ * VAT+ 칸은 그대로(=E*1.1 수식) · 등급 · 비고 · 찾지 못한 줄은 손대지 않는다. 바뀐 칸 수를 돌려준다.
+ */
+function shareCostSearchOld_(ss, costRows, stamp) {
+  var sh = ss.getSheetByName('원가검색');
+  if (!sh || sh.getLastRow() < 3) return 0;
+  var lc = sh.getLastColumn(), top = sh.getRange(1, 1, Math.min(3, sh.getLastRow()), lc).getValues(), hr = -1, head = null;
+  top.forEach(function (r, i) { if (hr < 0 && r.map(function (x) { return str_(x); }).indexOf('원가 VAT-') > -1) { hr = i + 1; head = r.map(function (x) { return str_(x); }); } });
+  if (hr < 0) return 0;
+  var cCode = head.indexOf('품목코드'), cM = head.indexOf('원가 VAT-'), cP = head.indexOf('원가 VAT+');
+  if (cCode < 0 || cM < 0) return 0;
+  var key = function (v) { var t = str_(v).toUpperCase(); return /^\d+\.0$/.test(t) ? t.slice(0, -2) : t; };
+  var cost = {}; costRows.forEach(function (cr) { cost[key(cr[1])] = cr[4]; });
+  // 바코드 · 옛 코드 → 실행판 품목코드(품목 DB)
+  var alias = {};
+  try {
+    var it = sheet_(RB_ITEM.TAB), iv = it ? it.getDataRange().getValues() : [], ih = (iv[0] || []).map(function (x) { return str_(x); });
+    var ic = ih.indexOf('품목코드'), cols = ['바코드', '구코드1', '구코드2'].map(function (h) { return ih.indexOf(h); }).filter(function (c) { return c >= 0; });
+    if (ic >= 0) iv.slice(1).forEach(function (r) { var code = key(r[ic]); if (!code) return; cols.forEach(function (c) { var k = key(r[c]); if (k && !alias[k]) alias[k] = code; }); });
+  } catch (eA) { /* 품목코드 그대로만 */ }
+  var n = sh.getLastRow() - hr, codes = sh.getRange(hr + 1, cCode + 1, n, 1).getValues(), vm = sh.getRange(hr + 1, cM + 1, n, 1).getValues();
+  var fp = cP >= 0 ? sh.getRange(hr + 1, cP + 1, n, 1).getFormulas() : null, cells = {}, pcells = {}, ch = 0;
+  codes.forEach(function (r, i) {
+    var k = key(r[0]); if (!k) return;
+    var code = cost[k] !== undefined ? k : alias[k];
+    if (!code || cost[code] === undefined) return;
+    var want = Number(cost[code]) || 0;
+    if (!(want > 0)) return;                                // BOM 원가 0(원가 체크 줄 없음)은 손으로 넣은 원가를 지우지 않게 건너뛴다
+    if (Math.round(Number(vm[i][0]) || 0) !== Math.round(want) || str_(vm[i][0]) === '') { cells[hr + 1 + i] = want; ch++; }
+    if (fp && !fp[i][0]) pcells[hr + 1 + i] = '=' + colLetterRB_(cM + 1) + (hr + 1 + i) + '*1.1';          // VAT+ 가 값으로 적힌 줄은 수식으로
+  });
+  if (ch) setColCells_(sh, cM + 1, cells);
+  if (fp && Object.keys(pcells).length) setColCells_(sh, cP + 1, pcells);
+  var noteAt = -1, last = 0; head.forEach(function (h, i) { if (h.indexOf('구매팀 실행판') > -1) noteAt = i; else if (h) last = i + 1; });        // 안내 칸은 한 곳(돌 때마다 오른쪽으로 밀리지 않게)
+  try { sh.getRange(hr, (noteAt >= 0 ? noteAt : Math.max(last, 8)) + 1).setValue('원가 VAT- = 구매팀 실행판 BOM 최종 차수 원가(품목코드 · 바코드로 찾은 줄만 · 등급 · 비고는 그대로) · 자동 · 갱신 ' + stamp); } catch (eN) { /* 넘어간다 */ }
+  return ch;
 }

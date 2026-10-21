@@ -340,3 +340,31 @@ function bomRegMissingAll_() {
   try { itemDbPriceSync_(done); } catch (e) { /* 넘어간다 */ }
   return done;
 }
+
+/**
+ * BOM 저장 · 정정 뒤 바로 안 해도 되는 일은 1분 작업(journalDrain)으로 미룬다(저장 응답이 3~20초 빨라짐 · 10/21).
+ *  · price: 품목 DB 단가 맞추기(itemDbPriceSync_) · ren: 고친 품목명 · 업체 · 사양을 품목 DB 와 같은 코드 다른 BOM 줄에(bomRenameApply_ + 되돌리기용 옛 값)
+ * 속성 칸을 저장마다 따로 만든다(rb.bl.시각) — 두 사람이 동시에 저장해도 서로 덮지 않게.
+ */
+var RB_BL = 'rb.bl.';
+function bomLater_(job) {
+  try { PropertiesService.getScriptProperties().setProperty(RB_BL + Date.now() + '.' + Math.floor(Math.random() * 1e6), JSON.stringify(job)); return true; }
+  catch (e) { return false; }
+}
+function bomLaterDrain_() {
+  var P = PropertiesService.getScriptProperties(), all = P.getProperties();
+  var keys = Object.keys(all).filter(function (k) { return k.indexOf(RB_BL) === 0; }).sort();
+  if (!keys.length) return 0;
+  var codes = {}, rens = [];
+  keys.forEach(function (k) {
+    var j = null; try { j = JSON.parse(all[k]); } catch (e) { j = null; }
+    P.deleteProperty(k);
+    if (!j) return;
+    if (j.k === 'price') (j.codes || []).forEach(function (c) { codes[c] = 1; });
+    else if (j.k === 'ren') rens.push(j);
+  });
+  RB_EDITOR_OK = true;
+  rens.forEach(function (j) { try { bomLogDbPrev_(j.product, j.tag, bomRenameApply_(j.ren)); } catch (e) { try { console.log('이름 맞추기(미룸) 실패: ' + e.message); } catch (e2) { /* 10분 작업이 다시 */ } } });
+  if (Object.keys(codes).length) { try { itemDbPriceSync_(Object.keys(codes), null); } catch (e3) { try { console.log('품목 단가(미룸) 실패: ' + e3.message); } catch (e4) { /* 넘어간다 */ } } }
+  return keys.length;
+}

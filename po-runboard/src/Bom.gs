@@ -56,8 +56,10 @@ function bomMigrateV3Run_() {
   }
 }
 
+// 한 번 실행 안에서 머리글을 여러 번 읽지 않게(저장 한 번에 3번 읽었다) — 같은 탭 · 칸 수가 같을 때만(bomCols_.memo)
 function bomCols_(sh) {
-  var lc = sh.getLastColumn();
+  var lc = sh.getLastColumn(), mm = bomCols_.memo;
+  if (mm && mm.id === sh.getSheetId() && mm.lc === lc) return Object.assign({}, mm.col);
   var head = sh.getRange(2, 1, 1, lc).getDisplayValues()[0].map(function (s) { return String(s).replace(/\s+/g, ' ').trim(); });
   var col = { lc: lc };
   Object.keys(RB_BOM_HEAD).forEach(function (k) { col[k] = head.indexOf(RB_BOM_HEAD[k]); });
@@ -65,6 +67,7 @@ function bomCols_(sh) {
   Object.keys(alias).forEach(function (k) { if (col[k] < 0) col[k] = head.indexOf(alias[k]); });
   var miss = ['product', 'start', 'end', 'code', 'type', 'name', 'vendor', 'unit', 'cost'].filter(function (k) { return col[k] < 0; });
   if (miss.length) throw new Error('BOM 탭 2행에서 칸을 찾지 못했습니다: ' + miss.map(function (k) { return RB_BOM_HEAD[k]; }).join(', '));
+  try { bomCols_.memo = { id: sh.getSheetId(), lc: lc, col: Object.assign({}, col) }; } catch (eM) { bomCols_.memo = null; }
   return col;
 }
 
@@ -1140,6 +1143,7 @@ function bomCurFx_(cur) {
  */
 function bomRenamesFrom_(product, list) {
   var rows = {}, db = {}, out = {};
+  if (!(list || []).some(function (x) { return x && !x.newCode && (x.name != null || x.vendor != null || x.spec != null); })) return out;     // 이름 · 업체 · 사양을 안 고쳤으면 읽지 않는다(저장마다 BOM 줄 · 품목 DB 를 읽었다)
   try { bomRowsOf_(product).forEach(function (r) { rows[r.row] = r; }); } catch (e) { return out; }
   readItems_().forEach(function (it) { db[it.code] = it; });
   (list || []).forEach(function (x) {
@@ -1220,7 +1224,7 @@ function apiBomSave(product, round, changes, meta) {
   var ren = bomRenamesFrom_(str_(product).toUpperCase(), (changes || []).filter(function (c) { return c && c.kind !== 'add' && !c.remove && c.vendor == null && c.spec == null && c.qty == null; }).map(function (c) { return { row: c.row, name: c.name }; }));
   var res = apiBomSaveCore_(product, round, changes, meta);
   var tw1 = Date.now(), tm = res.timing || {};
-  try { bomLogDbPrev_(str_(product).toUpperCase(), res.logTag, bomRenameApply_(ren)); } catch (eR0) { /* 이름 맞추기는 10분 작업이 다시 */ }
+  if (Object.keys(ren || {}).length && !bomLater_({ k: 'ren', product: str_(product).toUpperCase(), tag: res.logTag, ren: ren })) { try { bomLogDbPrev_(str_(product).toUpperCase(), res.logTag, bomRenameApply_(ren)); } catch (eR0) { /* 이름 맞추기는 10분 작업이 다시 */ } }
   tm['이름맞추기'] = Date.now() - tw1; tw1 = Date.now();
   // 기존 코드를 가져다 쓴 줄(공용) — 그 코드를 쓰는 다른 BOM 줄과 공용 표시 · 빈 업체 · 사양을 맞춘다
   var reuse = {}; (changes || []).forEach(function (c) { if (c && c.kind === 'add' && c.want && (c.reuse || c.picked)) reuse[itemCodeKey_(c.want)] = 1; });
@@ -1611,7 +1615,7 @@ function apiBomSaveCore_(product, round, changes, meta) {
   mk('이력');
   var unitCodes = changes.filter(function (c) { return c.kind !== 'add' && !c.remove && (c.unit != null || c.fx != null || c.cur != null); }).map(function (c) { return c.code; })
     .concat(made);                                       // 새 번호(업체 · 사양 변경 · 자재 추가)는 그 코드로
-  if (unitCodes.length) { try { itemDbPriceSync_(unitCodes, bomReadProduct_(sh, C, product)); } catch (ePs) { /* 넘어간다 */ } }
+  if (unitCodes.length && !bomLater_({ k: 'price', codes: unitCodes })) { try { itemDbPriceSync_(unitCodes, bomReadProduct_(sh, C, product)); } catch (ePs) { /* 넘어간다 */ } }     // 1분 작업으로(못 미루면 지금)
   mk('품목단가');
   var fresh = apiBomGet(product);
   mk('다시읽기');
@@ -1728,7 +1732,7 @@ function apiBomFixMany(product, items, why, dry, shares, commons) {
     lock.releaseLock();
   }
   var t2 = Date.now();
-  try { bomLogDbPrev_(product, res && res.logTag, bomRenameApply_(ren)); } catch (eR) { /* 이름 맞추기는 10분 작업이 다시 */ }
+  if (Object.keys(ren || {}).length && !bomLater_({ k: 'ren', product: product, tag: res && res.logTag, ren: ren })) { try { bomLogDbPrev_(product, res && res.logTag, bomRenameApply_(ren)); } catch (eR) { /* 이름 맞추기는 10분 작업이 다시 */ } }     // 1분 작업으로
   if (!res || shared || commonN) { var g = apiBomGet(product); if (res) ['fixed', 'deleted', 'others'].forEach(function (k) { g[k] = res[k]; }); else g.fixed = 0; res = g; }
   tm['끝'] = Date.now() - t2; tm.n = items.length;
   res.timing = tm; res.shared = shared; res.commonN = commonN;
@@ -2004,7 +2008,7 @@ function apiBomFixManyCore_(product, items, why, dry) {
   }
   var pcodes = plan.filter(function (q) { return q.set.unit !== undefined || q.set.fx !== undefined || q.set.cur !== undefined || q.set.code !== undefined; })
     .map(function (q) { return q.set.code !== undefined ? str_(q.set.code) : q.code; });
-  if (pcodes.length) { try { itemDbPriceSync_(pcodes, all); } catch (ePs) { /* 넘어간다 */ } }
+  if (pcodes.length && !bomLater_({ k: 'price', codes: pcodes })) { try { itemDbPriceSync_(pcodes, all); } catch (ePs) { /* 넘어간다 */ } }     // 1분 작업으로(못 미루면 지금)
   bomAfterSave_(Object.keys(touched), delShift);             // 줄을 지웠으면 아래 줄 번호가 밀려 캐시를 통째로
   try { appendHist_([{ kind: 'BOM', code: product, item: product + ' BOM 정정 ' + plan.length + '줄', before: '', after: plan.map(function (q) { return q.code; }).join(', '), reason: why }], 'p'); } catch (e) { /* 넘어간다 */ }
   var res = apiBomGet(product);
@@ -2410,9 +2414,13 @@ function bomWriteRow_(sh, row, vals) {
   var runs = [], run = null;
   for (var c = lo; c <= hi; c++) {
     var own = Object.prototype.hasOwnProperty.call(vals, c);
-    if (!own && !(cur && cur[c - lo] === '' && !fm[c - lo])) { run = null; continue; }
+    // 사이 칸: 빈칸이거나, 수식이 아니고 다시 써도 그대로인 값(글자 · 날짜 · 숫자)이면 지금 값을 같이 써서 한 번에(예전엔 칸마다 끊겨 한 줄에 14번 썼다).
+    // 숫자 · 날짜처럼 보이는 글자('0055' · '1/2')는 다시 쓰면 숫자 · 날짜로 바뀔 수 있어 끊는다
+    var keep = cur && !fm[c - lo] && (cur[c - lo] === '' || typeof cur[c - lo] === 'number' || cur[c - lo] instanceof Date || typeof cur[c - lo] === 'boolean' ||
+      (typeof cur[c - lo] === 'string' && !/^[\s\d.,:\/\-+%=']*$/.test(cur[c - lo]) && cur[c - lo].charAt(0) !== '='));
+    if (!own && !keep) { run = null; continue; }
     if (!run) { run = { c: c, v: [] }; runs.push(run); }   // 덩어리는 늘 쓰는 칸에서 시작(lo 또는 건너뛴 칸 다음 — 빈칸이면 그대로 빈칸)
-    run.v.push(own ? vals[c] : '');
+    run.v.push(own ? vals[c] : cur[c - lo]);
   }
   try {
     runs.forEach(function (r) { sh.getRange(row, r.c + 1, 1, r.v.length).setValues([r.v]); });
