@@ -48,6 +48,8 @@ class Sheet {
     return tf;
   }
   getFilter() { return null; } getFrozenRows() { return 0; }
+  // 칸 여러 개(A1 목록) — 같은 값 쓰기 · 서식
+  getRangeList(list) { const rs = (list || []).map(a => this.getRange(a)); const rl = { getRanges: () => rs, setValue(v) { rs.forEach(r => r.setValue(v)); return rl; }, setNumberFormat() { return rl; }, clearContent() { rs.forEach(r => r.setValue('')); return rl; } }; return rl; }
 }
 class Range {
   constructor(sh, r, c, nr, nc) { Object.assign(this, { sh, r, c, nr, nc }); }

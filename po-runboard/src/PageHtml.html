@@ -9596,8 +9596,22 @@ function dateSlots_(steps, cfg, mode) {
   }
   /** 저장 요청 번호 — 같은 입고를 두 번 보내도 서버가 한 번만 넣는다 */
   function opId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  /**
+   * 건의 선금 · 잔금(품의서 · 지급 표시가 쓰는 값)을 지급 줄에서 다시 — 서버 첫 화면과 같은 규칙(선금 = 선금 줄 합 · 처음 날짜, 잔금 = 예정 · 입고 줄 합 · 마지막 지급월).
+   * 예전엔 [발주 수정]에서 선금을 넣어도 이 값이 첫 화면 그대로라, 새로고침 전에 내려받은 품의서에 선금이 빠졌다(10/21).
+   */
+  function rowPayFromLines(row, lines) {
+    if (!row || !lines) return;
+    var pre = 0, bal = 0, preAt = "", balAt = "";
+    lines.forEach(function (x) {
+      if (x.kind === "선금") { pre += lnNum(x.amt) || 0; if (!preAt) { var dm = String(x.date || "").match(/^(\d{2})(\d{2})-(\d{2})-(\d{2})/); preAt = dm ? dm[2] + "/" + dm[3] + "/" + dm[4] : String(x.date || x.payYm || ""); } }     // 서버와 같은 'yy/MM/dd' 
+      else if (x.kind === "예정" || x.kind === "입고") { bal += lnNum(x.amt) || 0; if (x.payYm && String(x.payYm) > balAt) balAt = String(x.payYm); }
+    });
+    row.pre = pre; row.preAt = preAt; row.bal = bal; row.balAt = balAt;
+  }
   function lnApplyResult(row, res) {
     LN_CACHE[row.id] = { lines: res.lines || [], months: (LN_CACHE[row.id] && LN_CACHE[row.id].months && LN_CACHE[row.id].months.length) ? LN_CACHE[row.id].months : LN.months };
+    if (res.lines) rowPayFromLines(row, res.lines);
     var etaWas = row.eta;
     if (res.inQty !== undefined) { row.inQty = res.inQty; row.remain = res.remain; }   // 같은 요청을 다시 보내 줄만 돌아온 때는 그대로
     row.arrivedAt = etaFromLines(res.lines || [], "입고"); row.eta = etaFromLines(res.lines || []);
@@ -10559,7 +10573,7 @@ function dateSlots_(steps, cfg, mode) {
           var at = round && round <= max ? round : max;
           var act = rows.filter(function (v) { return v._s <= at && at <= v._e; });
           var q = act.length ? bvPriceOf(act, code, "", function (v) { return bvNum(v.cost); }, at, {}) : null;
-          if (q) { var pc = bvPriceCur(q), ns = Object.keys(q.sep).length; out = { price: pc.price, cur: pc.cur, sep: ns, where: code + " BOM " + at + "차 발주 단가(제조사 단가 + 턴키 자재" + (ns ? " · 사급 등 따로 발주 " + ns + "줄은 뺌" : "") + ")" }; }
+          if (q) { var pc = bvPriceCur(q), ns = Object.keys(q.sep).length; out = { price: pc.price, cur: pc.cur, sep: ns, where: code + " BOM " + at + "차 발주 단가(제조사 단가 + 턴키 자재)" }; }
         }
       }
     } catch (e) { out = null; }
@@ -10573,10 +10587,10 @@ function dateSlots_(steps, cfg, mode) {
     var cur = curOf(r);
     if (cur !== b.cur) return "";
     var op = Number(r.price), bp = Number(b.price);
-    var diff = cur === "KRW" ? Math.round(op) !== Math.round(bp) : Math.abs(op - bp) > Math.max(0.01, bp * 0.01);
+    var diff = cur === "KRW" ? Math.abs(Math.round(op) - Math.round(bp)) > 2 : Math.abs(op - bp) > Math.max(0.01, bp * 0.01);     // 원화 2원 이하는 BOM 단가 소수점 반올림 차이라 표시하지 않는다
     if (!diff) return "";
     var f = function (n) { return Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 4 }) + (cur === "KRW" ? "원" : " " + cur); };
-    return ' <span class="nobom bomp"' + (open ? ' data-bomopen="1" role="button" style="cursor:pointer"' : "") + ' title="발주 단가 ' + esc(f(op)) + ' · BOM 단가 ' + esc(f(bp)) + " (" + esc(b.where) + ') — 다릅니다' + (open ? " · 누르면 BOM" : ". BOM 보기에서 확인하세요") + '">BOM 단가 다름 ' + esc(f(bp)) + (b.sep ? " (사급 빼고)" : "") + "</span>";
+    return ' <span class="nobom bomp"' + (open ? ' data-bomopen="1" role="button" style="cursor:pointer"' : "") + ' title="발주 단가 ' + esc(f(op)) + ' · BOM 단가 ' + esc(f(bp)) + " (" + esc(b.where) + ') — 다릅니다' + (open ? " · 누르면 BOM" : ". BOM 보기에서 확인하세요") + '">BOM 단가 다름 ' + esc(f(bp)) + "</span>";
   }
   function bomQuoteText(code, q) {
     if (!q) return code + ": BOM 없음 — 매입처 · 단가는 지난 발주 값입니다. 확인해 주세요.";
@@ -12661,9 +12675,9 @@ function dateSlots_(steps, cfg, mode) {
         var cmpV = pr.sumShow != null ? pr.sumShow : pr.sum, inCur = ocur === pcx.cur && pcx.cur !== "KRW";
         if (!inCur) { op = Math.round(op); cmpV = Math.round(cmpV); }       // 원화는 소수점 없이(반올림) 비교 · 표시
         var df = Math.round((op - cmpV) * 10000) / 10000;
-        cmp = "이 발주 단가 " + bvFmt(op) + (inCur ? " " + pcx.label : (ocur !== "KRW" ? "원(환산)" : "")) + (Math.abs(df) < (inCur ? 0.01 : 1) ? ' <span class="ok">✓ 같음</span>' : ' <span class="ng">BOM과 차이 ' + (df > 0 ? "+" : "") + bvFmt(df) + '</span> <span class="nghelp">(재고 활용 등 예외면 발주 단가 그대로 · 단가는 [발주 수정]에서)</span>');
+        cmp = "이 발주 단가 " + bvFmt(op) + (inCur ? " " + pcx.label : (ocur !== "KRW" ? "원(환산)" : "")) + (Math.abs(df) < (inCur ? 0.01 : 2.5) ? ' <span class="ok">✓ 같음</span>' : ' <span class="ng">BOM과 차이 ' + (df > 0 ? "+" : "") + bvFmt(df) + '</span> <span class="nghelp">(재고 활용 등 예외면 발주 단가 그대로 · 단가는 [발주 수정]에서)</span>');
         // BOM 과 다르면 발주 단가를 BOM 단가로 바로 맞추기(같은 통화일 때 · 사유는 자동으로 남김)
-        if (!(Math.abs(df) < (inCur ? 0.01 : 1)) && ocur === pcx.cur && BV.order.statusRow) {
+        if (!(Math.abs(df) < (inCur ? 0.01 : 2.5)) && ocur === pcx.cur && BV.order.statusRow) {
           var toP = inCur ? Math.round(cmpV * 10000) / 10000 : Math.round(cmpV);
           cmp += ' <button type="button" class="btn btn-sm" data-bomsetprice="' + toP + '" title="이 발주 건 단가를 BOM 단가로 바꿉니다([발주 수정]과 같게 저장 · 수량단가 변경 이력에 남음)">발주 단가를 ' + bvFmt(toP) + (inCur ? " " + pcx.label + "로" : "원으로") + "</button>";
         }
