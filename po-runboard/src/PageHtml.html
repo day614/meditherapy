@@ -3230,13 +3230,26 @@ function dateSlots_(steps, cfg, mode) {
   /** 발주 수정 창 닫기 전 확인. 닫혔으면 true(머물기를 고르면 false).
    *  닫을 때 묻는 말은 어느 창이든 같다 — [확인] 저장하지 않고 닫기(버림) · [취소] 머물기. 예전에는 이 창만 [확인]이 저장이라 반대로 눌러 버리거나 저장됐다. */
   /** 저장 안 한 채 닫을 때 — 어느 창이든 같다. 'save' = [확인] 저장 · 'discard' = 버리고 닫기 · 'stay' = 머물기 */
-  function closeAsk_(what) {
-    if (confirm("저장하지 않은 변경이 있습니다" + (what ? "(" + what + ")" : "") + ". 저장할까요?\n\n[확인] 저장 · [취소] 저장하지 않고 닫을지 한 번 더 묻습니다")) return "save";
-    return confirm("저장하지 않고 닫을까요? 고친 내용은 버려집니다.\n\n[확인] 버리고 닫기 · [취소] 계속 고치기") ? "discard" : "stay";
+  /** 저장 안 한 채 닫을 때 한 번만 묻는다 — [저장] · [저장 안 하고 닫기] · [계속 고치기](2026-10-22 · 예전엔 확인창 두 번).
+   *  창이 떠 있는 동안은 "stay" 를 돌려주고, 고르면 again("save" | "discard") 을 부른다 */
+  function closeAsk_(what, again) {
+    var old = $("closeask"); if (old) old.remove();
+    var ov = document.createElement("div"); ov.className = "nsov"; ov.id = "closeask"; ov.style.zIndex = 200;
+    ov.innerHTML = '<div class="nsbox" role="dialog" aria-label="저장하지 않은 변경" style="width:420px;max-width:calc(100vw - 32px)"><h3>저장하지 않은 변경이 있습니다</h3>' +
+      '<p class="nghelp" style="margin:6px 0 12px">' + esc(what ? what + " — " : "") + "저장할까요?</p>" +
+      '<div class="sebtn" style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn btn-sm" data-ca="stay">계속 고치기</button>' +
+      '<button type="button" class="btn btn-sm" data-ca="discard" style="color:var(--late)">저장 안 하고 닫기</button><button type="button" class="btn btn-sm btn-solid" data-ca="save">저장</button></div></div>';
+    document.body.appendChild(ov);
+    var done = function (c) { ov.remove(); document.removeEventListener("keydown", key, true); if (c !== "stay" && again) again(c); };
+    var key = function (e) { if (e.key === "Escape") { e.stopPropagation(); e.preventDefault(); done("stay"); } };
+    document.addEventListener("keydown", key, true);
+    ov.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest("[data-ca]"); if (b) done(b.dataset.ca); else if (e.target === ov) done("stay"); });
+    var sv = ov.querySelector('[data-ca="save"]'); if (sv) sv.focus();
+    return "stay";
   }
   function basCloseAsk() {
     if (!BAS_ROW || $("bas").hidden) return true;
-    if (basDirty()) { var a = closeAsk_(""); if (a === "save") { basSave({ preventDefault: function () {} }); return false; } if (a === "stay") return false; }
+    if (basDirty()) { closeAsk_("", function (c) { if (c === "save") basSave({ preventDefault: function () {} }); else basClose(); }); return false; }
     basClose();
     return true;
   }
@@ -5362,7 +5375,7 @@ function dateSlots_(steps, cfg, mode) {
     var nsSnap = function () { var a = []; ov.querySelectorAll("[data-sef]").forEach(function (el) { a.push(String(el.value || "").trim()); }); return a.join(String.fromCharCode(1)); };
     var ns0 = nsSnap();
     ov.__closeAsk = function () {
-      if (nsSnap() !== ns0) { var a = closeAsk_(""); if (a === "save") { var sb = ov.querySelector("#nsSave"); if (sb) sb.click(); return; } if (a === "stay") return; }
+      if (nsSnap() !== ns0) { closeAsk_("", function (c) { if (c === "save") { var sb = ov.querySelector("#nsSave"); if (sb) sb.click(); } else ov.remove(); }); return; }
       ov.remove();
     };
     ov.addEventListener("change", pickOther);
@@ -6821,7 +6834,7 @@ function dateSlots_(steps, cfg, mode) {
   function spCloseAsk() {
     if (!SPED_ROW || $("sped").hidden) return true;
     // 닫을 때 묻는 말은 어느 창이든 같다(closeAsk_) — [확인] 저장 · [취소] 버릴지 한 번 더
-    if (spDirty()) { var a = closeAsk_(""); if (a === "save") { spSave({ preventDefault: function () {} }); return false; } if (a === "stay") return false; }
+    if (spDirty()) { closeAsk_("", function (c) { if (c === "save") spSave({ preventDefault: function () {} }); else spClose(); }); return false; }
     spClose();
     return true;
   }
@@ -8003,14 +8016,16 @@ function dateSlots_(steps, cfg, mode) {
   }
 
   /* ---------- 네고 실적 — BOM 차수가 바뀔 때 원가 차이 × 연간 발주량(예전 '구매팀 네고실적' 시트 네고 탭) ---------- */
-  var NEGO = { qty: null, list: null };
+  var NEGO = { qty: null, list: null, pick: {}, fixes: [] };
   function negoOpen() {
     if (mode !== "po") { toast("발주 화면에서만 쓸 수 있습니다"); return; }
     $("nego").hidden = false;
     var ys = $("nego-y"), y0 = new Date().getFullYear();
     if (!ys.options.length) ys.innerHTML = '<option value="">전체 기간</option>' + [y0, y0 - 1, y0 - 2].map(function (y) { return '<option value="' + y + '"' + (y === y0 ? " selected" : "") + ">" + y + "년 적용</option>"; }).join("");
     NEGO.list = null;
-    if (NEGO.qty === null) gsr().withSuccessHandler(function (o) { NEGO.qty = o || {}; NEGO.list = null; negoRender(); }).withFailureHandler(function () { NEGO.qty = {}; negoRender(); }).apiNegoQty();
+    // 연간 발주량(직접 넣은 값) · 정정으로 바꾼 단가(BOM변경이력) · 집계 고른 값 — 열 때마다 새로(정정은 수시로 생긴다)
+    gsr().withSuccessHandler(function (o) { o = o || {}; NEGO.qty = o.qty || {}; NEGO.pick = o.pick || {}; NEGO.fixes = o.fixes || []; NEGO.list = null; negoRender(); })
+      .withFailureHandler(function () { if (NEGO.qty === null) NEGO.qty = {}; negoRender(); }).apiNegoData();
     if (!BV_ALL) bomAllEnsure(0);
     negoRender();
     $("nego-q").focus();
@@ -8070,6 +8085,23 @@ function dateSlots_(steps, cfg, mode) {
           ord: orderOf(code, P[i], Math.max(P[i], segEnd)), ca: ca, cb: cb, df: df, pct: ca ? df / ca : 0, auto: auto, man: man, qty: man != null ? man : auto, mats: mats, skip: skip });
       }
     });
+    // 정정(같은 차수 덮어쓰기)으로 바꾼 단가 — 차수 비교로는 안 잡힌다. 줄마다 '네고로 집계'를 고른다(기본: 사유에 네고 · 인하 · 절감 · 할인)
+    (NEGO.fixes || []).forEach(function (f) {
+      var rows = (src[f.product] || []).map(function (x) { return Object.assign({}, x); });
+      if (!rows.length) return;
+      var v = rows.filter(function (y) { return String(y.code || "").toUpperCase() === f.code && !String(y.end || "").trim(); })[0] || rows.filter(function (y) { return String(y.code || "").toUpperCase() === f.code; })[0];
+      if (!v) return;
+      var q = v.qty === "" || v.qty == null ? 1 : bvNum(v.qty), fx = bvNum(v.fx) || 1, df = (f.a - f.b) * fx * q;
+      if (Math.abs(df) < 0.005) return;
+      bvPlan(rows);
+      var r0 = bvR(f.round) || 1, ck = function (y) { return !!String(y.costKey || "").trim(); };
+      var cb = rows.filter(function (y) { return y._s <= r0 && r0 <= y._e && ck(y); }).reduce(function (a, y) { return a + bvNum(y.cost); }, 0), ca = cb + df;
+      var nm = (rows.filter(function (y) { return String(y.code).toUpperCase() === f.product; })[0] || rows[0]).name || "";
+      var auto = negoAutoQty(f.product), man = NEGO.qty && NEGO.qty[f.product] != null ? Number(NEGO.qty[f.product]) : null;
+      var picked = NEGO.pick && NEGO.pick[f.id] != null ? !!NEGO.pick[f.id] : /네고|인하|절감|할인|인상/.test(f.why || "");
+      out.push({ fix: f, code: f.product, name: nm, from: r0, seg: f.round + " 정정", ord: Number(f.at) || 0, ca: ca, cb: cb, df: df, pct: ca ? df / ca : 0, auto: auto, man: man, qty: man != null ? man : auto, picked: picked,
+        mats: [{ t: f.type, txt: f.type + " " + f.code + " 단가 " + bvFmt(f.a) + " → " + bvFmt(f.b) + (fx !== 1 ? " (×" + bvFmt(fx) + ")" : "") + (q !== 1 ? " · 소요량 " + bvFmt(q) : "") + " · " + f.who + " · " + (f.why || "") }], skip: [] });
+    });
     out.forEach(function (x) { x.save = Math.round(x.df * x.qty); });
     out.sort(function (a, b) { return (b.ord || 0) - (a.ord || 0) || b.save - a.save; });
     return out;
@@ -8089,17 +8121,17 @@ function dateSlots_(steps, cfg, mode) {
   function negoRender() {
     if ($("nego").hidden) return;
     if (!BV_ALL) { $("nego-rows").innerHTML = '<tr><td colspan="11" class="rem-note">BOM 줄을 받는 중… (몇 초)</td></tr>'; $("nego-foot").innerHTML = ""; setTimeout(negoRender, 1500); return; }
-    var list = negoFiltered(), tot = list.reduce(function (a, x) { return a + x.save; }, 0);
+    var list = negoFiltered(), tot = list.reduce(function (a, x) { return a + (x.fix && !x.picked ? 0 : x.save); }, 0);
     $("nego-rows").innerHTML = list.length ? list.map(function (x, i) {
-      return "<tr><td>" + esc(x.code) + "</td><td>" + esc(x.name) + "</td><td>" + esc(x.from + "차 → " + x.seg) + "</td><td>" + esc(negoYmd(x.ord)) + "</td>" +
+      return "<tr" + (x.fix && !x.picked ? ' style="opacity:.5"' : "") + "><td>" + esc(x.code) + "</td><td>" + esc(x.name) + "</td><td>" + esc(x.fix ? x.seg : x.from + "차 → " + x.seg) + "</td><td>" + esc(negoYmd(x.ord)) + (x.fix ? '<div class="rem-note">정정한 날</div>' : "") + "</td>" +
         '<td class="num">' + bvFmt(Math.round(x.ca)) + '</td><td class="num">' + bvFmt(Math.round(x.cb)) + '</td><td class="num ' + (x.df > 0 ? "sv" : "up") + '">' + (x.df > 0 ? "+" : "") + bvFmt(Math.round(x.df)) + "</td>" +
         '<td class="num">' + (Math.round(x.pct * 1000) / 10) + "%</td>" +
         '<td class="num"><input class="nq' + (x.man != null ? " man" : "") + '" data-negoq="' + esc(x.code) + '" value="' + (x.man != null ? x.man.toLocaleString() : "") + '" placeholder="' + x.auto.toLocaleString() + '" title="비우면 지난 12개월 발주수량(' + x.auto.toLocaleString() + ') · 넣으면 그 값"></td>' +
-        '<td class="num ' + (x.save > 0 ? "sv" : "up") + '">' + bvFmt(x.save) + '</td><td class="mats">' + x.mats.map(function (m) { return esc(m.txt); }).join("<br>") +
+        '<td class="num ' + (x.save > 0 ? "sv" : "up") + '">' + bvFmt(x.save) + '</td><td class="mats">' + (x.fix ? '<label class="rem-note" style="display:block;font-weight:600"><input type="checkbox" data-negopick="' + esc(x.fix.id) + '"' + (x.picked ? " checked" : "") + '> 네고로 집계(정정으로 바꾼 단가 — 오타 정정이면 끄기)</label>' : "") + x.mats.map(function (m) { return esc(m.txt); }).join("<br>") +
         (x.skip.length ? '<div class="rem-note" title="절감액 계산에서 뺐습니다">구성 변경(계산 제외): ' + x.skip.map(function (m) { return esc(m.txt); }).join(" · ") + "</div>" : "") + "</td></tr>";
     }).join("") : '<tr><td colspan="11" class="rem-note">해당하는 차수 변경이 없습니다</td></tr>';
     $("nego-foot").innerHTML = '<tr><td colspan="9">합계 ' + list.length + "건</td><td class=\"num\">" + bvFmt(tot) + "</td><td></td></tr>";
-    $("nego-note").textContent = "차이 = 같은 자재 종류의 소요원가가 바뀐 만큼(빠지거나 새로 들어온 자재 · 단가 빈 자재는 빼고) · 연간 발주량 칸이 비면 지난 12개월 발주수량";
+    $("nego-note").textContent = "차이 = 차수가 바뀔 때 같은 자재 종류의 소요원가가 바뀐 만큼 + 정정으로 바꾼 단가(줄마다 '네고로 집계' 고르기) · 연간 발주량 칸이 비면 지난 12개월 발주수량";
   }
   function negoQtySave(inp) {
     var code = inp.dataset.negoq, v = String(inp.value || "").replace(/,/g, "").trim();
@@ -8111,10 +8143,10 @@ function dateSlots_(steps, cfg, mode) {
       .withFailureHandler(function (e) { toast("저장 실패: " + e.message); }).apiNegoQtySet(code, v);
   }
   function negoDownload() {
-    var list = negoFiltered();
+    var list = negoFiltered().filter(function (x) { return !x.fix || x.picked; });
     if (!list.length) { toast("내려받을 건이 없습니다"); return; }
     var head = ["품목코드", "품목명", "이전 차수", "바뀐 차수", "적용(첫 발주)", "이전 원가", "이후 원가", "차이(절감 +)", "%", "연간 발주량", "연간 발주량 출처", "절감액", "바뀐 자재", "구성 변경(계산 제외)"];
-    var rows = list.map(function (x) { return [x.code, x.name, x.from + "차", x.seg, negoYmd(x.ord), Math.round(x.ca), Math.round(x.cb), Math.round(x.df), Math.round(x.pct * 1000) / 10, x.qty, x.man != null ? "직접 입력" : "지난 12개월", x.save, x.mats.map(function (m) { return m.txt; }).join(" / "), x.skip.map(function (m) { return m.txt; }).join(" / ")]; });
+    var rows = list.map(function (x) { return [x.code, x.name, x.fix ? x.fix.round : x.from + "차", x.seg, negoYmd(x.ord), Math.round(x.ca), Math.round(x.cb), Math.round(x.df), Math.round(x.pct * 1000) / 10, x.qty, x.man != null ? "직접 입력" : "지난 12개월", x.save, x.mats.map(function (m) { return m.txt; }).join(" / "), x.skip.map(function (m) { return m.txt; }).join(" / ")]; });
     var d = new Date(), fname = "네고실적_" + String(d.getFullYear()).slice(2) + pad2(d.getMonth() + 1) + pad2(d.getDate());
     var build = function () {
       try {
@@ -9096,11 +9128,17 @@ function dateSlots_(steps, cfg, mode) {
   $("nego").addEventListener("click", function (e) { if (e.target.id === "nego") negoClose(); });
   $("nego").addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); negoClose(); } });
   ["nego-q", "nego-y", "nego-up"].forEach(function (id) { $(id).addEventListener(id === "nego-q" ? "input" : "change", negoRender); });
-  $("nego").addEventListener("change", function (e) { if (e.target && e.target.dataset && e.target.dataset.negoq) negoQtySave(e.target); });
+  $("nego").addEventListener("change", function (e) {
+    if (e.target && e.target.dataset && e.target.dataset.negoq) negoQtySave(e.target);
+    var pk = e.target && e.target.dataset && e.target.dataset.negopick;
+    if (pk) {
+      var on = e.target.checked; NEGO.pick[pk] = on ? 1 : 0; NEGO.list = null; setTimeout(negoRender, 0);
+      gsr().withFailureHandler(function (er) { toast("저장 실패: " + er.message); }).apiNegoPick(pk, on);
+    }
+  });
   $("wkBtn").addEventListener("click", function () { wkOpen(""); });
   $("poPendBtn").addEventListener("click", function () { poPendOpen(); poPendPrune(); });
   setTimeout(poPendLoad, 2500);
-  setTimeout(function () { if (mode === "po") oldAckLoad(); }, 2000);
 
   /* ---------- 새 발주 등록 ---------- */
   var RB_STATES = ["계획", "상신", "승인", "발주", "종결", "취소"];
@@ -10004,7 +10042,7 @@ function dateSlots_(steps, cfg, mode) {
   }
   function ngClose(force) {
     var used = NG.filter(ngUsed).length;
-    if (!force && used) { var a = closeAsk_("입력한 " + used + "줄"); if (a === "save") { ngSave(); return; } if (a === "stay") return; }
+    if (!force && used) { closeAsk_("입력한 " + used + "줄", function (c) { if (c === "save") ngSave(); else ngClose(true); }); return; }
     $("ngrid").hidden = true;
     $("ng-sug").hidden = true;
   }
@@ -10315,7 +10353,7 @@ function dateSlots_(steps, cfg, mode) {
   function ninClose(force) {
     // 이미 저장했거나 저장 중인 줄은 빼고 센다(저장 중인 줄은 창을 닫아도 계속 저장된다)
     var used = NIN.filter(function (o) { return o.id && o.qty && (!o.res || o.res.indexOf("실패") === 0); }).length;
-    if (!force && used) { var a = closeAsk_("입력한 " + used + "줄"); if (a === "save") { ninSave(); return; } if (a === "stay") return; }
+    if (!force && used) { closeAsk_("입력한 " + used + "줄", function (c) { if (c === "save") ninSave(); else ninClose(true); }); return; }
     $("nin").hidden = true; $("nin-sug").hidden = true;
   }
   function ninSetOrder(o, r) {
@@ -11427,13 +11465,15 @@ function dateSlots_(steps, cfg, mode) {
     var typed = ["bomn-parent", "bomn-name"].some(function (id) { var el = $(id); return el && String(el.value || "").trim(); });
     return typed || (BV.newMats || []).some(function (m) { return Object.keys(m).some(function (k) { return k !== "type" && k !== "buy" && k !== "qty" && String(m[k] || "").trim(); }); });
   }
-  function bomClose() {
-    // 묻는 것을 먼저 다 묻고(취소하면 아무것도 안 버림) 그다음 버린다
+  function bomClose(force) {
+    // 묻는 것을 먼저 묻고(계속 고치기면 아무것도 안 버림) 그다음 버린다
     var dn = bvDirtyN(), nf = bvNewFormUsed();
-    if (dn || nf) {
-      var a = closeAsk_(dn ? "BOM 변경 " + dn + "건" : "적다 만 신제품 BOM 입력");
-      if (a === "save") { if (dn) bomSaveAny(); else $("bomv-msg").textContent = "신제품 BOM 은 [다음: 표에서 확인] 뒤 [저장]으로 저장합니다."; return; }
-      if (a === "stay") return;
+    if ((dn || nf) && force !== true) {
+      closeAsk_(dn ? "BOM 변경 " + dn + "건" : "적다 만 신제품 BOM 입력", function (c) {
+        if (c === "save") { if (dn) bomSaveAny(); else $("bomv-msg").textContent = "신제품 BOM 은 [다음: 표에서 확인] 뒤 [저장]으로 저장합니다."; }
+        else bomClose(true);
+      });
+      return;
     }
     $("bomv-new").hidden = true;
     if (BV.fix) bvFixRestore();
@@ -12576,7 +12616,9 @@ function dateSlots_(steps, cfg, mode) {
       el.innerHTML = '<span class="seg"><button type="button" data-bvmode="chg" title="' + (bvOrderRound() ? "이 발주 차수(" + vn + "차) 화면으로 — 바꾼 값은 " + vn + "차부터 새 줄" : lo ? "진행 중인 " + vn + "차 발주(" + (lo.doc || lo.id) + ")와 연결해 " + vn + "차부터 바꿉니다 — 저장 뒤 그 발주 단가와 비교 · [발주 단가를 …로]" : "최종 " + (BV.bomMax || 0) + "차 구성을 가져와 " + vn + "차를 만들고 바로 고칩니다(= [차수 추가] " + vn + "차) — 앞 차수는 그대로") + '">' + (lo ? vn + "차에 적용(진행 중 발주)" : vn + "차부터 바꾸기") + '</button>' +
         (lo ? '<button type="button" data-bvnew="1" title="진행 중 ' + vn + '차 발주는 그대로 두고, 다음 발주용 ' + vnew + '차 BOM 을 미리 만듭니다(최종 구성에서) — 새 발주에서 품목을 고르면 ' + vnew + '차 · 이 단가로 채워집니다">' + vnew + "차 새로 만들기(다음 발주용)</button>" : "") +
         '<button type="button" data-bvmode="fix" title="잘못 넣은 값을 그 줄 그대로 덮어씀 — 새 줄 · 새 코드 없음 · 같은 줄을 쓰는 앞 차수도 같이 바뀜">값 바로잡기(정정)</button></span>' +
-        '<span class="what"><b>보기 중</b> — ' + (lo ? "진행 중인 " + vn + "차 발주에 바뀐 사양 · 단가를 넣으면 [" + vn + "차에 적용], 다음 발주용 BOM 을 미리 만들면 [" + vnew + "차 새로 만들기]" : "사양 · 업체 · 단가가 실제로 바뀌면 [" + vn + "차부터 바꾸기]") + "(BOM 차수 = 제품 발주 차수 · 제품 줄 업체 · 사양이 바뀌면 새 품목코드 1차), 잘못 넣은 값이면 [값 바로잡기(정정)].</span>";
+        (BV.bomMax && bvSegOf(BV.round, bvPoints()) !== bvSegOf(BV.bomMax, bvPoints())
+          ? '<span class="what"><b>지난 차수(' + esc(bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints())) + ')를 보는 중</b> — 이 차수 값이 틀렸으면 [값 바로잡기(정정)]. 실제로 바뀐 사양 · 단가는 지난 차수가 아니라 ' + (lo ? "[" + vn + "차에 적용] 또는 [" + vnew + "차 새로 만들기]" : "[" + vn + "차부터 바꾸기]") + "로 앞으로의 차수에 넣습니다.</span>"
+          : '<span class="what"><b>보기 중</b> — ' + (lo ? "진행 중인 " + vn + "차 발주에 바뀐 사양 · 단가를 넣으면 [" + vn + "차에 적용], 다음 발주용 BOM 을 미리 만들면 [" + vnew + "차 새로 만들기]" : "사양 · 업체 · 단가가 실제로 바뀌면 [" + vn + "차부터 바꾸기]") + "(BOM 차수 = 제품 발주 차수 · 제품 줄 업체 · 사양이 바뀌면 새 품목코드 1차), 잘못 넣은 값이면 [값 바로잡기(정정)].</span>");
       return;
     }
     var lab = (kind === "fix" ? bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints()) : (ob || BV.round) + "차");
@@ -12672,18 +12714,66 @@ function dateSlots_(steps, cfg, mode) {
     return out;
   }
   function bvFixOnlySel() {
+    return "";             // 범위는 저장할 때 고친 줄마다 묻는다(bvFixScopeAsk) — 위 공통 칸은 헷갈렸다(2026-10-22)
     var F = BV.fix, L = bvFixOnlyRounds();
     if (!F || F.plan) return F && F.only ? '<span class="nghelp"><b>' + F.only + "차만</b> 바로잡습니다</span>" : "";
     return '<label title="고친 줄 그대로 = 고친 그 줄(그 줄의 시작~끝 차수)만 바뀜 — 끝 차수 늘리기 · 원래부터 틀린 값 · N차만 = 그 차수만 바로잡은 값으로 줄을 나눔(앞 · 뒤 차수는 원래 값 그대로 · 칸 값만)">범위 <select id="bomfx-only">' +
       '<option value="">고친 줄 그대로(그 줄의 차수 · 끝 차수 늘리기)</option>' + L.map(function (n) { return '<option value="' + n + '"' + (F.only === n ? " selected" : "") + ">" + n + "차만(줄 나눠 값만)</option>"; }).join("") + "</select></label>";
   }
+  /**
+   * 정정 저장 전에: 고친 줄 중 여러 차수가 같이 쓰는 줄(값 칸만 고친 줄)마다 '그 줄 차수 모두' / 'N차만'을 묻는다.
+   * 물었으면 true(창이 뜸 — 고르면 이어서 저장), 물을 게 없으면 false(그대로 저장).
+   */
+  function bvFixScopeAsk() {
+    var why = bvVal("bomfx-why");
+    if (!why) return false;                                  // 사유 없음 — 아래 저장 흐름이 알린다
+    var items = bvFixDiff(), VAL = { name: 1, vendor: 1, buy: 1, spec: 1, moq: 1, qty: 1, unit: 1, cur: 1, fx: 1, proc: 1, ship: 1 };
+    var segR = bvFixOnlyRounds(), rowOf = function (r) { return BV.rows.filter(function (x) { return x.row === r; })[0]; };
+    var multi = items.filter(function (it) {
+      if (!Object.keys(it.fields).every(function (k) { return VAL[k]; })) return false;
+      var v = rowOf(it.row); if (!v) return false;
+      var s0 = bvR(v.start) || 1, e0 = String(v.end || "").trim() ? bvR(v.end) : 9999;
+      return e0 > s0;                                        // 한 차수에서만 쓰는 줄이면 물을 게 없다
+    });
+    if (!multi.length) return false;
+    var old = $("fxscope"); if (old) old.remove();
+    var ov = document.createElement("div"); ov.className = "nsov"; ov.id = "fxscope"; ov.style.zIndex = 150;
+    ov.innerHTML = '<div class="nsbox" role="dialog" aria-label="정정 범위" style="width:760px;max-width:calc(100vw - 32px)"><h3>어느 차수를 바로잡을까요?</h3><p class="nghelp" style="margin:4px 0 8px">아래 줄은 여러 차수가 같이 쓰는 줄입니다. 원래부터 틀린 값이면 <b>그 줄 차수 모두</b>, 한 차수 값만 틀렸으면 <b>그 차수만</b>(줄을 나눠 앞 · 뒤 차수는 원래 값 그대로).</p>' +
+      multi.map(function (it) {
+        var v = rowOf(it.row), s0 = bvR(v.start) || 1, e0 = String(v.end || "").trim() ? bvR(v.end) : 0;
+        var span = s0 + "~" + (e0 ? e0 + "차" : "(계속)"), ch = Object.keys(it.fields).map(function (k) { return (BV_FIX_LAB[k] || k) + " " + (v[k] == null || v[k] === "" ? "-" : v[k]) + " → " + it.fields[k]; }).join(" · ");
+        var rs = segR.filter(function (n) { return n >= s0 && (!e0 || n <= e0); });
+        var on = bvOrdNote(bvOrdersIn(s0, e0 || 9999));
+        return '<div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0"><b>' + esc((v.type || "") + " " + v.code) + '</b> <span class="nghelp">' + esc(ch) + "</span>" +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:6px"><label><input type="radio" name="fxs' + it.row + '" value="all" checked> 이 줄 쓰는 <b>' + span + " 모두</b>" + (on ? ' <span class="nghelp">(' + esc(on) + ")</span>" : "") + "</label>" +
+          (rs.length ? '<label><input type="radio" name="fxs' + it.row + '" value="only"> <select data-fxsn="' + it.row + '">' + rs.map(function (n) { return '<option value="' + n + '"' + (n === (Number(BV.round) || segR[0]) ? " selected" : "") + ">" + n + "차</option>"; }).join("") + "</select><b>만</b> (나머지 차수는 원래 값)</label>" : "") + "</div></div>";
+      }).join("") +
+      '<div class="sebtn" style="display:flex;gap:6px;justify-content:flex-end;margin-top:8px"><button type="button" class="btn btn-sm" id="fxsNo">다시 고치기</button><button type="button" class="btn btn-sm btn-solid" id="fxsGo">이대로 저장</button></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function (e) {
+      if (e.target.id === "fxsNo" || e.target === ov) { ov.remove(); return; }
+      if (e.target.id !== "fxsGo") return;
+      var only = {}, nSet = {};
+      multi.forEach(function (it) { var r = ov.querySelector('input[name="fxs' + it.row + '"]:checked'); if (r && r.value === "only") { var sel = ov.querySelector('[data-fxsn="' + it.row + '"]'); only[it.row] = 1; nSet[Number(sel && sel.value) || 0] = 1; } });
+      var ns = Object.keys(nSet).map(Number);
+      if (ns.length > 1) { alert("'그 차수만'은 한 번에 한 차수만 됩니다 — " + ns.join(" · ") + "차 중 하나로 맞추거나 나눠 저장해 주세요."); return; }
+      ov.remove();
+      var onlyItems = items.filter(function (it) { return only[it.row]; });
+      if (!onlyItems.length) { BV.fix.scoped = true; bvFixGo(); return; }               // 모두 '그 줄 차수 모두' — 지금까지와 같은 정정
+      var restN = items.length - onlyItems.length;
+      var other = BV.adds.length || bvFixShares().length || bvFixCommons().length || Object.keys(BV.ckPend || {}).length || Object.keys(BV.fix.del || {}).some(function (k) { return BV.fix.del[k]; });
+      if (restN || other) { alert("'그 차수만'으로 고칠 줄과 다른 정정(나머지 줄 · 줄 삭제 · 자재 추가 · 공용 · 원가 체크)은 따로 저장합니다 — 먼저 '그 차수만' 줄만 남기고 저장한 뒤, 나머지를 다시 고쳐 저장해 주세요."); return; }
+      bomFixOnlySave(onlyItems, ns[0]);
+    });
+    return true;
+  }
   /** 정정 — 이 차수만: 줄을 나눠 그 차수만 바로잡은 값(서버 apiBomFixOnly) */
-  function bomFixOnlySave() {
-    var F = BV.fix, N = F.only, why = bvVal("bomfx-why");
+  function bomFixOnlySave(itemsIn, Nin) {
+    var F = BV.fix, N = Nin || F.only, why = bvVal("bomfx-why");
     F.why = why;
     if (BV.saving) { $("bomv-msg").textContent = "앞 정정을 저장하는 중입니다 — 잠시 뒤 다시 눌러 주세요."; return; }
     if (!why) { $("bomv-msg").textContent = "정정 사유를 적어 주세요 — BOM변경이력 탭과 변동사항 칸에 남습니다."; var w = $("bomfx-why"); if (w) w.focus(); return; }
-    var items = bvFixDiff();
+    var items = itemsIn || bvFixDiff();
     if (BV.adds.length || bvFixShares().length || bvFixCommons().length || Object.keys(BV.ckPend || {}).length || Object.keys(F.del || {}).some(function (k) { return F.del[k]; })) { $("bomv-msg").textContent = N + "차만 정정에서는 칸 값만 바로잡을 수 있습니다 — 줄 삭제 · 자재 추가 · 공용 · 원가 체크는 범위를 '고친 줄 그대로'로 두고 저장해 주세요."; return; }
     var badK = { code: 1, start: 1, end: 1, type: 1 }, bad = items.filter(function (it) { return Object.keys(it.fields).some(function (k) { return badK[k]; }); });
     if (bad.length) { $("bomv-msg").textContent = "시작 · 끝 차수 · 코드 · 구분을 바꾸는 건 '" + N + "차만'이 아니라 범위 '고친 줄 그대로'로 저장하세요 — 그 줄만 바뀝니다(예: 끝 차수 18차 → 21차면 19~21차에도 이 자재가 들어감)."; return; }
@@ -12697,7 +12787,7 @@ function dateSlots_(steps, cfg, mode) {
       var parts = (s0 < N ? s0 + "~" + (N - 1) + "차 원래 값 · " : "") + N + "차 바로잡은 값" + (!e0 || e0 > N ? " · " + (N + 1) + "~" + (e0 ? e0 + "차" : "") + " 원래 값" : "");
       return "· " + (v.type || "") + " " + v.code + " (" + bvSpanText(v) + ") → " + parts + " — " + Object.keys(it.fields).map(function (k) { return (BV_FIX_LAB[k] || k) + " " + (v[k] == null ? "" : v[k]) + " → " + it.fields[k]; }).join(" · ");
     });
-    if (!confirm(N + "차만 바로잡습니다 — 줄을 나눠 앞 · 뒤 차수는 원래 값 그대로 둡니다(코드는 그대로):\n\n" + L.join("\n") + "\n\nBOM변경이력에 '" + N + "차만 정정'으로 남습니다.")) return;
+    if (!itemsIn && !confirm(N + "차만 바로잡습니다 — 줄을 나눠 앞 · 뒤 차수는 원래 값 그대로 둡니다(코드는 그대로):\n\n" + L.join("\n") + "\n\nBOM변경이력에 '" + N + "차만 정정'으로 남습니다.")) return;
     var code = BV.code, keepRound = BV.round;
     BV.saving = code; busy(true);
     $("bomv-msg").textContent = N + "차만 정정 저장하는 중…";
@@ -12842,8 +12932,8 @@ function dateSlots_(steps, cfg, mode) {
    */
   function bvFixGo() {
     if (!BV.fix) return;
-    var os = $("bomfx-only"); if (os) BV.fix.only = Number(os.value) || 0;
-    if (BV.fix.only) { bomFixOnlySave(); return; }
+    if (!BV.fix.plan && !BV.fix.scoped) { if (bvFixScopeAsk()) return; }       // 여러 차수가 같이 쓰는 줄을 고쳤으면 줄마다 범위를 먼저 묻는다
+    BV.fix.scoped = false;
     if (!BV.fix.plan) bomFixCheck();
     var F = BV.fix;
     if (!F || !F.plan) return;
