@@ -1671,6 +1671,8 @@ function apiBomFixOnly(product, round, items, why) {
   items = (items || []).filter(function (it) { return it && it.row && it.fields && Object.keys(it.fields).length; });
   if (!items.length) throw new Error('바뀐 값이 없습니다.');
   var sh = bomSheet_(), C = bomCols_(sh), all = bomReadProduct_(sh, C, product);
+  var maxR = 0;                                   // 이 품목 BOM 최종 차수 — 최종 차수를 정정하면 뒤에 원래 값 줄을 만들지 않는다(뒤 차수가 아직 없다)
+  all.forEach(function (y) { if (!y || str_(y[C.product]).toUpperCase() !== product) return; var a = bomRnum_(y[C.start]) || 0, b = bomRnum_(y[C.end]) || 0; maxR = Math.max(maxR, a, b); });
   var ch1 = [], back = [];
   items.forEach(function (it) {
     var r = Number(it.row), x = all[r - 3];
@@ -1685,7 +1687,7 @@ function apiBomFixOnly(product, round, items, why) {
       c[k] = it.fields[k]; orig[k] = x[C[k]];
     });
     ch1.push(c);
-    if (!e0 || e0 > N) back.push({ id: C.id >= 0 ? str_(x[C.id]) : '', s0: s0, code: str_(x[C.code]), end: str_(x[C.end]), orig: orig });     // N+1차부터 원래 값으로 돌릴 줄
+    if ((!e0 && N < maxR) || (e0 && e0 > N)) back.push({ id: C.id >= 0 ? str_(x[C.id]) : '', s0: s0, code: str_(x[C.code]), end: str_(x[C.end]), orig: orig });     // N+1차부터 원래 값으로 돌릴 줄
   });
   var r1 = apiBomSaveCore_(product, N, ch1, {});
   if (!back.length) { r1.fixOnly = { n: ch1.length, round: N }; return r1; }

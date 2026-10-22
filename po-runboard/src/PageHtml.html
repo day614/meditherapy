@@ -11132,7 +11132,8 @@ function dateSlots_(steps, cfg, mode) {
     return type === "제품" || type === "세트" ? BV.code : bvPredict(BV.code.charAt(0) + "P" + BV.code.replace(/^[A-Z]X?/, "").slice(0, 4) + (BV_TCODE[type] || "MS"));
   }
   function bvOrderRound() { return BV.order && BV.order.code === BV.code ? bvR(BV.order.batch) : null; }
-  function bvEditRound() { return BV.draft || bvOrderRound(); }
+  // 바로 고치는 표(N차부터 바꾸기)는 [수정] → 저장 때 '새 차수로'를 고른 뒤(BV.chgOn) · [차수 추가] · 신제품만. 발주 건 · 새 발주에서 열어도 처음엔 보기(2026-10-22)
+  function bvEditRound() { return BV.draft || (BV.chgOn ? bvOrderRound() : null); }
   /** 저장 안 한 것 전부(정정 중 고친 칸 · 구성 고르기 · 공용 포함) — 다른 품목 · 차수로 갈 때 확인용 */
   function bvDirtyN() { return bvPendCount() + (BV.fix ? bvFixDiff().length + bvFixShares().length + bvFixCommons().length : 0); }
   /** 저장 결과에 붙는 알림 — 핸들링피 자동 적용 · 품목 DB 에서 같이 지운 코드 */
@@ -11443,7 +11444,7 @@ function dateSlots_(steps, cfg, mode) {
     opt = opt || {};
     BV.order = opt.order || null;
     BV.mods = {}; BV.ckPend = {}; BV.adds = []; BV.edit = null; BV.code = ""; BV.draft = null; BV.newProduct = null; BV.fix = null; BV.semi = null;
-    BV.nv = null; BV.keepCode = false; BV.nvChosen = false; BV.assignTo = null; BV.ngRow = opt.ngRow != null ? opt.ngRow : null; BV.nvTarget = null; BV.toFirst = false; BV.prev = null;
+    BV.nv = null; BV.keepCode = false; BV.nvChosen = false; BV.chgOn = false; BV.assignTo = null; BV.ngRow = opt.ngRow != null ? opt.ngRow : null; BV.nvTarget = null; BV.toFirst = false; BV.prev = null;
     REV.items = []; bomRevMode(false);
     bvTypesLoad();
     $("bomv").hidden = false;
@@ -12576,7 +12577,7 @@ function dateSlots_(steps, cfg, mode) {
     if (BV.saving) { $("bomv-msg").textContent = "앞 정정을 저장하는 중입니다 — 잠시 뒤(몇 초) 다시 눌러 주세요."; return; }
     if (!bvFixRows().length) { $("bomv-msg").textContent = "이 차수에는 실행판 BOM 탭에 있는 줄이 없어 정정할 게 없습니다."; return; }
     // 아직 BOM 에 없는 새 차수(예: 7차까지 있고 8차 발주) — 정정하면 최종 구성 줄(1차~ 등)을 덮어써 지난 차수 · 종결된 발주 원가까지 바뀐다. 새 차수 값은 [N차부터 바꾸기]로.
-    if ((BV.draft && BV.round === BV.draft) || BV.round > (BV.bomMax || 0)) {
+    if (false) {                                             // 새 차수에서도 [수정] 표를 연다 — 저장 때 '새 차수로'만 고를 수 있다(bvSaveAsk)
       $("bomv-msg").textContent = BV.round + "차는 아직 BOM 에 없는 새 차수라 정정할 줄이 없습니다 — " + BV.round + "차 값은 [" + BV.round + "차부터 바꾸기]로 고치면 1~" + (BV.round - 1) + "차(종결된 발주 포함)는 그대로입니다. 지난 차수 값이 틀렸으면 차수 칸에서 그 차수를 고른 뒤 [값 바로잡기(정정)].";
       return;
     }
@@ -12597,7 +12598,7 @@ function dateSlots_(steps, cfg, mode) {
     }
     var keepAdds = carry.length ? BV.adds : [];
     BV.mods = {}; BV.ckPend = {}; BV.adds = keepAdds; BV.edit = null;
-    BV.fix = { plan: null, why: BV.chgWhy || "", del: {} };
+    BV.fix = { plan: null, why: BV.chgWhy || "", del: {} }; BV.chgOn = false; if (BV.draft && BV.draft === BV.round && BV.round > (BV.bomMax || 0)) BV.draft = null;
     $("bomv-msg").textContent = carry.length ? "고친 칸을 정정 표로 옮겼습니다 — 사유를 확인하고 [저장]. " + span : "";
     bomShow();
     carry.forEach(function (c) { Object.keys(c.f).forEach(function (k) {
@@ -12610,15 +12611,17 @@ function dateSlots_(steps, cfg, mode) {
     var el = $("bomv-mode"); if (!el) return;
     var ob = bvEditRound();
     if (!kind || BV.semi || ((kind === "chg" || kind === "view") && !bvFixRows().length)) { el.hidden = true; el.innerHTML = ""; return; }
-    if (kind === "view") {             // 보기 중(상단 [BOM 보기] · 다른 차수) — 바로 고치기 · 정정을 여기서 고른다
-      var lo = bvOrderRound() ? null : bvLiveOrder(), vn = bvOrderRound() || (lo ? bvR(lo.batch) : (BV.bomMax || 0) + 1), vnew = Math.max(BV.bomMax || 0, lo ? bvR(lo.batch) : 0) + 1;
+    if (kind === "view") {             // 보기 중 — [수정] 하나. 고친 뒤 저장할 때 '새 차수로 만들기 / 조회 중 차수만 정정'을 묻는다(bvSaveAsk)
+      var pastV = BV.bomMax && BV.round <= BV.bomMax && bvSegOf(BV.round, bvPoints()) !== bvSegOf(BV.bomMax, bvPoints()), oR = bvOrderRound();
       el.hidden = false; el.className = "bvmode";
-      el.innerHTML = '<span class="seg"><button type="button" data-bvmode="chg" title="' + (bvOrderRound() ? "이 발주 차수(" + vn + "차) 화면으로 — 바꾼 값은 " + vn + "차부터 새 줄" : lo ? "진행 중인 " + vn + "차 발주(" + (lo.doc || lo.id) + ")와 연결해 " + vn + "차부터 바꿉니다 — 저장 뒤 그 발주 단가와 비교 · [발주 단가를 …로]" : "최종 " + (BV.bomMax || 0) + "차 구성을 가져와 " + vn + "차를 만들고 바로 고칩니다(= [차수 추가] " + vn + "차) — 앞 차수는 그대로") + '">' + (lo ? vn + "차에 적용(진행 중 발주)" : vn + "차부터 바꾸기") + '</button>' +
-        (lo ? '<button type="button" data-bvnew="1" title="진행 중 ' + vn + '차 발주는 그대로 두고, 다음 발주용 ' + vnew + '차 BOM 을 미리 만듭니다(최종 구성에서) — 새 발주에서 품목을 고르면 ' + vnew + '차 · 이 단가로 채워집니다">' + vnew + "차 새로 만들기(다음 발주용)</button>" : "") +
-        '<button type="button" data-bvmode="fix" title="잘못 넣은 값을 그 줄 그대로 덮어씀 — 새 줄 · 새 코드 없음 · 같은 줄을 쓰는 앞 차수도 같이 바뀜">값 바로잡기(정정)</button></span>' +
-        (BV.bomMax && bvSegOf(BV.round, bvPoints()) !== bvSegOf(BV.bomMax, bvPoints())
-          ? '<span class="what"><b>지난 차수(' + esc(bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints())) + ')를 보는 중</b> — 이 차수 값이 틀렸으면 [값 바로잡기(정정)]. 실제로 바뀐 사양 · 단가는 지난 차수가 아니라 ' + (lo ? "[" + vn + "차에 적용] 또는 [" + vnew + "차 새로 만들기]" : "[" + vn + "차부터 바꾸기]") + "로 앞으로의 차수에 넣습니다.</span>"
-          : '<span class="what"><b>보기 중</b> — ' + (lo ? "진행 중인 " + vn + "차 발주에 바뀐 사양 · 단가를 넣으면 [" + vn + "차에 적용], 다음 발주용 BOM 을 미리 만들면 [" + vnew + "차 새로 만들기]" : "사양 · 업체 · 단가가 실제로 바뀌면 [" + vn + "차부터 바꾸기]") + "(BOM 차수 = 제품 발주 차수 · 제품 줄 업체 · 사양이 바뀌면 새 품목코드 1차), 잘못 넣은 값이면 [값 바로잡기(정정)].</span>");
+      el.innerHTML = '<span class="seg"><button type="button" data-bvmode="fix" title="표에서 값 · 시작/끝 차수를 고치고 [저장] — 저장할 때 새 차수로 만들지, 이 차수만 정정할지 묻습니다">수정</button></span>' +
+        '<span class="what">' + (pastV ? "<b>지난 차수(" + esc(bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints())) + ")를 보는 중</b> — " : (BV.round > (BV.bomMax || 0) ? "<b>" + BV.round + "차(BOM 에 아직 없는 새 차수)</b> — " : "<b>보기 중</b> — ")) +
+        "[수정]으로 표에서 고치고 [저장]하면 <b>새 차수로 만들기</b> / <b>이 차수만 정정</b> 중에 고릅니다" + (oR ? " · 발주 " + esc((BV.order && BV.order.batch) || oR + "차") + "에서 연 BOM" : "") + ".</span>";
+      return;
+    }
+    if (kind === "fix") {
+      el.hidden = false; el.className = "bvmode fix";
+      el.innerHTML = '<span class="what"><b>수정 중</b> — 표에서 값 · 시작/끝 차수를 고치고 아래 사유를 적은 뒤 [저장]. 값을 바꿨으면 저장할 때 <b>새 차수로 만들기</b> / <b>' + esc(BV.round > (BV.bomMax || 0) || bvSegOf(BV.round, bvPoints()) === bvSegOf(BV.bomMax, bvPoints()) ? BV.round + "차" : bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints())) + '만 정정</b>을 묻습니다. 그만두려면 [수정 그만두기].</span>';
       return;
     }
     var lab = (kind === "fix" ? bvSegLabel(bvSegOf(BV.round, bvPoints()), bvPoints()) : (ob || BV.round) + "차");
@@ -12689,9 +12692,9 @@ function dateSlots_(steps, cfg, mode) {
     BV.fix = null; BV.adds = []; BV.edit = null; BV.ckPend = {}; $("bomv-msg").textContent = ""; bomShow();
   }
   function bvFixPendHtml() {
-    var pts0 = bvPoints(), F = BV.fix, h = '<div class="bomform"><b>' + bvSegLabel(bvSegOf(BV.round, pts0), pts0) + ' 구성 정정(덮어쓰기)</b><span class="nghelp">표의 칸을 바로 고치세요 · 왼쪽에 색 띠가 있는 줄은 이전 · 다음 차수와 같이 쓰는 줄입니다.</span></div>' +
-      '<div class="bomform"><label class="wide">정정 사유(필수)<input class="fixwhy" id="bomfx-why" value="' + esc(F.why || "") + '" placeholder="예: BOM 등록 때 업체명 오타"></label>' + bvFixOnlySel();
-    if (!F.plan) return h + '<button type="button" class="btn btn-sm btn-solid" id="bomfx-check">저장</button><button type="button" class="btn btn-sm" id="bomfx-cancel">정정 그만두기</button><span class="nghelp">같은 코드를 쓰는 줄도 같이 고쳐집니다 · BOM변경이력에 남고 되돌릴 수 있습니다.</span></div>';
+    var pts0 = bvPoints(), F = BV.fix, h = '<div class="bomform"><b>' + (BV.round > (BV.bomMax || 0) ? BV.round + "차(새 차수)" : bvSegLabel(bvSegOf(BV.round, pts0), pts0)) + ' 구성 수정</b><span class="nghelp">표의 칸을 바로 고치세요 · 왼쪽에 색 띠가 있는 줄은 이전 · 다음 차수와 같이 쓰는 줄입니다.</span></div>' +
+      '<div class="bomform"><label class="wide">사유(필수)<input class="fixwhy" id="bomfx-why" value="' + esc(F.why || "") + '" placeholder="예: BOM 등록 때 업체명 오타"></label>' + bvFixOnlySel();
+    if (!F.plan) return h + '<button type="button" class="btn btn-sm btn-solid" id="bomfx-check">저장</button><button type="button" class="btn btn-sm" id="bomfx-cancel">수정 그만두기</button><span class="nghelp">같은 코드를 쓰는 줄도 같이 고쳐집니다 · BOM변경이력에 남고 되돌릴 수 있습니다.</span></div>';
     var rowOf = function (r) { return BV.rows.filter(function (x) { return x.row === r; })[0]; };
     var li = F.plan.map(function (q) {
       var ch = q.changes.map(function (c) { return c.label + " " + c.before + " → " + c.after; }).join(" · ");
@@ -12724,6 +12727,72 @@ function dateSlots_(steps, cfg, mode) {
    * 정정 저장 전에: 고친 줄 중 여러 차수가 같이 쓰는 줄(값 칸만 고친 줄)마다 '그 줄 차수 모두' / 'N차만'을 묻는다.
    * 물었으면 true(창이 뜸 — 고르면 이어서 저장), 물을 게 없으면 false(그대로 저장).
    */
+  /**
+   * [수정] 저장 — 값(단가 · 업체 · 사양 등)을 바꿨으면 한 번 묻는다(2026-10-22):
+   *   새 차수로 만들기(N차부터 · 앞 차수 그대로) / 조회 중인 X차만 정정(다른 차수 그대로 · 최종 차수면 그 차수부터) / (작게) 이 줄 쓰는 모든 차수 정정.
+   * 시작 · 끝 차수만 바꾼 건 묻지 않고 그대로 저장. 물었으면 true.
+   */
+  function bvSaveAsk() {
+    var why = bvVal("bomfx-why");
+    if (!why) return false;
+    var items = bvFixDiff(), VAL = { name: 1, vendor: 1, buy: 1, spec: 1, moq: 1, qty: 1, unit: 1, cur: 1, fx: 1, proc: 1, ship: 1 };
+    var valItems = items.filter(function (it) { return Object.keys(it.fields).some(function (k) { return VAL[k]; }); });
+    var dels = Object.keys(BV.fix.del || {}).filter(function (k) { return BV.fix.del[k]; });
+    if (!valItems.length && !(dels.length && BV.round > (BV.bomMax || 0))) return false;
+    var structural = items.some(function (it) { return Object.keys(it.fields).some(function (k) { return !VAL[k]; }); });
+    var rowOf = function (r) { return BV.rows.filter(function (x) { return x.row === r; })[0]; };
+    var X = Number(BV.round) || 0, max = BV.bomMax || 0, pts = bvPoints(), oR = bvOrderRound();
+    var isNewR = X > max, latest = isNewR || bvSegOf(X, pts) === bvSegOf(max, pts);
+    var N = isNewR ? X : (oR && oR > max ? oR : max + 1);
+    var endsBefore = valItems.filter(function (it) { var v = rowOf(it.row); return v && String(v.end || "").trim() && bvR(v.end) < N; });
+    var newWhy = !latest ? "지난 차수를 보는 중이라 새 차수는 최신 차수에서 만듭니다" : structural ? "시작/끝 차수 · 코드를 바꾼 줄이 있어 새 차수로 옮길 수 없습니다(따로 저장)" : endsBefore.length ? endsBefore.map(function (it) { return rowOf(it.row).code; }).join(", ") + " 줄은 " + (N - 1) + "차 이전에 끝나 새 차수에 없습니다" : "";
+    var segLab = isNewR || latest ? X + "차" : bvSegLabel(bvSegOf(X, pts), pts);
+    var lis = valItems.map(function (it) {
+      var v = rowOf(it.row) || {}, s0 = bvR(v.start) || 1, e0 = String(v.end || "").trim() ? bvR(v.end) : 0;
+      return "<li>" + esc((v.type || "") + " " + v.code + " (" + s0 + "~" + (e0 ? e0 + "차" : "") + ") · " + Object.keys(it.fields).map(function (k) { return (BV_FIX_LAB[k] || k) + " " + (v[k] == null || v[k] === "" ? "-" : v[k]) + " → " + it.fields[k]; }).join(" · ")) + "</li>";
+    }).join("");
+    var onAll = function () { var lo = 1e9, hi = 0, op = false; valItems.forEach(function (it) { var v = rowOf(it.row); if (!v) return; lo = Math.min(lo, bvR(v.start) || 1); if (String(v.end || "").trim()) hi = Math.max(hi, bvR(v.end)); else op = true; }); return lo === 1e9 ? "" : bvOrdNote(bvOrdersIn(lo, op ? 9999 : hi)); };
+    var old = $("fxscope"); if (old) old.remove();
+    var ov = document.createElement("div"); ov.className = "nsov"; ov.id = "fxscope"; ov.style.zIndex = 150;
+    var btn = function (k, lab, sub, dis) { return '<button type="button" class="btn' + (dis ? "" : " btn-solid") + '" data-fxs="' + k + '"' + (dis ? " disabled" : "") + ' style="display:block;width:100%;text-align:left;margin:6px 0;padding:8px 12px;white-space:normal"><b>' + lab + '</b><div class="nghelp" style="font-weight:400;color:inherit;opacity:.85">' + sub + "</div></button>"; };
+    ov.innerHTML = '<div class="nsbox" role="dialog" aria-label="저장 방법" style="width:640px;max-width:calc(100vw - 32px)"><h3>바꾼 값을 어떻게 저장할까요?</h3><ul class="fixlist" style="margin:4px 0 8px">' + lis + "</ul>" +
+      btn("new", "새 차수로 만들기 — " + N + "차부터", "실제로 바뀐 단가 · 사양 · 업체(네고 · 인상 · 변경). 1~" + (N - 1) + "차 BOM 은 그대로" + (oR && N === oR ? " · 이 발주(" + N + "차) BOM" : "") + ". 업체 · 사양 · 소요량이 바뀐 자재는 새 자재코드, 제품 줄이면 새 품목코드 1차.", !!newWhy) + (newWhy ? '<div class="nghelp" style="margin:-2px 0 6px">' + esc(newWhy) + "</div>" : "") +
+      (isNewR ? "" : btn("only", "조회 중인 " + segLab + "만 정정", "잘못 넣은 값. 다른 차수는 그대로" + (latest ? "(최종 차수라 이 차수부터 이 값)" : "(줄을 나눠 앞 · 뒤 차수는 원래 값)") + ". 코드 그대로.", false)) +
+      (isNewR ? "" : '<div style="margin:8px 0 0"><button type="button" class="btn btn-sm" data-fxs="all">처음부터 틀린 값 — 이 줄을 쓰는 모든 차수 정정</button> <span class="nghelp">' + esc(onAll() || "") + "</span></div>") +
+      '<div class="sebtn" style="display:flex;justify-content:flex-end;margin-top:10px"><button type="button" class="btn btn-sm" data-fxs="back">다시 고치기</button></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("[data-fxs]");
+      if (!b && e.target !== ov) return;
+      var k = b ? b.dataset.fxs : "back";
+      if (b && b.disabled) return;
+      ov.remove();
+      if (k === "back") return;
+      if (k === "all") { BV.fix.scoped = true; bvFixGo(); return; }
+      if (k === "new") { bvFixToChg(N, items, why); return; }
+      var other = BV.adds.length || bvFixShares().length || bvFixCommons().length || Object.keys(BV.ckPend || {}).length || dels.length;
+      if (structural || other) { alert("'" + segLab + "만 정정'은 칸 값만 됩니다 — 시작/끝 차수 · 줄 삭제 · 자재 추가 · 공용 · 원가 체크는 '이 줄을 쓰는 모든 차수 정정'으로 따로 저장해 주세요."); return; }
+      bomFixOnlySave(valItems, X);
+    });
+    return true;
+  }
+  /** [수정] 표에서 고친 것을 'N차부터 바꾸기'(새 차수)로 옮겨 저장 — 바꾼 칸 · 뺀 줄 · 추가 줄 · 원가 체크 그대로 */
+  function bvFixToChg(N, items, why) {
+    var rowOf = function (r) { return BV.rows.filter(function (x) { return x.row === r; })[0]; }, mods = {};
+    items.forEach(function (it) {
+      var v = rowOf(it.row); if (!v) return;
+      var m = { row: v.row, id: v.id || "", code: v.code, start: v.start, end: String(v.end || ""), why: why };
+      Object.keys(it.fields).forEach(function (k) { m[k] = it.fields[k]; });
+      mods[v.row] = m;
+    });
+    Object.keys(BV.fix.del || {}).forEach(function (r) { if (!BV.fix.del[r]) return; var v = rowOf(Number(r)); if (v) mods[v.row] = { row: v.row, id: v.id || "", code: v.code, start: v.start, end: String(v.end || ""), remove: true, why: why }; });
+    BV.fix = null; BV.mods = mods; BV.chgWhy = why; BV.chgOn = true;
+    if (N !== bvOrderRound()) BV.draft = N;
+    BV.round = N;
+    bomShow();
+    $("bomv-msg").textContent = N + "차부터 새로 저장합니다…";
+    bomSaveAny();
+  }
   function bvFixScopeAsk() {
     var why = bvVal("bomfx-why");
     if (!why) return false;                                  // 사유 없음 — 아래 저장 흐름이 알린다
@@ -12932,7 +13001,7 @@ function dateSlots_(steps, cfg, mode) {
    */
   function bvFixGo() {
     if (!BV.fix) return;
-    if (!BV.fix.plan && !BV.fix.scoped) { if (bvFixScopeAsk()) return; }       // 여러 차수가 같이 쓰는 줄을 고쳤으면 줄마다 범위를 먼저 묻는다
+    if (!BV.fix.plan && !BV.fix.scoped) { if (bvSaveAsk()) return; }       // 값을 바꿨으면 '새 차수로 만들기 / 조회 중 차수만 정정'을 먼저 묻는다
     BV.fix.scoped = false;
     if (!BV.fix.plan) bomFixCheck();
     var F = BV.fix;
@@ -13660,7 +13729,7 @@ function dateSlots_(steps, cfg, mode) {
   }
   /** BOM 저장 뒤: [새 발주] 줄에서 열었으면 그 줄을 새 BOM으로 다시 채운다(새 품목코드면 코드 · 이름 · 1차까지) · 코드 없던 발주 건이면 코드를 넣는다 */
   function bvAfterSave(code, nv) {
-    BV.keepCode = false; BV.nvChosen = false;
+    BV.keepCode = false; BV.nvChosen = false; BV.chgOn = false;
     setTimeout(function () { oldCodeAfterSave(code); }, 600);
     if (typeof II !== "undefined" && II) { II.at = 0; II.refAt = 0; }          // 품목 정보 목록은 다음에 열 때 새로(BOM 에서 바꾼 이름 · 새 코드가 바로 보이게)
     if (BV.ngRow != null && NG[BV.ngRow]) {
