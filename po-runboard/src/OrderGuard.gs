@@ -1,0 +1,153 @@
+/**
+ * 발주일 지킴(2026-10-21) — 실행판에서 저장한 발주일이 곧 빈칸이 되는 일이 있었다(649행 7번 · 655행 1번: 저장 기록은 남는데 칸은 비어 있음).
+ * 실행판 코드에는 그 칸을 기록 없이 지우는 곳이 없어, 저장 뒤 확인 + 1분마다 지켜보다 지워졌으면 되살리고 언제 지워졌는지 남긴다.
+ *  · rb.ordguard  = { 실행판ID: { v: 'yy/MM/dd', at: 저장 시각(ms), who } } — 3일 지켜본다
+ *  · rb.ordwipe   = [ { id, row, v, wipedBy: 처음 빈칸을 본 시각, savedAt } ] — 최근 30건(원인 찾기용)
+ */
+var RB_ORDG_PROP = 'rb.ordguard', RB_ORDG_WIPE = 'rb.ordwipe', RB_ORDG_DAYS = 3;
+
+function ordGuardRead_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(RB_ORDG_PROP) || '{}') || {}; } catch (e) { return {}; } }
+function ordGuardWrite_(o) {
+  var cut = Date.now() - RB_ORDG_DAYS * 864e5, P = PropertiesService.getScriptProperties();
+  Object.keys(o).forEach(function (k) { if (!(o[k] && o[k].at > cut)) delete o[k]; });
+  if (Object.keys(o).length) P.setProperty(RB_ORDG_PROP, JSON.stringify(o)); else P.deleteProperty(RB_ORDG_PROP);
+}
+
+/**
+ * 발주일 한 칸 쓰기 + 확인. 발주 DB 탭에 누가 걸어 둔 필터(예: 구매담당자 = 노바)로 숨은 행은 날짜가 안 남는 일이 있었다(10/21: 숨은 649 · 655행만 빔, 보이는 658행은 남음).
+ * ① 날짜로 쓰고 확인 → ② 비었으면 탭 필터를 풀고 다시 → ③ 그래도 비면 글자(yy/MM/dd)로. 어떻게 들어갔는지 돌려준다(못 넣으면 '').
+ */
+function ordWriteCell_(sh, row, col0, stamp) {
+  var cell = sh.getRange(row, col0 + 1), d = toDate_(stamp);
+  var ok = function () { SpreadsheetApp.flush(); var g = cell.getValue(); return !(g === '' || g == null); };
+  cell.setValue(d || asText_(stamp));
+  if (ok()) return 'date';
+  var f = null;
+  try { f = sh.getFilter(); } catch (e) { f = null; }
+  if (f) {
+    try { f.remove(); } catch (e2) { /* 넘어간다 */ }
+    cell.setValue(d || asText_(stamp));
+    if (ok()) return 'filter-removed';
+  }
+  cell.setValue(asText_(stamp));
+  if (ok()) return 'text';
+  return '';
+}
+function ordWipeLog_(x) {
+  var P = PropertiesService.getScriptProperties(), w = [];
+  try { w = JSON.parse(P.getProperty(RB_ORDG_WIPE) || '[]') || []; } catch (e) { w = []; }
+  P.setProperty(RB_ORDG_WIPE, JSON.stringify(w.concat([x]).slice(-30)));
+}
+
+/** apiWriteSheet 가 발주일을 쓴 직후(잠금 안): 반영 → 다시 읽어 비었으면 필터를 풀거나 글자로 다시 쓴다 · 지켜볼 목록에 넣는다 */
+function ordGuardAfterWrite_(sh, row, cId, items) {
+  var it = (items || []).filter(function (x) { return x.name === '발주일'; })[0];
+  if (!it) return;
+  SpreadsheetApp.flush();
+  var got = sh.getRange(row, it.col + 1).getValue();
+  if (got === '' || got == null) {
+    var how = ordWriteCell_(sh, row, it.col, str_(it.after));
+    ordWipeLog_({ row: row, v: str_(it.after), at: new Date().toISOString(), where: '저장 직후', how: how || '실패' });
+    if (!how) throw new Error('발주일이 시트에 들어가지 않았습니다(' + row + '행) — 관리자에게 알려 주세요.');
+  }
+  var id = cId >= 0 ? str_(sh.getRange(row, cId + 1).getValue()) : '';
+  if (!id) return;
+  var o = ordGuardRead_(), who = '';
+  try { who = me_(); } catch (e) { who = ''; }
+  o[id] = { v: str_(it.after), at: Date.now(), who: who };
+  ordGuardWrite_(o);
+}
+
+/** 실행판에서 발주일을 지웠으면 지킴 목록에서 뺀다 */
+function ordGuardForget_(sh, row, cId) {
+  var id = cId >= 0 ? str_(sh.getRange(row, cId + 1).getValue()) : '';
+  var o = ordGuardRead_();
+  if (id && o[id]) { delete o[id]; ordGuardWrite_(o); }
+}
+
+/** 1분 작업(journalDrain): 지켜보는 건의 발주일이 비었으면 마지막 저장값으로 되살리고 기록 */
+function ordGuardCheck_() {
+  var o = ordGuardRead_(), ids = Object.keys(o);
+  if (!ids.length) { ordGuardWrite_(o); return 0; }
+  var sh = statusSheet_(), C = sheetCols_(sh), cOrd = colIdx_(C.idx, ['발주일']);
+  if (cOrd < 0) return 0;
+  var ix = statusIdIndex_(sh, C), fixed = [];
+  ids.forEach(function (id) {
+    var rows = ix.map[id] || [];
+    if (rows.length !== 1) return;
+    var cell = sh.getRange(rows[0], cOrd + 1), v = cell.getValue();
+    if (v !== '' && v != null) return;
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(20000)) return;
+    try {
+      if (str_(cell.getValue()) !== '') return;
+      var how = ordWriteCell_(sh, rows[0], cOrd, o[id].v);
+      fixed.push({ id: id, row: rows[0], v: o[id].v, savedAt: new Date(o[id].at).toISOString(), wipedBy: new Date().toISOString(), who: o[id].who, how: how || '실패' });
+      writeAudits_([{ tab: RB.STATUS_TAB, row: rows[0], col: cOrd + 1, what: '발주일 다시 씀(필터로 숨은 행에 날짜가 안 들어감)', before: '', after: o[id].v }]);
+    } finally { lock.releaseLock(); }
+  });
+  if (fixed.length) {
+    fixed.forEach(ordWipeLog_);
+    try { console.warn('발주일 되살림 ' + JSON.stringify(fixed)); } catch (e2) { /* 넘어간다 */ }
+    cacheDrop_(rowsCacheKey_('po'));
+    try { bumpVer_('r'); } catch (eV) { /* 넘어간다 */ }
+  }
+  ordGuardWrite_(o);
+  return fixed.length;
+}
+
+/** 한 번만(10/21): 지워진 발주일 되살림 — 649행 MP0129BO2 14차(마지막 저장 26/10/12) · 655행 HP0079OB1 1차(26/10/13). 지금도 비어 있을 때만 */
+function ordRestore1021_() {
+  var o = ordGuardRead_(), now = Date.now();
+  [['RB261002-42AC3B', '26/10/12'], ['RB261013-D8B4E4', '26/10/13']].forEach(function (x) { if (!o[x[0]]) o[x[0]] = { v: x[1], at: now, who: '되살림 10/21' }; });
+  ordGuardWrite_(o);
+  return ordGuardCheck_();
+}
+
+/**
+ * 1분 작업: 발주 DB 탭(_실행판_발주)에 걸린 공용 필터를 푼다 — 필터로 숨은 행에 쓴 날짜가 남지 않았다(10/21).
+ * 이 탭은 실행판이 쓰는 숨김 장부라 걸러 보려면 '필터 보기'(사람마다 따로 · 남에게 영향 없음)를 쓴다. 푼 기록은 이력에 남긴다.
+ */
+function ordFilterOff_() {
+  var sh = statusSheet_(), f = null;
+  try { f = sh.getFilter(); } catch (e) { f = null; }
+  if (!f) return false;
+  var hides = false;
+  try { var r = f.getRange(); for (var c = r.getColumn(); c <= r.getLastColumn() && !hides; c++) if (f.getColumnFilterCriteria(c)) hides = true; } catch (e2) { hides = true; }
+  if (!hides) return false;
+  f.remove();
+  try { writeAudits_([{ tab: RB.STATUS_TAB, row: 1, col: 1, what: '발주 DB 탭 필터 풂(숨은 행에 쓴 날짜가 안 남아서 — 걸러 보려면 필터 보기)', before: '필터 켜짐', after: '' }]); } catch (e3) { /* 넘어간다 */ }
+  return true;
+}
+
+/**
+ * 한 번만(10/21) 시험: 필터로 숨은 행에 날짜 · 글자 · 숫자를 쓰면 남는지 — 임시 탭에서만(끝나면 탭을 지운다). 결과는 변경이력에 한 줄.
+ */
+function ordFilterTest1021_() {
+  var ss = ss_(), name = '_실행판_필터시험', out = [];
+  var old = ss.getSheetByName(name); if (old) ss.deleteSheet(old);
+  var sh = ss.insertSheet(name);
+  try {
+    sh.getRange(1, 1, 4, 5).setValues([['A', 'B', 'C', '담당', '발주일'], ['x', 'x', 'x', '노바', ''], ['x', 'x', 'x', '베카', ''], ['x', 'x', 'x', '베카', '']]);
+    var f = sh.getRange(1, 1, 4, 5).createFilter();
+    f.setColumnFilterCriteria(4, SpreadsheetApp.newFilterCriteria().setHiddenValues(['베카']).build());
+    SpreadsheetApp.flush();
+    var d = new Date(2026, 9, 12);
+    sh.getRange(2, 5).setValue(d);                 // 보이는 행 · 날짜
+    sh.getRange(3, 5).setValue(d);                 // 숨은 행 · 날짜
+    sh.getRange(4, 5).setValue("'26/10/12");       // 숨은 행 · 글자
+    sh.getRange(3, 3).setValue(123);               // 숨은 행 · 숫자(다른 열)
+    sh.getRange(4, 3).setValue('글자');            // 숨은 행 · 글자(다른 열)
+    sh.getRange(3, 1, 1, 5).getValues();
+    SpreadsheetApp.flush();
+    var v = sh.getRange(1, 1, 4, 5).getValues();
+    out.push('보이는행 날짜=' + (v[1][4] ? 'O' : 'X'), '숨은행 날짜=' + (v[2][4] ? 'O' : 'X'), '숨은행 글자날짜=' + (v[3][4] ? 'O' : 'X'),
+      '숨은행 숫자=' + (v[2][2] === 123 ? 'O' : 'X'), '숨은행 글자=' + (v[3][2] === '글자' ? 'O' : 'X'));
+    f.remove(); SpreadsheetApp.flush();
+    sh.getRange(3, 5).setValue(d); SpreadsheetApp.flush();
+    out.push('필터 푼 뒤 날짜=' + (sh.getRange(3, 5).getValue() ? 'O' : 'X'));
+  } catch (e) { out.push('오류 ' + e.message); }
+  finally { try { ss.deleteSheet(sh); } catch (e2) { /* 넘어간다 */ } }
+  try { writeAudits_([{ tab: name, row: 1, col: 1, what: '필터 숨은 행 쓰기 시험', before: '', after: out.join(' · ') }]); } catch (e3) { /* 넘어간다 */ }
+  return out.join(' · ');
+}
