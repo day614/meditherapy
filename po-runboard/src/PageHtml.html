@@ -11440,6 +11440,7 @@ function dateSlots_(steps, cfg, mode) {
     if (af) { var b = box.querySelector(af[0] || af); if (b) { b.focus(); try { if (af[1] != null) b.setSelectionRange(af[1], af[2]); } catch (e2) { /* 날짜 · 선택 칸 */ } } }
   }
   function bomOpen(opt) {
+    BV_LOADSEQ++;                                       // 새로 열면 앞서 보던 품목의 늦은 응답은 버린다
     if (!BV_ALL) setTimeout(bomListPrefetch, 0);       // BOM 보기를 열면 모든 품목 줄을 바로 받아 둔다(앱을 연 지 20초 전이어도)
     opt = opt || {};
     BV.order = opt.order || null;
@@ -11467,6 +11468,7 @@ function dateSlots_(steps, cfg, mode) {
     return typed || (BV.newMats || []).some(function (m) { return Object.keys(m).some(function (k) { return k !== "type" && k !== "buy" && k !== "qty" && String(m[k] || "").trim(); }); });
   }
   function bomClose(force) {
+    if (force === true || !(bvDirtyN() || bvNewFormUsed())) BV_LOADSEQ++;
     // 묻는 것을 먼저 묻고(계속 고치기면 아무것도 안 버림) 그다음 버린다
     var dn = bvDirtyN(), nf = bvNewFormUsed();
     if ((dn || nf) && force !== true) {
@@ -11514,6 +11516,8 @@ function dateSlots_(steps, cfg, mode) {
    * 예전엔 맨 아래 한 줄 글자뿐이라 이전 품목 화면이 그대로 보여 넘어간 건지 알 수 없었다.
    */
   var BV_LOADSEQ = 0;
+  /** 비동기 응답이 왔을 때 아직 그 품목 화면에 있는지 — 목록으로 갔거나 다른 품목 · 창을 열었으면 false(화면은 그대로 두고 받은 값만 기억) */
+  function bvNavOk(nav, code) { return nav === BV_LOADSEQ && !$("bomv").hidden && (!code || BV.code === code); }
   function bvLoading(label) {
     var on = label != null;
     $("bomv-loading").hidden = !on;
@@ -12220,8 +12224,9 @@ function dateSlots_(steps, cfg, mode) {
     var keepRound = BV.round;
     $("bomv-msg").textContent = "코드를 바꾸는 중…";
     busy(true);
+    var navCs = BV_LOADSEQ, codeCs = BV.code;
     gsr().withSuccessHandler(function (d) {
-        busy(false); bomSet(d); BV.round = keepRound; bomShow();
+        busy(false); if (!bvNavOk(navCs, codeCs)) { bvGetPut(d); return; } bomSet(d); BV.round = keepRound; bomShow();
         $("bomv-msg").textContent = v.code + " → " + to + " 로 바꿨습니다(품목 DB 코드) — BOM변경이력에 남았습니다.";
       })
       .withFailureHandler(function (e) { busy(false); $("bomv-msg").textContent = "바꾸지 못했습니다: " + e.message; })
@@ -12255,10 +12260,12 @@ function dateSlots_(steps, cfg, mode) {
     var keepRound = BV.round;
     $("bomv-msg").textContent = same ? "등록하는 중…" : "코드를 바꾸는 중…";
     busy(true);
+    var navCr = BV_LOADSEQ;
     gsr().withSuccessHandler(function (d) {
         busy(false);
         (d.regs || []).forEach(function (c) { if (ITEMDB) ITEMDB.push({ code: c, name: v.name || c, brand: "", vendor: v.vendor || "" }); });
         bvInDb._n = -1;
+        if (!bvNavOk(navCr, "")) { bvGetPut(d); return; }
         if (d.recoded) { delete BV_GETC[d.recoded.from]; if (typeof BL !== "undefined") BL.list = null; }   // 제품코드가 바뀜 — 옛 코드 기억 · 품목 목록은 새로
         bomSet(d); BV.round = keepRound; bomShow();
         $("bomv-msg").textContent = (d.changed || []).join(" · ") || "처리했습니다";
@@ -13641,13 +13648,13 @@ function dateSlots_(steps, cfg, mode) {
         bvCkFlush(code, why0, function (d2, n2) {
           BV.saving = 0; busy(false);
           var dd = d2 && d2.rows ? d2 : d, m2 = d2 ? msg + (n2 ? " · 원가 체크 " + n2 + "줄" : "") : msg + " — 그런데 " + $("bomv-msg").textContent;
-          if (BV.code === code && !bvUserBusy()) { bomSet(dd); BV.round = ob; bomShow(); $("bomv-msg").textContent = m2; } else { bvGetPut(dd); toast(code + " " + m2); }
+          if (nav0 === BV_LOADSEQ && BV.code === code && !bvUserBusy()) { bomSet(dd); BV.round = ob; bomShow(); $("bomv-msg").textContent = m2; } else { bvGetPut(dd); toast(code + " " + m2); }
           bvAfterSave(dd.code, null);
         }, bvCkRemap(ckL, d.rows));
         return;
       }
       BV._follow = d.follow || null;
-      if ((!local && !bvUserBusy()) || (BV.code === code && !bvUserBusy())) { bomSet(d); BV.round = ob; bomShow(); $("bomv-msg").textContent = msg; }
+      if (nav0 === BV_LOADSEQ && ((!local && !bvUserBusy()) || (BV.code === code && !bvUserBusy()))) { bomSet(d); BV.round = ob; bomShow(); $("bomv-msg").textContent = msg; }
       else { bvGetPut(d); toast(code + " " + msg); if (BV.code === code) { bvShowKeep(); $("bomv-msg").textContent = msg; } }      // 잠갔던 표 칸을 다시 연다
       bvAfterSave(d.code, null);
     }).withFailureHandler(function (e) {
@@ -13664,6 +13671,7 @@ function dateSlots_(steps, cfg, mode) {
       var b2 = $("bomv-save"); if (b2) b2.disabled = false;
       $("bomv-msg").textContent = "저장하지 못했습니다: " + em;
     }).apiBomSave(code, ob, send, { orderId: o.id || "", doc: o.doc || "", name: o.name || "", newProduct: BV.newProduct, follow: bvFollowOf(false, code) });
+    var nav0 = BV_LOADSEQ;
   }
   /** [차수 추가] 저장을 화면 줄에 바로 반영한 BOM(서버 규칙과 같게: 앞 차수 줄은 N−1차로 닫고 N차부터 새 줄 · N차에 시작한 줄은 그 줄을 고침 · 뺀 줄은 N−1차까지) */
   function bvSaveLocalData(N, send) {
@@ -13720,10 +13728,11 @@ function dateSlots_(steps, cfg, mode) {
     var b = $("bomnv-save"); if (b) b.disabled = true;
     $("bomv-msg").textContent = "새 품목코드로 저장하는 중…";
     busy(true); BV.saving = 1;
-    var from = BV.code;
+    var from = BV.code, navNv = BV_LOADSEQ;
     gsr().withSuccessHandler(function (d) {
       busy(false); BV.saving = 0;
       BV.nv = null;
+      if (!bvNavOk(navNv, from)) { bvGetPut(d); toast("새 품목코드 " + d.newCode + " (" + from + " 에서) 1차 BOM을 저장했습니다"); BV._follow = d.follow || null; bvAfterSave(d.newCode, { from: from, name: name || d.name }); return; }
       bomSet(d);
       $("bomv-msg").textContent = "새 품목코드 " + d.newCode + " (" + from + " 에서) 1차 BOM을 저장했습니다" + (d.made && d.made.length > 0 ? " · 새 자재코드 " + d.made.join(", ") : "") + " — 품목 DB에 등록됨.";
       try { if (ITEMDB) ITEMDB.push({ code: d.newCode, name: name || d.name, brand: "", channel: "", vendor: "", price: "" }); buildItems(); } catch (e) { /* 다음 새로고침에 */ }
@@ -13809,9 +13818,11 @@ function dateSlots_(steps, cfg, mode) {
     if (bvDirtyN() && !confirm("저장하지 않은 변경 " + bvDirtyN() + "건이 있습니다. 버리고 되돌릴까요?")) return;
     $("bomv-msg").textContent = "되돌리는 중…";
     busy(true); BV.saving = 1;          // 되돌리는 동안 다른 저장 · 되돌리기를 막는다
+    var navRv = BV_LOADSEQ, codeRv = BV.code;
     gsr().withSuccessHandler(function (d) {
       if (typeof II !== "undefined" && II) { II.at = 0; II.refAt = 0; }      // 되돌린 이름 · 업체가 품목 정보에도 바로
       busy(false); BV.saving = 0;
+      if (!bvNavOk(navRv, codeRv)) { bvGetPut(d); toast(codeRv + " 되돌렸습니다"); return; }
       bomSet(d);
       $("bomv-msg").textContent = "되돌렸습니다: " + (d.undone || []).join(" · ");
     }).withFailureHandler(function (e) { busy(false); BV.saving = 0; $("bomv-msg").textContent = "되돌리지 못했습니다: " + e.message; }).apiBomUndo(BV.code, id, String(why).trim());
@@ -13821,8 +13832,10 @@ function dateSlots_(steps, cfg, mode) {
     var p = BV.prev, target = BV.code, ord = BV.order;
     if (!p) return;
     $("bomv-msg").textContent = ""; bvLoading(p.code + " 최신 구성");
+    var navFp = BV_LOADSEQ;
     gsr().withSuccessHandler(function (d) {
       bvLoading(null);
+      if (navFp !== BV_LOADSEQ || $("bomv").hidden) return;
       bomSet(d);
       BV.order = ord; BV.nvTarget = target;
       BV.draft = BV.bomMax + 1; BV.round = BV.draft;          // 최신 구성을 그대로 가져와(이어 쓰기) 바꿀 것만 고친 뒤 새 코드 1차로 저장
@@ -14190,6 +14203,7 @@ function dateSlots_(steps, cfg, mode) {
     if (t.closest("#bomv-tolist")) {
       if (bvDirtyN() && !confirm("저장하지 않은 변경이 있습니다. 버리고 목록으로 갈까요?")) return;
       if (BV.fix && bvFixDiff().length && !confirm("정정 중인 값을 버리고 목록으로 갈까요?")) return;
+      BV_LOADSEQ++;                          // 목록으로 — 늦게 온 품목 응답(불러오기 · 저장 결과)이 다시 품목 화면으로 넘기지 않게
       BV.code = ""; BV.rows = []; BV.mods = {}; BV.ckPend = {}; BV.adds = []; BV.edit = null; BV.fix = null; BV.semi = null; BV.draft = null; BV.newProduct = null;
       BL.cmp = null; $("bomv-q").value = ""; bvDrop(false); bomShow(); return;
     }
