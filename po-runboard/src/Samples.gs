@@ -502,3 +502,31 @@ function sampleVendorStatus_(reqs) {
   if (allOff && reqs.length) return str_(reqs[reqs.length - 1].status);
   return '수신';
 }
+
+/**
+ * 화면: 샘플 프로젝트 비고(2026-10-23) — 업체와 상관없는 프로젝트 전체 메모(일정 · 요청 사항 · 결정 등).
+ * 진행 기록 notes.pmemo = [{ t, at, by }] (최근 것이 뒤). op = { add: 글 } | { del: 순번, at: 그 줄 시각(확인용) }
+ */
+function apiSampleProjMemo(projKey, meta, op) {
+  requireEditor_();
+  op = op || {};
+  var id = 'p:' + str_(projKey), m = meta || {}, list = [];
+  m.id = id;
+  editProgress_(id, m, 'sample', function (st) {
+    st.notes = st.notes || {};
+    try { list = JSON.parse(st.notes.pmemo || '[]'); } catch (e) { list = []; }
+    if (!Array.isArray(list)) list = [];
+    if (op.add != null) {
+      var t = str_(op.add).slice(0, 500);
+      if (!t) throw new Error('메모를 적어 주세요.');
+      list.push({ t: t, at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yy/MM/dd HH:mm'), by: me_().split('@')[0] });
+    } else if (op.del != null) {
+      var i = Number(op.del);
+      if (!(i >= 0 && i < list.length) || (op.at && list[i].at !== op.at)) throw new Error('그사이 메모가 바뀌었습니다 — 새로고침해 주세요.');
+      list.splice(i, 1);
+    }
+    list = list.slice(-100);
+    st.notes.pmemo = JSON.stringify(list);
+  });
+  return list;
+}

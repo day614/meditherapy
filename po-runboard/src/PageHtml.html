@@ -562,6 +562,9 @@
   .tldel { border: 0; background: none; color: var(--ink-3); cursor: pointer; font-size: 14px; padding: 0; }
   .tlempty { color: var(--ink-3); font-size: 12.5px; padding: 8px 4px; }
   .tladd { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 6px; }
+  .pmemo .pmlist { list-style: none; margin: 6px 0; padding: 0; font-size: 13px; }
+  .pmemo .pmlist li { padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .pmemo .pmlist li:last-child { border-bottom: 0; }
   .tladd input[type="text"] { flex: 1 1 260px; min-width: 0; height: 32px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 7px; padding: 4px 10px; font: inherit; font-size: 13px; background: var(--surface-2); }
   .tladd select { height: 32px; border: 1px solid var(--line); border-radius: 7px; padding: 0 8px; font: inherit; font-size: 12.5px; background: var(--surface); }
   .tladd .tldue { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
@@ -4195,6 +4198,7 @@ function dateSlots_(steps, cfg, mode) {
             esc(raw).replace(/,/g, ",<wbr>") + "</td>";
         }).join("") +
         '<td class="cell-name">' + esc(r.name) + (r.batch && mode === "po" ? " " + esc(r.batch) : "") +
+          (mode === "sample" && sProjMemo(r).length ? (function () { var L = sProjMemo(r), m = L[L.length - 1]; return ' <span class="memohit" title="프로젝트 비고 ' + L.length + "건 — 최근: " + esc((m.at || "") + " " + (m.by || "") + " · " + (m.t || "")) + '">비고 ' + L.length + "</span>"; })() : "") +
           (mode === "sample" && r.links && r.links.length ? '<a class="rowlink" href="' + esc(r.links[0]) + '" target="_blank" rel="noopener" title="' + esc(r.links.join(" ")) + '">🔗' + (r.links.length > 1 ? " " + r.links.length : "") + "</a>" : "") +
           (memoOnlyHit(r) ? ' <span class="memohit" title="검색어가 비고에 있어서 찾았습니다 — 비고: ' + esc(memoOf(r)) + '">비고 일치</span>' : "") +
           // 아래 줄: 왼쪽 품목코드(드래그해서 복사) · 업체, 오른쪽 끝 품의번호
@@ -4929,7 +4933,7 @@ function dateSlots_(steps, cfg, mode) {
   /** 품목 메모 — 발주현황 비고 칸. 발주현황에 오르기 전(계획) 건은 실행판 진행 기록에 둔다. */
   function memoOf(r) {
     if (r.statusRow) return String(r.memo || "");
-    return String(((r.notes || {})._memo) || "");
+    return String(((r.notes || {})._memo) || "") + (mode === "sample" ? " " + sProjMemo(r).map(function (m) { return m.t; }).join(" ") : "");
   }
 
   function startMemoEdit(td) {
@@ -5096,6 +5100,24 @@ function dateSlots_(steps, cfg, mode) {
     renderBoard();
   });
 
+  // 샘플 프로젝트 비고 — 남기기 · 지우기 · Enter
+  document.addEventListener("click", function (e) {
+    var t = e.target; if (!t || !t.closest) return;
+    var row = rowById(currentId); if (!row || mode !== "sample") return;
+    if (t.closest("#pmemoAdd")) {
+      var inp = $("pmemoText"), v = String((inp && inp.value) || "").trim();
+      if (!v) { if (inp) inp.focus(); return; }
+      t.disabled = true; if (inp) inp.value = "";
+      try { if (typeof RUN_TOUCH !== "undefined" && RUN_TOUCH) Object.keys(RUN_TOUCH).forEach(function (k) { if (/pmemoText/.test(k)) delete RUN_TOUCH[k]; }); } catch (e0) { /* 넘어간다 */ }
+      sProjMemoSave(row, { add: v }, function (er) { var b2 = $("pmemoAdd"); if (b2) b2.disabled = false; if (er) { var i2 = $("pmemoText"); if (i2) i2.value = v; } });
+      return;
+    }
+    var d = t.closest("[data-pmdel]");
+    if (d) { if (!confirm("이 프로젝트 비고를 지울까요?")) return; d.disabled = true; sProjMemoSave(row, { del: Number(d.dataset.pmdel), at: d.dataset.pmat }); }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && e.target && e.target.id === "pmemoText" && !e.isComposing) { e.preventDefault(); var b = $("pmemoAdd"); if (b && !b.disabled) b.click(); }
+  });
   $("rows").addEventListener("click", function (e) {
     var oc = e.target.closest("[data-oldc]");
     if (oc) { e.stopPropagation(); oldCodeDlg([rowById(oc.dataset.oldc)]); return; }
@@ -5725,7 +5747,7 @@ function dateSlots_(steps, cfg, mode) {
       var dropC = SAMPLE_OFF[q.status] ? " rdrop" : "";          // 드롭 · 탈락한 샘플(회차)은 회색 — 그 아래 기록도
       if (key === TLEDIT) { /* 위에서 그림 */ }
       else h += '<div class="tlrow req rhead' + (R.open ? "" : " rclosed") + dropC + '"><span class="tlat">' + md(sIso(q.reqAt)) + "</span>" +
-        '<span class="tltx"><b>' + esc(R.label) + " 샘플 요청</b>" + (q.qty ? " · " + esc(q.qty) + (/^[0-9,]+$/.test(String(q.qty).trim()) ? "개" : "") : "") + (q.spec ? " · " + esc(q.spec) : "") +
+        '<span class="tltx"><b>' + esc(R.label) + " 샘플 요청</b>" + (q.qty ? " · " + esc(q.qty) + (/^[0-9,]+$/.test(String(q.qty).trim()) ? "개" : "") : "") + (q.spec ? " · " + esc(q.spec) : "") + (q.kind ? ' · <span class="tag" title="구분">' + esc(q.kind) + "</span>" : "") +
           (sIso(q.reqAt) ? "" : (q.reqAt ? " (요청일 " + esc(q.reqAt) + ")" : " (요청일 없음)")) +
           (q.status ? ' <span class="tag ' + sstClass(q.status) + '">' + esc(q.status) + "</span>" : "") +
           (R.open && R.due ? ' <span class="tldue2">· 기한 ' + esc(R.due.slice(2).replace(/-/g, ".")) + "</span>" : (R.open && R.dueTxt ? ' <span class="tlwho">· 전달예정 ' + esc(R.dueTxt) + "</span>" : "")) +
@@ -5985,6 +6007,25 @@ function dateSlots_(steps, cfg, mode) {
   }
 
   var VOPEN = {};          // 펼친 드롭 · 탈락 업체(건ID|업체키)
+  /** 샘플 프로젝트 비고(업체와 상관없는 프로젝트 전체 메모) — 진행 기록 notes.pmemo = [{ t, at, by }] */
+  function sProjMemo(row) { try { var a = JSON.parse((row && row.notes && row.notes.pmemo) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function sProjMemoBlock(row) {
+    var L = sProjMemo(row), ro = DATA && DATA.canEdit === false;
+    return '<div class="vgroup pmemo"><div class="vhead"><b>프로젝트 비고</b><span class="nghelp">업체와 상관없는 프로젝트 전체 메모 — 일정 · 요청 사항 · 결정 등(업체별 내용은 아래 업체 카드에)</span></div>' +
+      (L.length ? '<ul class="pmlist">' + L.map(function (m, i) { return { m: m, i: i }; }).reverse().map(function (x) {
+        return '<li><span class="tlwho">' + esc(x.m.at || "") + " · " + esc(x.m.by || "") + "</span> " + esc(x.m.t || "") +
+          (ro ? "" : ' <button type="button" class="btn-quiet btn-sm" data-pmdel="' + x.i + '" data-pmat="' + esc(x.m.at || "") + '" title="이 메모 지우기">×</button>') + "</li>";
+      }).join("") + "</ul>" : "") +
+      (ro ? "" : '<div class="tladd"><input type="text" id="pmemoText" placeholder="프로젝트 메모 한 줄 — Enter 로 남기기" style="flex:1 1 320px;min-width:0"><button type="button" class="btn btn-sm" id="pmemoAdd">남기기</button></div>') + "</div>";
+  }
+  function sProjMemoSave(row, op, done) {
+    gsr().withSuccessHandler(function (list) {
+      row.notes = Object.assign({}, row.notes || {}); row.notes.pmemo = JSON.stringify(list || []);
+      if (currentId === row.id && !$("view-run").hidden) renderRun();
+      renderBoard();
+      if (done) done();
+    }).withFailureHandler(function (e) { alert("프로젝트 비고 저장 실패: " + e.message); if (done) done(e); }).apiSampleProjMemo(row.projKey, metaOf(row), op);
+  }
   function sampleBlock(row) {
     var vendors = row.vendors || [];
 
@@ -5999,6 +6040,7 @@ function dateSlots_(steps, cfg, mode) {
         '<div class="vhead"><b>' + esc(g.name) + "</b>" +
           '<span class="tag ' + sstClass(g.status) + '">' + esc(g.status) + "</span>" +
           '<span class="vn" title="회차 = 같은 구성끼리 요청 순서">' + esc(sampleRoundSum(g)) + "</span>" +
+          (function () { var ks = []; (g.reqs || []).forEach(function (q) { var k = String((q && (q.kind || (q.q && q.q.kind))) || "").trim(); if (k && ks.indexOf(k) < 0) ks.push(k); }); return ks.length ? '<span class="tag" title="구분">' + esc(ks.join(" · ")) + "</span>" : ""; })() +
           '<label class="tag vowner" title="이 업체 담당자 바꾸기(이 업체 줄에만 · 시트에 바로)">담당 <select data-vownersel="' + esc(g.name) + '">' +
             allOwnerNames().concat(g.owner && allOwnerNames().indexOf(g.owner) < 0 ? [g.owner] : []).map(function (o) { return "<option" + (o === (g.owner || "") ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") +
             '<option value=""' + (g.owner ? "" : " selected") + '>미지정</option><option value="__other">직접 입력…</option></select></label>' +
@@ -6583,7 +6625,7 @@ function dateSlots_(steps, cfg, mode) {
 
       "";
 
-    var topBlock = (mode === "sample") ? sampleBlock(row) : "";
+    var topBlock = (mode === "sample") ? sProjMemoBlock(row) + sampleBlock(row) : "";
     var bak = (row.checks || {})._etaResetBak;
     if (mode === "po" && bak && bak.keys && Object.keys(bak.keys).length) {
       topBlock += '<div class="resetnote">입고예정이 ' + esc(bak.from) + " → " + esc(bak.to) + " 로 바뀌어 (" + esc(bak.at) + ") " +
