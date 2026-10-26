@@ -6,6 +6,7 @@
   <title>발주 실행판</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
   :root {
@@ -1416,6 +1417,178 @@
     .top-in { padding: 8px 12px; }
     main { padding: 16px 12px 60px; }
   }
+
+  /* ==================================================================
+     GWP 스타일 리뉴얼(2026-10-26) — 흰 바탕 · 남색 포인트 · 왼쪽 메뉴 · 카드
+     예전 규칙을 덮어쓴다(이 덩어리를 지우면 예전 모양으로 돌아감)
+     ================================================================== */
+  :root {
+    --ground: #f7f8fa; --surface: #ffffff; --surface-2: #f5f7fa; --surface-sunk: #eceff3;
+    --ink: #111827; --ink-2: #4b5563; --ink-3: #8b95a1; --line: #e5e8ec; --line-strong: #d3d8df;
+    --primary: #24507b; --primary-2: #2f6497; --primary-ink: #ffffff; --primary-soft: #e8eef5;
+    --accent: #c2620f; --accent-soft: #fcefe2;
+    --shadow: 0 1px 2px rgba(16,24,40,.05), 0 6px 16px -10px rgba(16,24,40,.18);
+    --sbw: 232px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --primary-soft: #1d2b38; }
+  }
+  body { font-family: "Pretendard Variable", Pretendard, "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; letter-spacing: -.005em; }
+  .num { font-family: "Pretendard Variable", Pretendard, "IBM Plex Sans KR", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  .btn { border-color: var(--line-strong); border-radius: 8px; }
+  .btn-solid { background: var(--primary); border-color: var(--primary); }
+  .tag { border-radius: 6px; }
+  /* 로고 */
+  .logo { flex-direction: row; align-items: center; gap: 9px; }
+  .logo .lmark { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: #fff; font-style: normal;
+    font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; letter-spacing: .02em; }
+  .logo .ltx { display: flex; flex-direction: column; line-height: 1.25; color: var(--ink); letter-spacing: 0; text-transform: none; font-size: inherit; }
+  .logo .ltx b { font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+  .logo .ltx > span { font-size: 10.5px; letter-spacing: 0; text-transform: none; color: var(--ink-3); }
+  .modes button[aria-pressed="true"] { background: var(--primary); }
+  .sblabel, .sbfoot-sep { display: none; }
+  /* 페이지 제목(GWP처럼 큰 제목 + 설명 한 줄) */
+  .phead { margin: 2px 0 14px; }
+  .phead h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; }
+  .phead p { margin: 2px 0 0; font-size: 13px; color: var(--ink-3); }
+  @media (max-width: 760px) { .phead { margin: 0 0 8px; } .phead h1 { font-size: 18px; } .phead p { display: none; } }
+  h2.sec { font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--ink); font-weight: 700; }
+  /* 카드 · 표 */
+  .ocard, .memo, .tablewrap, .stkpi .k, .sttw { border-radius: 12px; }
+  .ocard[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); box-shadow: none; }
+  .memo { border-color: var(--line); }
+  #thead th, .svtab thead th { background: #f8fafc; color: var(--ink-2); font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { #thead th, .svtab thead th { background: var(--surface-2); } }
+  .filters input[type="search"], .filters select { border-color: var(--line); border-radius: 8px; height: 36px; padding: 6px 10px; background: var(--surface); }
+  .filters input[type="search"] { padding-left: 34px; background: var(--surface) no-repeat 11px 50% / 15px 15px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b95a1' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E"); }
+  /* 빠른 필터 = KPI 카드(GWP 대시보드 숫자 카드) */
+  .fbtn { border-radius: 10px; }
+  .fbtn.on { background: var(--primary); border-color: var(--primary); }
+  .fbtn:hover { border-color: var(--primary-2); }
+  @media (min-width: 1100px) {
+    .listhead { flex-wrap: wrap; row-gap: 10px; }
+    .listhead .lh-btns { order: 9; flex-basis: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+    .listhead .fbtn { padding: 10px 14px; text-align: left; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 12px; color: var(--ink-2); min-height: 64px; }
+    .listhead .fbtn b { font-size: 22px; line-height: 1.15; margin: 0; color: var(--ink); min-width: 0; }
+    .listhead .fbtn.late b { color: var(--late); }
+    .listhead .fbtn.late { background: #fff7f7; border-color: #f6d4d2; }
+    .listhead .fbtn.on, .listhead .fbtn.late.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+    .listhead .fbtn.on b { color: var(--primary); }
+    .listhead .fbtn.late.on b { color: var(--late); }
+  }
+  @media (min-width: 1100px) and (prefers-color-scheme: dark) { .listhead .fbtn.late { background: #2a1615; border-color: #5a2a27; } }
+
+  /* ---------- 왼쪽 메뉴(PC 넓은 화면) ---------- */
+  @media (min-width: 1100px) {
+    body { padding-left: var(--sbw); }
+    .top { position: fixed; left: 0; top: 0; bottom: 0; width: var(--sbw); border-bottom: 0; border-right: 1px solid var(--line); background: #fafbfc; overflow-y: auto; overflow-x: hidden; }
+    .top-in { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 2px; padding: 16px 12px 14px; min-height: 100%; }
+    .top-in > * { flex: 0 0 auto; }
+    .top-in > .tabs { margin-right: 0; }
+    .top-in > .hdright { margin-left: 0; }
+    .logo { margin: 0 4px 14px; }
+    .modes { margin: 0 0 12px; border-radius: 10px; }
+    .modes button { flex: 1 1 0; padding: 7px 0; font-size: 13.5px; }
+    .sblabel { display: block; font-size: 11px; font-weight: 600; color: var(--ink-3); padding: 10px 10px 4px; }
+    .sbfoot-sep { display: block; flex: 1 1 auto; min-height: 16px; }
+    .tabs { flex-direction: column; background: none; border: 0; padding: 0; gap: 2px; border-radius: 0; }
+    .tabs button, .top-in > .btn { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: transparent;
+      border-radius: 8px; padding: 8px 10px; font-size: 13.5px; font-weight: 500; color: var(--ink-2); line-height: 1.35; }
+    .tabs button:hover, .top-in > .btn:hover { background: #eef1f5; color: var(--ink); }
+    .tabs button[aria-selected="true"] { background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+    .tabs button::before, .top-in > .btn::before { content: ""; flex: 0 0 18px; width: 18px; height: 18px; background: currentColor;
+      -webkit-mask: var(--ic) center / 18px 18px no-repeat; mask: var(--ic) center / 18px 18px no-repeat; opacity: .85; }
+    .tabs button[hidden], .top-in > .btn[hidden] { display: none; }
+    .top-in > #newOrder, .top-in > #newSample { background: var(--primary); color: #fff; font-weight: 700; margin: 2px 0 6px; }
+    .top-in > #newOrder:hover, .top-in > #newSample:hover { background: var(--primary-2); color: #fff; }
+    .top-in > #backTop { background: var(--surface); border: 1px solid var(--line); margin-bottom: 8px; }
+    .top-in > #backTop::before { display: none; }
+    .top-in > #poPendBtn b { margin-left: auto; background: var(--accent); color: #fff; border-radius: 999px; padding: 0 7px; font-size: 11px; }
+    .bellbtn { justify-content: flex-start; }
+    .top-in > .bellbtn::before { display: none; }
+    .bellbtn b { position: static; margin-left: auto; }
+    .bellbtn::after { content: "기한 알림"; font-size: 13.5px; }
+    .bellbtn b { order: 2; }
+    .who { padding: 10px 10px 0; border-top: 1px solid var(--line); margin-top: 8px; font-size: 11.5px; word-break: break-all; }
+    body.drawer-open .totop { right: calc(var(--drawer-w) + 16px); }
+    main { padding: 22px 28px 16px; }
+  }
+  @media (min-width: 1100px) and (prefers-color-scheme: dark) {
+    .top { background: var(--surface); }
+    .tabs button:hover, .top-in > .btn:hover { background: var(--surface-2); }
+  }
+  .top [data-view="board"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1'/%3E%3C/svg%3E"); }
+  .top [data-view="stats"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='M7 15l4-4 3 3 5-6'/%3E%3C/svg%3E"); }
+  .top [data-view="close"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18M8 15l2 2 4-4'/%3E%3C/svg%3E"); }
+  .top [data-view="admin"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'/%3E%3C/svg%3E"); }
+  .top #newOrder { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpath d='M14 3v6h6M12 12v6M9 15h6'/%3E%3C/svg%3E"); }
+  .top #newSample { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpath d='M14 3v6h6M12 12v6M9 15h6'/%3E%3C/svg%3E"); }
+  .top #bomView { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2 2 7l10 5 10-5-10-5z'/%3E%3Cpath d='m2 17 10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E"); }
+  .top #quickIn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 8v13H3V8'/%3E%3Cpath d='M1 3h22v5H1zM10 12h4'/%3E%3C/svg%3E"); }
+  .top #remBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2'/%3E%3Crect x='9' y='3' width='6' height='4' rx='1'/%3E%3Cpath d='M9 12h6M9 16h4'/%3E%3C/svg%3E"); }
+  .top #negoBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/%3E%3C/svg%3E"); }
+  .top #poPendBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2 11 13M22 2l-7 20-4-9-9-4z'/%3E%3C/svg%3E"); }
+  .top #wkBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6M8 13h8M8 17h5'/%3E%3C/svg%3E"); }
+  .top #sampleBulkV { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8'/%3E%3C/svg%3E"); }
+  .top #guideBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01'/%3E%3C/svg%3E"); }
+  .top #backTop { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 12H5M12 19l-7-7 7-7'/%3E%3C/svg%3E"); }
+
+  /* ---------- 샘플 진행 관리: 상태 칩 · 보기 전환 · 업체 · 차수 표 ---------- */
+  .sstrip { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; margin: 0 0 12px; }
+  .svtog { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+  .svtog button { border: 0; background: transparent; border-radius: 7px; padding: 5px 14px; font-size: 13px; font-weight: 600; color: var(--ink-3); cursor: pointer; }
+  .svtog button[aria-pressed="true"] { background: var(--surface); color: var(--primary); box-shadow: 0 1px 2px rgba(16,24,40,.12); }
+  .svchips { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .svchip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 11px; font-size: 12px; color: var(--ink-2); cursor: pointer; }
+  .svchip b { font-variant-numeric: tabular-nums; margin-left: 3px; color: var(--ink); }
+  .svchip.on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+  .svchip.svlate { color: #b42318; border-color: #f3c7c3; } .svchip.svlate b { color: #b42318; }
+  .svchip.svopen { color: #1d5fa8; border-color: #c7dcf3; }
+  .svchip.svrcv { color: #6a3fb0; border-color: #ddcdf3; }
+  .svchip.svpick { color: #1c6b41; border-color: #bfe3cd; }
+  .svchip.svoff { color: var(--ink-3); }
+  .svchip.on.svlate, .svchip.on.svopen, .svchip.on.svrcv, .svchip.on.svpick, .svchip.on.svoff { background: var(--primary-soft); border-color: var(--primary); }
+  .svst { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 1px 9px; border: 1px solid var(--line); white-space: nowrap; }
+  .svst.svlate { background: #fdecea; color: #b42318; border-color: #f3c7c3; }
+  .svst.svopen { background: #e9f2fc; color: #1d5fa8; border-color: #c7dcf3; }
+  .svst.svrcv { background: #f2ecfb; color: #6a3fb0; border-color: #ddcdf3; }
+  .svst.svpick { background: #e5f4ec; color: #1c6b41; border-color: #bfe3cd; }
+  .svst.svoff { background: var(--surface-2); color: var(--ink-3); }
+  @media (prefers-color-scheme: dark) {
+    .svst.svlate, .svst.svopen, .svst.svrcv, .svst.svpick { background: var(--surface-2); }
+  }
+  .svtab { min-width: 1180px; }
+  .svtab td { vertical-align: middle; }
+  .svtab .svsub { display: block; font-size: 11.5px; color: var(--ink-3); font-weight: 400; }
+  .svtab .svmemo { font-size: 12.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .svtab tr.svdim td { color: var(--ink-3); }
+  .brtag { display: inline-block; font-size: 11px; font-weight: 600; color: var(--primary); background: var(--primary-soft); border-radius: 5px; padding: 0 6px; margin-right: 2px; vertical-align: 1px; }
+  .vgroup.vflash { animation: vflash 1.6s ease-out; }
+  @keyframes vflash { 0% { box-shadow: 0 0 0 3px var(--primary); } 100% { box-shadow: 0 0 0 0 transparent; } }
+  /* 샘플 프로젝트 단계 표시(GWP 프로젝트 상세 위 단계 줄) */
+  .spstep { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 12px; margin: 0 0 14px; background: var(--surface); }
+  .stepper { list-style: none; margin: 0 0 12px; padding: 0; display: flex; }
+  .stepper li { flex: 1 1 0; position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px; color: var(--ink-3); text-align: center; }
+  .stepper li::before { content: ""; position: absolute; top: 12px; left: -50%; right: 50%; height: 2px; background: var(--line); z-index: 0; }
+  .stepper li:first-child::before { display: none; }
+  .stepper li i { position: relative; z-index: 1; width: 25px; height: 25px; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--surface);
+    display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--ink-3); }
+  .stepper li.done i { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .stepper li.done::before, .stepper li.now::before { background: var(--primary); }
+  .stepper li.now i { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); }
+  .stepper li.now span { color: var(--primary); font-weight: 700; }
+  .stepper li.done span { color: var(--ink-2); }
+  .stepper li.drop i { background: var(--ink-3); border-color: var(--ink-3); color: #fff; }
+  .spkpi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 2fr); gap: 0; border-top: 1px solid var(--line); padding-top: 10px; }
+  .spkpi > div { padding: 0 12px; border-left: 1px solid var(--line); min-width: 0; }
+  .spkpi > div:first-child { border-left: 0; padding-left: 2px; }
+  .spkpi span { display: block; font-size: 11px; color: var(--ink-3); }
+  .spkpi b { display: block; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .spkpi b.lt { font-weight: 500; font-size: 13px; }
+  .spkpi em { font-style: normal; font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .spkpi em.late { color: var(--late); }
+  .spkpi small { display: block; font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (max-width: 760px) { .spkpi { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; } .spkpi > div:nth-child(odd) { border-left: 0; padding-left: 2px; } .spkpi .wide { grid-column: 1 / -1; } .stepper li span { font-size: 10px; } }
 </style>
 </head>
 <body>
@@ -1424,13 +1597,15 @@
   <div class="top-in">
     <button class="btn btn-sm backtop" type="button" id="backTop" hidden>← 현황</button>
     <div class="logo">
-      <b>발주 실행판</b>
-      <span>SCM 구매팀</span>
+      <i class="lmark" aria-hidden="true">PO</i>
+      <span class="ltx"><b>발주 실행판</b>
+      <span>SCM 구매팀 · 발주 · 샘플 통합</span></span>
     </div>
     <div class="modes" role="group" aria-label="업무 구분">
       <button type="button" data-mode="po" aria-pressed="true">발주</button>
       <button type="button" data-mode="sample" aria-pressed="false">샘플</button>
     </div>
+    <div class="sblabel">메뉴</div>
     <div class="tabs" role="tablist">
       <button type="button" role="tab" data-view="board" aria-selected="true">현황</button>
       <button type="button" role="tab" data-view="stats" aria-selected="false" id="tab-stats" hidden title="관리자만 보입니다">분석</button>
@@ -1438,6 +1613,7 @@
       <button type="button" role="tab" data-view="admin" aria-selected="false" id="tab-admin" hidden>설정</button>
     </div>
     <!-- 머리 단추(발주 · 샘플 같은 자리): [새 ○○] [BOM 보기] [탭별 단추] … 오른쪽 [가이드] [🔔] — 새로고침 단추는 없앰(자동으로 다시 읽음) -->
+    <div class="sblabel">작업</div>
     <button class="btn btn-sm btn-solid" type="button" id="newOrder" title="새 발주건을 등록합니다. 발주 DB에 바로 올라갑니다">새 발주</button>
     <button class="btn btn-sm btn-solid" type="button" id="newSample" hidden title="새 샘플 프로젝트를 등록합니다. _실행판_샘플 시트에 줄이 하나 붙습니다">새 샘플</button>
     <button class="btn btn-sm" type="button" id="bomView" title="품목을 검색해 BOM 구성을 봅니다">BOM 보기</button>
@@ -1447,6 +1623,7 @@
     <button class="btn btn-sm" type="button" id="poPendBtn" hidden title="품의서를 내려받고 아직 상신 완료하지 않은 품의 — 아마란스에 올린 뒤 결재문서번호를 넣어 상신 완료">상신 대기 <b id="poPendN">0</b></button>
     <button class="btn btn-sm" type="button" id="wkBtn" title="주간보고 — 지난 금요일 ~ 이번 목요일 실행판 기록으로 채운 보고서 · 엑셀로 받기">주간보고</button>
     <button class="btn btn-sm" type="button" id="sampleBulkV" hidden title="여러 프로젝트에 걸친 같은 업체 샘플을 한 번에 수신 · 드롭 처리합니다">업체 일괄 처리</button>
+    <div class="sbfoot-sep" aria-hidden="true"></div>
     <button class="btn btn-sm hdright" type="button" id="guideBtn" title="사용 가이드">가이드</button>
     <button class="btn btn-sm bellbtn" type="button" id="bellBtn" title="기한 알림 — 1주 안에 받아야 할 발주 · 샘플과 기한 지난 것">🔔<b id="bellN" hidden></b></button>
     <div class="who" id="who"></div>
@@ -1459,6 +1636,7 @@
   <!-- ============ 현황 ============ -->
   <section id="view-board" hidden>
     <div class="boardhead">
+    <div class="phead"><h1 id="phT">발주 현황</h1><p id="phS">발주건별 생산 · 입고 진행과 담당자별 처리 현황</p></div>
     <h2 class="sec" id="ownersTitle">담당자별 진행</h2>
     <div class="ownrow">
       <div class="owners" id="owners"></div>
@@ -1499,6 +1677,7 @@
       </select>
       <span class="drange" id="f-dcustom"><input type="date" id="f-dfrom"> ~ <input type="date" id="f-dto"></span>
     </div>
+    <div class="sstrip" id="sstrip" hidden></div>
     <div class="bulkbar" id="bulkbar" hidden></div>
     </div>
 
@@ -1509,6 +1688,15 @@
         <tbody id="rows"></tbody>
       </table>
       <div class="empty" id="noRows" hidden>조건에 맞는 발주건이 없습니다.</div>
+    </div>
+    <!-- 샘플 · 업체 · 차수별 보기(프로젝트 안의 업체 회차를 한 줄씩) -->
+    <div class="tablewrap svwrap" id="svWrap" hidden>
+      <table class="svtab">
+        <colgroup><col><col style="width:210px"><col style="width:92px"><col style="width:104px"><col style="width:88px"><col style="width:124px"><col style="width:88px"><col style="width:84px"><col style="width:280px"></colgroup>
+        <thead><tr><th>프로젝트</th><th>업체 · 차수</th><th>상태</th><th>구분</th><th>요청일</th><th>기한</th><th>수신일</th><th>담당</th><th>최근 진행</th></tr></thead>
+        <tbody id="svRows"></tbody>
+      </table>
+      <div class="empty" id="svNo" hidden>조건에 맞는 샘플 회차가 없습니다.</div>
     </div>
   </section>
 
@@ -4033,6 +4221,7 @@ function dateSlots_(steps, cfg, mode) {
     poPendShow();
 
     if ($("newSample")) $("newSample").hidden = mode !== "sample";
+    if ($("phT")) { $("phT").textContent = mode === "sample" ? "샘플 진행 관리" : "발주 현황"; $("phS").textContent = mode === "sample" ? "업체별 샘플 요청 · 제작 · 수신 · 채택 현황 — 프로젝트별 또는 업체 · 차수별로 봅니다" : "발주건별 생산 · 입고 진행과 담당자별 처리 현황"; }
     if ($("sampleBulkV")) $("sampleBulkV").hidden = mode !== "sample";
     var extra = mode === "sample"
       ? thc("브랜드", "brand") + thc("구분", "kind") + thc("업체", "vendor") + thc("수량", "qty", "num")
@@ -4128,6 +4317,7 @@ function dateSlots_(steps, cfg, mode) {
     // 표
     var rows = filtered();
     var total = DATA.steps.length;
+    sampleViewSync(rows);
 
     $("rows").innerHTML = rows.map(function (r) {
       var u = unlockedThrough(r);
@@ -5880,6 +6070,128 @@ function dateSlots_(steps, cfg, mode) {
     return [V.length + "개 업체"].concat(SST.filter(function (k) { return c[k]; }).map(function (k) { return k + " " + c[k]; })).join(" · ") + ((r.checks || {})._done ? ((r.checks || {})._drop ? " · 프로젝트 드롭" : " · 완료") : "");
   }
 
+  /* ------------------------------------------------------------------
+     샘플 진행 관리(2026-10-26) — 상태 칩 · [프로젝트별 | 업체 · 차수별] 보기
+     업체 · 차수별: 프로젝트 안의 업체 회차(요청 한 번)를 한 줄씩 — 어느 업체 몇 차가 어디까지 왔는지 한눈에
+     ------------------------------------------------------------------ */
+  var SVIEW = (function () { try { return localStorage.getItem("rb.sview") === "round" ? "round" : "proj"; } catch (e) { return "proj"; } })();
+  var SVST = "";
+  var SV_BUCKETS = [
+    { k: "late", t: "기한 지남", c: "svlate" }, { k: "open", t: "진행 중", c: "svopen" }, { k: "rcv", t: "수신 · 검토", c: "svrcv" },
+    { k: "pick", t: "채택", c: "svpick" }, { k: "off", t: "드롭 · 탈락", c: "svoff" }
+  ];
+  function svItems(rows) {
+    var out = [], today = todayIso();
+    rows.forEach(function (r) {
+      (r.vendors || []).forEach(function (g) {
+        var S = sampleRounds(r, g), n = S.rounds.length;
+        S.rounds.forEach(function (R, i) {
+          var q = R.q, b;
+          if (SAMPLE_OFF[q.status] || (SAMPLE_OFF[g.status] && i === n - 1)) b = "off";
+          else if (q.status === "채택" || (g.status === "채택" && i === n - 1)) b = "pick";
+          else if (R.received || q.status === "수신" || R.closed) b = "rcv";
+          else b = R.due && R.due < today ? "late" : "open";
+          var lm = R.memos.length ? R.memos[R.memos.length - 1].x : null;
+          out.push({ r: r, g: g, R: R, q: q, b: b, memo: lm });
+        });
+      });
+    });
+    return out;
+  }
+  function svBucketOf(k) { return SV_BUCKETS.filter(function (x) { return x.k === k; })[0] || SV_BUCKETS[1]; }
+  function sampleViewSync(rows) {
+    var on = mode === "sample";
+    var strip = $("sstrip"), wrap = $("svWrap"), main = document.querySelector(".tablewrap");
+    if (!strip || !wrap) return;
+    strip.hidden = !on;
+    var round = on && SVIEW === "round";
+    wrap.hidden = !round; if (main) main.hidden = round;
+    if (!on) return;
+    var items = svItems(rows), cnt = {};
+    items.forEach(function (x) { cnt[x.b] = (cnt[x.b] || 0) + 1; });
+    strip.innerHTML = '<span class="svtog" role="group" aria-label="보기">' +
+        '<button type="button" data-sview="proj" aria-pressed="' + (SVIEW === "proj") + '" title="프로젝트(품목) 한 줄씩">프로젝트별</button>' +
+        '<button type="button" data-sview="round" aria-pressed="' + (SVIEW === "round") + '" title="업체 회차(샘플 요청 한 번) 한 줄씩 — 업체 · 차수별 진행">업체 · 차수별</button></span>' +
+      '<span class="svchips"><button type="button" class="svchip' + (SVST ? "" : " on") + '" data-svst="">전체 <b>' + items.length + "</b></button>" +
+      SV_BUCKETS.map(function (B) {
+        return '<button type="button" class="svchip ' + B.c + (SVST === B.k ? " on" : "") + '" data-svst="' + B.k + '" title="업체 · 차수별 보기에서 ' + B.t + '인 회차만">' + B.t + " <b>" + (cnt[B.k] || 0) + "</b></button>";
+      }).join("") + "</span>";
+    if (!round) return;
+    var order = { late: 0, open: 1, rcv: 2, pick: 3, off: 4 };
+    var list = items.filter(function (x) { return !SVST || x.b === SVST; }).sort(function (a, b) {
+      if (order[a.b] !== order[b.b]) return order[a.b] - order[b.b];
+      var da = a.R.due || "9999", db = b.R.due || "9999";
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+    var md = function (d) { return d ? d.slice(2).replace(/-/g, "/") : ""; };
+    var today = new Date(todayIso() + "T00:00:00");
+    $("svRows").innerHTML = list.map(function (x) {
+      var B = svBucketOf(x.b), q = x.q, R = x.R, due = "";
+      if (R.due && (x.b === "open" || x.b === "late")) {
+        var left = Math.round((new Date(R.due + "T00:00:00") - today) / 864e5);
+        due = '<span class="dline">' + md(R.due) + "</span>" + (left < 0 ? '<span class="soon late">' + (-left) + "일 지남</span>" : (left <= 7 ? '<span class="soon">' + (left ? "D-" + left : "오늘") + "</span>" : ""));
+      } else if (R.due) due = '<span class="nsub">' + md(R.due) + "</span>";
+      var m = x.memo;
+      return '<tr data-svid="' + esc(x.r.id) + '" data-svv="' + esc(x.g.name) + '" class="' + (x.b === "late" ? "laterow" : "") + (x.b === "off" ? " svdim" : "") + '">' +
+        '<td class="cell-name">' + (x.r.brand ? '<span class="brtag">' + esc(x.r.brand) + "</span> " : "") + esc(x.r.name || "") + "</td>" +
+        '<td class="swrap"><b>' + esc(x.g.name) + '</b> <span class="nsub">· ' + esc(R.label) + "</span>" + (q.qty ? '<small class="svsub">' + esc(q.qty) + (/^[0-9,]+$/.test(String(q.qty).trim()) ? "개" : "") + (q.spec ? " · " + esc(q.spec) : "") + "</small>" : (q.spec ? '<small class="svsub">' + esc(q.spec) + "</small>" : "")) + "</td>" +
+        '<td><span class="svst ' + B.c + '">' + esc(x.b === "off" ? (q.status || x.g.status || "드롭") : B.t) + "</span></td>" +
+        '<td class="swrap">' + esc(q.kind || x.r.kind || "") + "</td>" +
+        '<td class="num">' + esc(md(sIso(q.reqAt)) || String(q.reqAt || "")) + "</td>" +
+        '<td class="num dcol">' + due + "</td>" +
+        '<td class="num">' + esc(md(R.received)) + "</td>" +
+        "<td>" + esc(x.g.owner || "") + "</td>" +
+        '<td class="svmemo" title="' + esc(m ? (m.at || "") + " " + (m.text || "") : "") + '">' + (m ? '<span class="nsub">' + esc(String(m.at || "").slice(5).replace("-", ".")) + "</span> " + esc(m.text || "") : '<span class="nsub">—</span>') + "</td></tr>";
+    }).join("");
+    $("svNo").hidden = list.length > 0;
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest && e.target.closest("[data-sview], [data-svst], #svRows tr[data-svid]");
+    if (!t) return;
+    if (t.dataset.sview) { SVIEW = t.dataset.sview; if (SVIEW === "proj") SVST = ""; try { localStorage.setItem("rb.sview", SVIEW); } catch (e1) { /* 넘어간다 */ } renderBoard(); return; }
+    if (t.dataset.svst != null && t.classList.contains("svchip")) { SVST = SVST === t.dataset.svst ? "" : t.dataset.svst; if (SVST) { SVIEW = "round"; try { localStorage.setItem("rb.sview", "round"); } catch (e2) { /* 넘어간다 */ } } renderBoard(); return; }
+    if (t.dataset.svid) {
+      openRun(t.dataset.svid);
+      var vn = t.dataset.svv;
+      setTimeout(function () {
+        var hs = document.querySelectorAll("#view-run .vgroup .vhead b");
+        for (var i = 0; i < hs.length; i++) if (hs[i].textContent === vn) { hs[i].closest(".vgroup").scrollIntoView({ block: "start", behavior: "smooth" }); hs[i].closest(".vgroup").classList.add("vflash"); break; }
+      }, 250);
+    }
+  });
+  /** 샘플 프로젝트 진행 단계(GWP 처럼 위에 한 줄) — 업체 상태에서 계산 */
+  var SP_STEPS = ["요청", "업체 소싱", "샘플 진행", "수신 · 검토", "채택", "완료"];
+  function sampleStageOf(row) {
+    var V = (row.vendors || []).filter(function (g) { return g.name !== "업체 미정"; }), c = row.checks || {};
+    if (c._done) return 5;
+    if (V.some(function (g) { return g.status === "채택"; })) return 4;
+    var any = function (f) { return V.some(function (g) { return (g.reqs || []).some(f); }); };
+    if (any(function (q) { return sIso(q.doneAt) || q.status === "수신"; })) return 3;
+    if (V.length && any(function (q) { return sIso(q.reqAt) || q.reqAt; })) return 2;
+    return V.length ? 1 : 0;
+  }
+  function sampleStepper(row) {
+    var cur = sampleStageOf(row), drop = !!((row.checks || {})._drop);
+    var items = svItems([row]), cnt = {};
+    items.forEach(function (x) { cnt[x.b] = (cnt[x.b] || 0) + 1; });
+    var sd = sampleDue(row), picks = (row.vendors || []).filter(function (g) { return g.status === "채택"; }).map(function (g) { return g.name; });
+    var last = null;
+    items.forEach(function (x) { if (x.memo && (!last || String(x.memo.at || "") >= String(last.m.at || ""))) last = { m: x.memo, v: x.g.name }; });
+    return '<div class="spstep">' +
+      '<ol class="stepper">' + SP_STEPS.map(function (t, i) {
+        var st = i < cur || (i === cur && i === 5) ? "done" : (i === cur ? "now" : "");
+        if (i === 5 && drop && cur === 5) { t = "드롭"; st = "drop"; }
+        return '<li class="' + st + '"><i>' + (st === "done" ? "✓" : i + 1) + "</i><span>" + esc(t) + "</span></li>";
+      }).join("") + "</ol>" +
+      '<div class="spkpi">' +
+        '<div><span>업체 · 회차</span><b>' + (row.vendors || []).filter(function (g) { return g.name !== "업체 미정"; }).length + "곳 · " + items.length + "회</b></div>" +
+        '<div><span>진행 중</span><b>' + ((cnt.open || 0) + (cnt.late || 0)) + (cnt.late ? ' <em class="late">지남 ' + cnt.late + "</em>" : "") + "</b></div>" +
+        '<div><span>다음 기한</span><b>' + (sd ? esc(sd.date.slice(5).replace("-", ".")) + ' <em class="' + (sd.left < 0 ? "late" : "") + '">' + (sd.left < 0 ? -sd.left + "일 지남" : sd.left ? "D-" + sd.left : "오늘") + "</em>" : "—") + "</b>" + (sd ? "<small>" + esc(sd.vendor) + "</small>" : "") + "</div>" +
+        '<div><span>채택 업체</span><b>' + (picks.length ? esc(picks.join(" · ")) : "—") + "</b></div>" +
+        '<div class="wide"><span>최근 진행</span><b class="lt">' + (last ? esc(last.v) + " · " + esc(last.m.text || "") : "—") + "</b>" + (last ? "<small>" + esc(String(last.m.at || "")) + "</small>" : "") + "</div>" +
+      "</div></div>";
+  }
+
   /** 고른 프로젝트들에 걸친 업체 — 그 업체를 고른 프로젝트 모두에서 한 번에 수신 · 채택 · 탈락 · 드롭 */
   function bulkVendorHits(ids, vk, dropAll) {
     var out = [];
@@ -6630,7 +6942,7 @@ function dateSlots_(steps, cfg, mode) {
 
       "";
 
-    var topBlock = (mode === "sample") ? sProjMemoBlock(row) + sampleBlock(row) : "";
+    var topBlock = (mode === "sample") ? sampleStepper(row) + sProjMemoBlock(row) + sampleBlock(row) : "";
     var bak = (row.checks || {})._etaResetBak;
     if (mode === "po" && bak && bak.keys && Object.keys(bak.keys).length) {
       topBlock += '<div class="resetnote">입고예정이 ' + esc(bak.from) + " → " + esc(bak.to) + " 로 바뀌어 (" + esc(bak.at) + ") " +
