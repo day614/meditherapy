@@ -2889,8 +2889,11 @@ function dateSlots_(steps, cfg, mode) {
     $("tab-stats").hidden = !d.isAdmin; statsTabMode();
     fillFilters();
     renderThead();
-    setView("board");
+    // 첫 화면 값이 늦게 오면 그사이 왼쪽 메뉴로 옮긴 페이지(일정 · 견적 비교 · 마감 등)를 현황으로 되돌리지 않는다
+    if (view === "board" || view === "run" || !view) setView("board");
+    else { renderBoard(); if (view === "sched") schedRender(); if (view === "qt") qtPageRender(); if (typeof navSync === "function") navSync(); }
     MODEDATA[mode] = d;
+    if (NAV_WAIT) { var nw = NAV_WAIT; NAV_WAIT = null; setTimeout(function () { nw.click(); }, 0); }
     // 지난번 창을 닫을 때 시트 저장이 남아 있던 새 발주가 있으면 이어서 저장한다(한 번만, 브라우저 스냅샷 화면에서는 하지 않는다)
     if (!createResume.done && mode === "po" && !(d.timing && d.timing.snapshot)) { createResume.done = true; createResume(); }
     // 캐시로 그렸으면(빠른 첫 화면) 곧바로 뒤에서 시트를 다시 읽어 최신 값으로 바꾼다.
@@ -2980,7 +2983,7 @@ function dateSlots_(steps, cfg, mode) {
     renderThead();
     $("f-owner").value = ownerFilter;
     if (keepId && !rowById(keepId)) { closeRun(); keepId = null; }
-    setView(["admin", "stats", "close"].indexOf(keepView) > -1 ? keepView : "board");   // 분석 · 마감 탭을 보던 중이면 그대로
+    setView(["admin", "stats", "close", "sched", "qt"].indexOf(keepView) > -1 ? keepView : "board");   // 분석 · 마감 · 일정 · 견적 비교 페이지를 보던 중이면 그대로
     if (keepId && !$("view-run").hidden) renderRun();
     var tw2 = document.querySelector(".tablewrap");
     if (tw2) { tw2.scrollLeft = sx; tw2.scrollTop = sy; }
@@ -3745,6 +3748,7 @@ function dateSlots_(steps, cfg, mode) {
     fillFilters();
     renderThead();
     setView("board");
+    if (NAV_PEND && NAV_PEND.m === m) { var f = NAV_PEND.fn; NAV_PEND = null; try { f(); } catch (eN) { toast("메뉴를 열지 못했습니다: " + eN.message); } }
   }
 
   function statsTabMode() {
@@ -3818,6 +3822,7 @@ function dateSlots_(steps, cfg, mode) {
   }
   function navSync() {
     var nav = $("sbnav"); if (!nav) return;
+    if (NAV_PEND) return;                 // 넘어가는 중 — 누른 메뉴 표시를 그대로 둔다
     var pg = navPageOpen() || ($("nsov") ? "snew" : ""), cur = pg || (view === "board" ? (mode === "sample" ? (SVIEW === "round" ? "sround" : "sample") : "po") : view);
     nav.querySelectorAll("button[data-nav]").forEach(function (b) { b.classList.toggle("on", b.dataset.nav === cur); });
     var ts = $("tab-stats"), ta = $("tab-admin");
@@ -3825,19 +3830,27 @@ function dateSlots_(steps, cfg, mode) {
     nav.querySelector('[data-nav="admin"]').hidden = !ta || ta.hidden;
   }
   /** 발주 ↔ 샘플을 넘긴 뒤(불러오기 끝나면) then */
+  // 발주 ↔ 샘플을 넘길 때: 불러오기가 끝나면(applyMode 끝) 고른 메뉴 페이지로 — 시간 제한 없음(처음 샘플은 수십 초 걸릴 수 있다)
+  var NAV_PEND = null, NAV_WAIT = null;      // NAV_WAIT: 첫 화면이 오기 전에 누른 메뉴(다 뜨면 연다)
   function navMode(m, then) {
+    var run = function () { try { then(); } catch (eN) { toast("메뉴를 열지 못했습니다: " + eN.message); } };
+    if (mode === m && $("loading").hidden && DATA && DATA.rows) { NAV_PEND = null; run(); return; }
+    NAV_PEND = { m: m, fn: run };
     if (mode !== m) { var mb = document.querySelector('.modes button[data-mode="' + m + '"]'); if (mb) mb.click(); }
-    var n = 0; (function w() { if (mode === m && $("loading").hidden && DATA && DATA.rows) then(); else if (n++ < 100) setTimeout(w, 120); })();
+    if (mode !== m) { NAV_PEND = null; return; }        // 넘기기를 취소함(저장 안 한 것 묻기에서 취소)
+    if (NAV_PEND && $("loading").hidden && DATA && DATA.rows && DATA === MODEDATA[m]) { NAV_PEND = null; run(); }
   }
   $("sbnav").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-nav]"); if (!b) return;
     var k = b.dataset.nav;
+    if (!DATA || !DATA.rows) { NAV_WAIT = b; toast("처음 화면을 불러오는 중입니다 — 다 뜨면 '" + b.textContent + "'를 엽니다"); return; }
     if (NAV_PAGE[k]) {
       if (navPageOpen() === k) return;
       if (!navClosePages(k)) return;
       $(NAV_PAGE[k].btn).click(); navSync(); return;
     }
     if (!navClosePages("")) return;
+    $("sbnav").querySelectorAll("button[data-nav]").forEach(function (x) { x.classList.toggle("on", x === b); });
     if (k === "po") return navMode("po", function () { if (view !== "board") setView("board"); navSync(); });
     if (k === "sched") return navMode("po", function () { setView("sched"); });
     if (k === "stats") return navMode("po", function () { setView("stats"); });
