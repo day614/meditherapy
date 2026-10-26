@@ -195,6 +195,8 @@ function apiSampleEditRow(sheetRow, projKey, fields, meta, exp) {
         if (RB_SAMPLE_DATEF[f]) { var dn = dz(cur[K[f]]); return dn !== dz(exp.old[f]) && dn !== dz(fields[f]); }
         var now = sampleShow_(cur[K[f]]), saw = exp.old[f];
         if (f === 'status' && !nz(now)) return false;
+        // 업체: 시트가 빈칸(업체 미정)이면 충돌이 아니다 — [업체 추가]로 막 넣은 업체가 아직 시트에 안 써졌을 때(호출 순서가 뒤바뀜) · '업체 미정' 줄을 채울 때 잘못 막았다
+        if (f === 'vendor' && (!nz(now) || nz(now) === '업체 미정' || nz(saw) === '업체 미정' && !nz(now))) return false;
         if (f === 'qty' && num_(now) === num_(saw) && (nz(now) !== '') === (nz(saw) !== '')) return false;
         return nz(now) !== nz(saw) && nz(now) !== nz(fields[f]);
       });
@@ -539,8 +541,8 @@ function apiSampleProjMemo(projKey, meta, op) {
  */
 function apiSampleProjInfo(projKey, meta, key, sets) {
   requireEditor_();
-  if (['req', 'qt', 'rv'].indexOf(String(key)) < 0) throw new Error('알 수 없는 칸입니다: ' + key);
-  var id = 'p:' + str_(projKey), m = meta || {}, obj = {}, who = me_().split('@')[0];
+  if (['req', 'qt', 'rv', 'po'].indexOf(String(key)) < 0) throw new Error('알 수 없는 칸입니다: ' + key);
+  var id = 'p:' + str_(projKey), m = meta || {}, obj = {}, who = me_().split('@')[0], notesNow = {};
   var at = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
   m.id = id;
   editProgress_(id, m, 'sample', function (st) {
@@ -563,6 +565,95 @@ function apiSampleProjInfo(projKey, meta, key, sets) {
     var j = JSON.stringify(obj);
     if (j.length > 40000) throw new Error('내용이 너무 깁니다 — 줄여 주세요.');
     st.notes['i:' + key] = j;
+    notesNow = st.notes;
   });
+  // 시트에서도 바로 보이게 — 요청서 · 견적 보기 탭을 맞춘다(실패해도 저장은 된 것)
+  if (key !== 'rv') { try { sampleViewsSync_([{ projKey: str_(projKey), name: str_(m.name), brand: str_(m.brand), notes: notesNow }]); } catch (eV) { /* 넘어간다 */ } }
   return obj;
+}
+
+/* ------------------------------------------------------------------
+   샘플 요청서 · 견적 보기 탭(2026-10-26) — 실행판에 적은 요청 정보 · 업체 견적을 사람이 보는 표로.
+   원본은 _실행판_샘플진행 의 메모JSON(i:req · i:qt · i:po). 이 탭은 저장할 때마다 다시 쓰는 사본이라 여기서 고쳐도 실행판에 안 들어간다.
+   ------------------------------------------------------------------ */
+var RB_SREQ_TAB = '_실행판_샘플요청서', RB_SQT_TAB = '_실행판_샘플견적';
+var RB_SREQ_F = [['dept', '요청부서'], ['reqBy', '요청 담당자'], ['reqAt', '요청일'], ['target', '대상 고객'], ['purpose', '제작 목적 · 행사'],
+  ['tqty', '목표 수량'], ['tprice', '목표 단가(원)'], ['budget', '예산(원)'], ['size', '규격'], ['material', '소재'], ['color', '색상 · 인쇄'], ['pack', '포장 방식'], ['designSt', '디자인 확정 상태'],
+  ['launch', '출시 예정일'], ['sampleLead', '샘플 리드타임(일)'], ['massLead', '양산 리드타임(일)'], ['prepDays', '입고→출시 준비(일)'], ['_sreqDue', '샘플 요청 마감(역산)'], ['_poDue', '발주 마감(역산)'], ['_inDue', '입고 마감(역산)'],
+  ['wantPo', '희망 발주일'], ['wantMass', '양산 완료 희망일'], ['wantIn', '희망 납품일'], ['pickBy', '업체 선정 목표일'], ['designAt', '디자인 확정 예정일'], ['spec', '사양 메모'], ['etc', '기타 요청사항']];
+var RB_SQT_F = [['st', '상태'], ['country', '국가 · 생산지'], ['contact', '업체 담당자'], ['round', '견적 차수'], ['moq', 'MOQ'], ['qty', '견적 수량'], ['price', '단가'], ['cur', '통화'], ['rate', '환율(원)'],
+  ['_krw', '단가(원화)'], ['vat', 'VAT'], ['shipIn', '운송비 포함'], ['fSample', '샘플비'], ['fMold', '금형비'], ['fPlate', '판비'], ['fShip', '운송비'], ['_total', '총액(원화)'],
+  ['dSample', '샘플 제작기간(일)'], ['dLead', '양산 소요기간(일)'], ['avail', '납품 가능일'], ['pay', '결제조건'], ['inco', '인코텀즈'], ['mat', '주요 소재'], ['qual', '품질 · 기술 특이사항'], ['opin', '구매팀 검토의견'], ['file', '견적서 링크']];
+function sampleBack_(R) {
+  var d = /^\d{4}-\d{2}-\d{2}$/.test(str_(R.launch)) ? new Date(str_(R.launch) + 'T00:00:00') : null, out = {};
+  if (!d) return out;
+  var n = function (v) { var x = Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return String(v == null ? '' : v).trim() === '' || isNaN(x) ? null : x; };
+  var sub = function (dt, k) { var t = new Date(dt.getTime()); t.setDate(t.getDate() - k); return t; };
+  var f = function (dt) { return Utilities.formatDate(dt, Session.getScriptTimeZone(), 'yyyy-MM-dd'); };
+  var inD = sub(d, n(R.prepDays) || 0); out._inDue = f(inD);
+  if (n(R.massLead) != null) { var po = sub(inD, n(R.massLead)); out._poDue = f(po); if (n(R.sampleLead) != null) out._sreqDue = f(sub(po, n(R.sampleLead))); }
+  return out;
+}
+/** list = [{ projKey, name, brand, notes }] — 그 프로젝트 줄만 바꿔 쓴다(요청서: 1줄, 견적: 업체마다 1줄) */
+function sampleViewsSync_(list) {
+  var hR = ['프로젝트키', '브랜드', '제품명'].concat(RB_SREQ_F.map(function (x) { return x[1]; })).concat(['연결 발주', '수정 시각', '수정자']);
+  var hQ = ['프로젝트키', '브랜드', '제품명', '업체'].concat(RB_SQT_F.map(function (x) { return x[1]; })).concat(['수정 시각', '수정자']);
+  var shR = sampleViewTab_(RB_SREQ_TAB, hR), shQ = sampleViewTab_(RB_SQT_TAB, hQ);
+  var P = function (o, k) { try { var v = JSON.parse((o || {})[k] || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } };
+  var keys = {}; list.forEach(function (x) { keys[str_(x.projKey)] = 1; });
+  var dropRows = function (sh) {
+    var n = sh.getLastRow() - 1; if (n < 1) return;
+    var ids = sh.getRange(2, 1, n, 1).getValues();
+    for (var i = ids.length - 1; i >= 0; i--) if (keys[str_(ids[i][0])]) sh.deleteRow(i + 2);
+  };
+  dropRows(shR); dropRows(shQ);
+  var outR = [], outQ = [];
+  list.forEach(function (x) {
+    var R = P(x.notes, 'i:req'), Q = P(x.notes, 'i:qt'), PO = P(x.notes, 'i:po'), B = sampleBack_(R);
+    if (Object.keys(R).length || Object.keys(PO).length) {
+      outR.push([asText_(x.projKey), x.brand || '', x.name || ''].concat(RB_SREQ_F.map(function (f) { return f[0].charAt(0) === '_' ? (B[f[0]] || '') : str_(R[f[0]]); }))
+        .concat([Object.keys(PO).map(function (k) { var o = PO[k] || {}; return [o.doc, o.name, o.batch].filter(String).join(' '); }).join(' / '), str_(R._at), str_(R._by)]));
+    }
+    Object.keys(Q).forEach(function (vk) {
+      var q = Q[vk] || {}, num = function (v) { var n = Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return String(v == null ? '' : v).trim() === '' || isNaN(n) ? null : n; };
+      var cur = q.cur || 'KRW', rate = cur === 'KRW' ? 1 : num(q.rate), krw = num(q.price) != null && rate != null ? num(q.price) * rate : null;
+      var fees = ['fSample', 'fMold', 'fPlate', 'fShip'].reduce(function (a, f) { return a + (num(q[f]) || 0); }, 0);
+      var total = krw != null && num(q.qty) != null ? krw * num(q.qty) + fees * (rate || 1) : null;
+      outQ.push([asText_(x.projKey), x.brand || '', x.name || '', q.name || vk].concat(RB_SQT_F.map(function (f) {
+        if (f[0] === '_krw') return krw == null ? '' : Math.round(krw);
+        if (f[0] === '_total') return total == null ? '' : Math.round(total);
+        return str_(q[f[0]]);
+      })).concat([str_(q._at), str_(q._by)]));
+    });
+  });
+  if (outR.length) shR.getRange(shR.getLastRow() + 1, 1, outR.length, hR.length).setValues(outR);
+  if (outQ.length) shQ.getRange(shQ.getLastRow() + 1, 1, outQ.length, hQ.length).setValues(outQ);
+}
+function sampleViewTab_(name, head) {
+  var sh = sheet_(name);
+  if (!sh) {
+    sh = ss_().insertSheet(name);
+    sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#e8eef5');
+    sh.setFrozenRows(1); sh.setFrozenColumns(3);
+    RB_SHEETS[name] = sh;
+  } else {
+    var cur = sh.getRange(1, 1, 1, head.length).getValues()[0];
+    if (cur.join('|') !== head.join('|')) sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
+  }
+  return sh;
+}
+/** 관리자: 요청서 · 견적 보기 탭을 처음부터 다시 만든다(지금까지 적은 것 모두) */
+function apiSampleViewsRebuild() {
+  requireEditor_();
+  var sh = sheet_(RB.T_SPROGRESS); if (!sh || sh.getLastRow() < 2) return { n: 0 };
+  var v = sh.getRange(2, 1, sh.getLastRow() - 1, RB.PROGRESS_HEAD.length).getValues(), list = [];
+  v.forEach(function (r) {
+    var id = str_(r[0]); if (id.indexOf('p:') !== 0) return;
+    var notes = {}; try { notes = JSON.parse(r[7] || '{}') || {}; } catch (e) { notes = {}; }
+    if (!notes['i:req'] && !notes['i:qt'] && !notes['i:po']) return;
+    list.push({ projKey: id.slice(2), name: str_(r[2]), brand: str_(r[4]), notes: notes });
+  });
+  [RB_SREQ_TAB, RB_SQT_TAB].forEach(function (n) { var t = sheet_(n); if (t && t.getLastRow() > 1) t.deleteRows(2, t.getLastRow() - 1); });
+  if (list.length) sampleViewsSync_(list);
+  return { n: list.length };
 }

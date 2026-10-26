@@ -43,6 +43,7 @@ function choicesOf_(cfg) {
   });
   out.chByBrand = chByBrandOf_(cfg[RB_CH_BY_BRAND_KEY]);
   Object.keys(RB_SCHOICE).forEach(function (k) { out[k] = splitList_(cfg[RB_SCHOICE[k].key]); });   // 비어 있으면 화면이 시트에 쓰인 값으로 보여 준다
+  if (out.smake && out.smake.length && out.smake.indexOf('기타') < 0) out.smake.push('기타');      // 구성에는 늘 '기타'(2026-10-26)
   return out;
 }
 

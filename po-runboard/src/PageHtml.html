@@ -1714,6 +1714,15 @@
   .spback .bk.soon em { color: #b26a00; } .spback .bk.late { border-color: #f3c7c3; } .spback .bk.late em { color: var(--late); }
   .gd.plan.pod { border-color: #b26a00; }
   #nsBack { grid-column: 1 / -1; } #nsBack .spback { margin-top: 2px; }
+
+  .polist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .polist li { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; cursor: pointer; }
+  .polist li:hover { border-color: var(--primary); background: var(--primary-soft); }
+  .polist b { display: block; font-size: 13px; } .polist small { color: var(--ink-3); font-size: 11.5px; }
+  .plwrap { max-height: 56vh; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .plrow { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .plrow:hover { background: var(--surface-2); }
+  .plrow b { display: block; font-size: 13px; } .plrow small { color: var(--ink-3); font-size: 11.5px; }
 </style>
 </head>
 <body>
@@ -1880,6 +1889,9 @@
   <section id="view-admin" hidden>
     <h2 class="sec">속도 기록 <span class="sthint">— 화면에서 잰 서버 호출 시간(최근 6시간 · 3초 넘은 건은 시트에도 남김)</span> <button class="btn btn-sm" type="button" id="perfLoad">불러오기</button></h2>
     <div id="perfbox"><div class="empty">[불러오기]를 누르면 함수별 평균 · 최대와 느렸던 호출(서버 단계별 시간)을 봅니다.</div></div>
+    <h2 class="sec">샘플 요청서 · 견적 시트 탭</h2>
+    <p class="sthelp">실행판에서 적은 샘플 요청 정보 · 업체 견적을 시트 <b>_실행판_샘플요청서</b>(프로젝트 1줄) · <b>_실행판_샘플견적</b>(업체 1줄) 탭에 표로 씁니다. 저장할 때마다 자동으로 맞추고, 아래 단추는 지금까지 적은 것 전부를 처음부터 다시 씁니다. (보기용 사본 — 시트에서 고쳐도 실행판에는 안 들어갑니다)
+      <button class="btn btn-sm" type="button" id="svRebuild">시트 탭 다시 만들기</button></p>
     <h2 class="sec">AP 생성 · 발주 DB 보호</h2>
     <div class="apbox" id="apbox"><div class="empty">불러오는 중…</div></div>
     <h2 class="sec">단계 구성</h2>
@@ -5957,7 +5969,9 @@ function dateSlots_(steps, cfg, mode) {
   function sampleOptList(f) {
     var def = sampleDefList(f);
     if (def.length) return def;
-    return sampleSheetVals(f).groups.slice(0, 40).map(function (x) { return x.rep; });
+    var L = sampleSheetVals(f).groups.slice(0, 40).map(function (x) { return x.rep; });
+    if (f === "make" && L.indexOf("기타") < 0) L.push("기타");          // 구성에는 늘 '기타'
+    return L;
   }
   /** 띄어쓰기 · 대소문자 무시 열쇠('CT 샘플' = 'CT샘플') */
   function sampleNormKey(v) { return String(v || "").replace(/\s/g, "").toLowerCase(); }
@@ -6677,16 +6691,21 @@ function dateSlots_(steps, cfg, mode) {
       S.list.forEach(function (x) { if (x.st === "채택") picks.push(String(x.at || "").slice(0, 10)); });
     });
     var firstV = []; V.forEach(function (g) { (g.reqs || []).forEach(function (q) { firstV.push(sIso(q.reqAt)); }); });
-    var B = spBack(R);
+    var B = spBack(R), poAct = { po: "", arr: "" }, PRn = spPoRowsNow() || [], LK = spPoLinks(row);
+    Object.keys(LK).forEach(function (k) {
+      var r = PRn.filter(function (x) { return x.id === k; })[0], od = r ? schIso(r.orderedAt, r) : (LK[k].orderedAt || ""), ar = r ? schIso(r.arrivedAt, r) : "";
+      if (od && (!poAct.po || od < poAct.po)) poAct.po = od; if (ar && (!poAct.arr || ar < poAct.arr)) poAct.arr = ar;
+    });
+    if (Object.keys(LK).length && !PRn.length) schData("po");
     return [
       { t: "요청일", plan: R.reqAt || "", act: minD(reqs) },
       { t: "디자인 사양 확정", plan: R.designAt || "", act: R.designSt === "확정" ? (R.designAt || "") : "", noAct: R.designSt !== "확정" },
       { t: "업체 샘플 요청", plan: B.sreqDue || "", act: minD(firstV), back: !!B.sreqDue },
       { t: "샘플 수신", plan: minD(dues), act: minD(rcv) },
       { t: "최종 업체 선정(채택)", plan: R.pickBy || "", act: minD(picks) },
-      { t: "발주", plan: R.wantPo || B.poDue || "", act: "", noAct: 1, back: !R.wantPo && !!B.poDue },
+      { t: "발주", plan: R.wantPo || B.poDue || "", act: poAct.po, noAct: !poAct.po, back: !R.wantPo && !!B.poDue },
       { t: "양산 완료", plan: R.wantMass || "", act: "", noAct: 1 },
-      { t: "납품(입고)", plan: R.wantIn || B.inDue || "", act: "", noAct: 1, back: !R.wantIn && !!B.inDue },
+      { t: "납품(입고)", plan: R.wantIn || B.inDue || "", act: poAct.arr, noAct: !poAct.arr, back: !R.wantIn && !!B.inDue },
       { t: "출시", plan: R.launch || "", act: "", noAct: 1 }
     ];
   }
@@ -6757,7 +6776,7 @@ function dateSlots_(steps, cfg, mode) {
       card("소싱 · 견적 · 샘플", "qt", kv("견적 업체", Object.keys(Q).length + "곳") + kv("후보 업체", esc(cand.join(" · "))) + kv("최저 단가", lowK ? esc(gOf(lowK)) + " " + won(C[lowK].krw) : "") + kv("선정(채택)", esc(picks.map(function (g) { return g.name; }).join(" · "))) +
         kv("샘플", "진행 " + ((cnt.open || 0) + (cnt.late || 0)) + " · 수신 " + (cnt.rcv || 0) + (cnt.late ? ' · <em class="late">지남 ' + cnt.late + "</em>" : "")) + kv("검토 결과", esc(RV_OPTS.filter(function (o) { return rvC[o]; }).map(function (o) { return o + " " + rvC[o]; }).join(" · "))) +
         (pickC ? kv("선정 업체 단가 · 납기", (pickC.krw != null ? won(pickC.krw) : "—") + " · " + esc(md2(pickC.avail) || "—")) : "")) +
-      "</div>" + sProjMemoBlock(row) + '<div class="spsec">업체별 진행</div>' + sampleBlock(row) +
+      "</div>" + sProjMemoBlock(row) + '<div class="spsec">업체별 진행</div>' + sampleBlock(row) + spPoCard(row) +
       '<div class="spcard"><div class="spch"><b>최근 진행 이력</b><button type="button" class="btn-quiet btn-sm" data-sptab="hist">전체 보기</button></div>' + (function () { var ev = spEvents(row).slice(0, 8); return ev.length ? spEvList(ev) : '<p class="nghelp">기록이 없습니다.</p>'; })() + "</div>";
     return h;
   }
@@ -6908,6 +6927,77 @@ function dateSlots_(steps, cfg, mode) {
   document.addEventListener("change", function (e) { var t = e.target; if (!t || !t.closest || !t.closest("#view-sched")) return; if (t.id === "schBrand") SCH.brand = t.value; if (t.id === "schOwner") SCH.owner = t.value; schedRender(); });
   document.addEventListener("input", function (e) { var t = e.target; if (t && t.id === "schQ") { SCH.q = t.value; clearTimeout(t._t); t._t = setTimeout(function () { schedRender(); var q = $("schQ"); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 250); } });
 
+
+  /* ---------- 샘플 → 발주 연결(프로젝트 완료 때 · 진행 현황에서) — notes['i:po'] = { 발주건ID: {doc, name, batch, code, vendor, orderedAt} } ---------- */
+  function spPoLinks(row) { return sInfo(row, "po"); }
+  function spPoRowsNow() { var d = mode === "po" ? DATA : MODEDATA.po; return d && d.rows ? d.rows : null; }
+  function spPoCard(row) {
+    var L = spPoLinks(row), ks = Object.keys(L), ro = DATA && DATA.canEdit === false, PR = spPoRowsNow() || [];
+    var byId = {}; PR.forEach(function (r) { byId[r.id] = r; });
+    return '<div class="spcard"><div class="spch"><b>연결된 발주 (' + ks.length + ')</b><span class="nghelp">채택 · 완료 뒤 실제 발주건과 연결 — 일정 탭의 발주 · 입고 실제일이 여기서 채워집니다</span>' +
+      (ro ? "" : '<span class="spbtns"><button type="button" class="btn btn-sm" data-polink="1">' + (ks.length ? "발주 연결 고치기" : "+ 발주 연결") + "</button></span>") + "</div>" +
+      (ks.length ? '<ul class="polist">' + ks.map(function (k) {
+        var o = L[k] || {}, r = byId[k];
+        var od = r ? schIso(r.orderedAt, r) : (o.orderedAt || ""), ar = r ? schIso(r.arrivedAt, r, true) : "";
+        return '<li data-pogo="' + esc(k) + '"><b>' + esc((r ? r.name : o.name) || "") + (o.batch || (r && r.batch) ? " " + esc((r && r.batch) || o.batch) : "") + "</b><small>" + esc([(r && r.doc) || o.doc, (r && r.vendor) || o.vendor, od ? "발주 " + md2(od) : "", ar ? "입고 " + md2(ar) : ""].filter(Boolean).join(" · ")) + "</small></li>";
+      }).join("") + "</ul>" : '<p class="nghelp">아직 연결한 발주가 없습니다.</p>') + "</div>";
+  }
+  function spPoLinkOpen(row) {
+    var PR = spPoRowsNow();
+    if (!PR) { schData("po"); toast("발주 목록을 불러오는 중입니다 — 잠시 뒤 다시 눌러 주세요"); return; }
+    var old = $("polinkov"); if (old) old.remove();
+    var L = spPoLinks(row), pick = {}; Object.keys(L).forEach(function (k) { pick[k] = 1; });
+    var picks = (row.vendors || []).filter(function (g) { return g.status === "채택"; }).map(function (g) { return g.name; });
+    var q0 = picks[0] || String(row.name || "").split(/\s+/).slice(0, 2).join(" ");
+    var ov = document.createElement("div"); ov.className = "nsov"; ov.id = "polinkov";
+    ov.innerHTML = '<div class="nsbox" style="width:min(900px,100%)" role="dialog" aria-label="발주 연결"><h3>발주 연결 <span class="nghelp" style="font-weight:400">[' + esc(row.name) + "] 이 샘플에서 이어진 발주건을 고르세요(여러 개 가능)</span></h3>" +
+      '<input type="search" id="plQ" value="' + esc(q0) + '" placeholder="품목명 · 품목코드 · 품의번호 · 업체" style="width:100%;margin:6px 0 8px">' +
+      '<div class="plwrap" id="plList"></div><div class="sebtn"><span class="nghelp" id="plN" style="margin-right:auto"></span><button type="button" class="btn btn-sm" id="plCancel">나중에</button><button type="button" class="btn btn-sm btn-solid" id="plSave">연결 저장</button></div></div>';
+    document.body.appendChild(ov);
+    var draw = function () {
+      var q = String($("plQ").value || "").trim().toLowerCase(), toks = q.split(/[\s*]+/).filter(Boolean);
+      var list = PR.filter(function (r) { if (pick[r.id]) return true; var t = [r.name, r.batch, r.code, r.doc, r.vendor].join(" ").toLowerCase(); return !toks.length || toks.every(function (x) { return t.indexOf(x) > -1; }); })
+        .sort(function (a, b) { return (pick[b.id] ? 1 : 0) - (pick[a.id] ? 1 : 0) || dateNum(b.orderedAt, b) - dateNum(a.orderedAt, a); }).slice(0, 80);
+      $("plList").innerHTML = list.length ? list.map(function (r) {
+        return '<label class="plrow"><input type="checkbox" data-plid="' + esc(r.id) + '"' + (pick[r.id] ? " checked" : "") + "><span><b>" + esc(r.name || "") + (r.batch ? " " + esc(r.batch) : "") + "</b><small>" + esc([r.doc, r.code, r.vendor, r.orderedAt ? "발주 " + r.orderedAt : "", r.qty ? Number(r.qty).toLocaleString() + "개" : ""].filter(Boolean).join(" · ")) + "</small></span></label>";
+      }).join("") : '<p class="nghelp">맞는 발주건이 없습니다 — 검색어를 바꿔 보세요(발주를 아직 안 냈으면 [나중에])</p>';
+      $("plN").textContent = Object.keys(pick).length + "건 고름";
+    };
+    ov.addEventListener("input", function (e) { if (e.target.id === "plQ") draw(); });
+    ov.addEventListener("change", function (e) { var c = e.target.dataset && e.target.dataset.plid; if (c) { if (e.target.checked) pick[c] = 1; else delete pick[c]; $("plN").textContent = Object.keys(pick).length + "건 고름"; } });
+    ov.addEventListener("click", function (e) {
+      if (e.target.id === "plCancel" || ovBackdrop(e, ov)) { ov.remove(); return; }
+      if (e.target.id !== "plSave") return;
+      var byId = {}; PR.forEach(function (r) { byId[r.id] = r; });
+      var sets = [];
+      Object.keys(pick).forEach(function (k) { var r = byId[k], o = L[k] || {}; sets.push({ sub: k, val: r ? { doc: r.doc || "", name: r.name || "", batch: r.batch || "", code: r.code || "", vendor: r.vendor || "", orderedAt: schIso(r.orderedAt, r) } : o }); });
+      Object.keys(L).forEach(function (k) { if (!pick[k]) sets.push({ sub: k, val: null }); });
+      ov.remove();
+      if (!sets.length) return;
+      spInfoSave(row, "po", sets, function (o, er) { if (!er) toast("발주 " + Object.keys(pick).length + "건 연결했습니다"); });
+    });
+    draw(); setTimeout(function () { var i = $("plQ"); if (i) i.focus(); }, 30);
+  }
+  /** 발주건 → 그 발주로 이어진 샘플 프로젝트(샘플 데이터를 받아 둔 경우) */
+  function poSampleOf(poId) {
+    var d = mode === "sample" ? DATA : MODEDATA.sample; if (!d || !d.rows) return [];
+    return d.rows.filter(function (r) { return !!sInfo(r, "po")[poId]; });
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target; if (!t || !t.closest) return;
+    if (t.closest("[data-polink]") && mode === "sample") { var row = rowById(currentId); if (row) spPoLinkOpen(row); return; }
+    var go = t.closest("[data-pogo]");
+    if (go && mode === "sample") { var pid = go.dataset.pogo; navMode("po", function () { if (rowById(pid)) openRun(pid); else toast("그 발주건을 찾지 못했습니다(마감 · 숨김일 수 있음)"); navSync(); }); return; }
+    var sg = t.closest("[data-sampgo]");
+    if (sg) { var sid = sg.dataset.sampgo; navMode("sample", function () { SPTAB = "home"; if (rowById(sid)) openRun(sid); navSync(); }); }
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!e.target || e.target.id !== "svRebuild") return;
+    var b = e.target; b.disabled = true; b.textContent = "만드는 중…";
+    gsr().withSuccessHandler(function (r) { b.disabled = false; b.textContent = "시트 탭 다시 만들기"; toast("요청서 · 견적 탭을 다시 만들었습니다 — 프로젝트 " + ((r && r.n) || 0) + "개"); })
+      .withFailureHandler(function (err) { b.disabled = false; b.textContent = "시트 탭 다시 만들기"; toast("실패: " + err.message); }).apiSampleViewsRebuild();
+  });
   function spRe() { if (!$("view-run").hidden) renderRun(); if (view === "qt") qtPageRender(); }
   // 탭 · 저장 · 입력
   document.addEventListener("click", function (e) {
@@ -7691,6 +7781,7 @@ function dateSlots_(steps, cfg, mode) {
               '<option value="__other">직접 입력…</option>' +
             "</select></span>") +
         (row.reqOwner ? '<span class="tag">요청 ' + esc(row.reqOwner) + "</span>" : "") +
+        (mode === "po" ? poSampleOf(row.id).map(function (sp) { return '<button type="button" class="tag qptag" data-sampgo="' + esc(sp.id) + '" title="이 발주로 이어진 샘플 프로젝트 — 누르면 구매 소싱 관리에서 엽니다">샘플 · ' + esc(sp.name) + "</button>"; }).join("") : "") +
         (row.doc ? '<span class="tag">품의 ' + esc(row.doc) + "</span>" : "") +
         (mode === "po" && row.approvalNo ? '<span class="tag" title="결재문서번호">결재 ' + esc(row.approvalNo) + "</span>" : "") +
         (mode === "po" && row.statusRow && !row.code
@@ -8164,7 +8255,8 @@ function dateSlots_(steps, cfg, mode) {
           .apiSampleBulkSet(undoQ.map(function (q) { return { row: q.row, projKey: row.projKey, exp: sExp(q) }; }), "진행중", todayIso(), "프로젝트 드롭 취소");
       }
       renderRun(); renderBoard();
-      gsr().withSuccessHandler(function (r) { var cur = rowById(ridD); if (cur && r && r.checks) cur.checks = r.checks; renderBoard(); if (currentId === ridD) renderRun(); })
+      gsr().withSuccessHandler(function (r) { var cur = rowById(ridD); if (cur && r && r.checks) cur.checks = r.checks; renderBoard(); if (currentId === ridD) renderRun();
+          if (on && cur && !Object.keys(spPoLinks(cur)).length) { if (spPoRowsNow()) spPoLinkOpen(cur); else { schData("po"); var n0 = 0; (function w() { if (spPoRowsNow()) spPoLinkOpen(cur); else if (n0++ < 60) setTimeout(w, 500); })(); } } })
         .withFailureHandler(function (err) {
           var cur = rowById(ridD);
           if (cur) { cur.checks = cur.checks || {}; if (on) delete cur.checks._done; else { cur.checks._done = wasD.done || todayIso(); if (wasD.drop) cur.checks._drop = wasD.drop; } }
