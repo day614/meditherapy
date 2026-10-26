@@ -530,3 +530,39 @@ function apiSampleProjMemo(projKey, meta, op) {
   });
   return list;
 }
+
+/**
+ * 샘플 프로젝트 정보(GWP 방식, 2026-10-26) — notes['i:'+key] JSON 하나에 칸(sub)별로 합쳐 넣는다.
+ *  key: req = 요청 정보(요청부서 · 목적 · 희망 일정 · 목표 단가 · 사양 …), qt = 업체 견적 비교(sub = 업체키, val = 그 업체 견적 칸들),
+ *       rv = 회차 검토 결과(sub = 샘플ID 또는 r+시트행, val = { res, note, at, by })
+ *  sets = [{ sub, val }] — val 이 null · 빈칸이면 그 칸을 지운다. 칸별로 합치므로 둘이 다른 칸을 고쳐도 서로 덮지 않는다.
+ */
+function apiSampleProjInfo(projKey, meta, key, sets) {
+  requireEditor_();
+  if (['req', 'qt', 'rv'].indexOf(String(key)) < 0) throw new Error('알 수 없는 칸입니다: ' + key);
+  var id = 'p:' + str_(projKey), m = meta || {}, obj = {}, who = me_().split('@')[0];
+  var at = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  m.id = id;
+  editProgress_(id, m, 'sample', function (st) {
+    st.notes = st.notes || {};
+    try { obj = JSON.parse(st.notes['i:' + key] || '{}'); } catch (e) { obj = {}; }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) obj = {};
+    (sets || []).forEach(function (s) {
+      var k = str_(s && s.sub).slice(0, 80);
+      if (!k) return;
+      var v = s.val;
+      if (v == null || v === '') { delete obj[k]; return; }
+      if (typeof v === 'object') {
+        var o = {};
+        Object.keys(v).slice(0, 60).forEach(function (f) { var x = v[f]; if (x != null && x !== '') o[str_(f).slice(0, 40)] = str_(x).slice(0, 1000); });
+        o._at = at; o._by = who;
+        obj[k] = o;
+      } else obj[k] = str_(v).slice(0, 2000);
+    });
+    if (key === 'req') { obj._at = at; obj._by = who; }
+    var j = JSON.stringify(obj);
+    if (j.length > 40000) throw new Error('내용이 너무 깁니다 — 줄여 주세요.');
+    st.notes['i:' + key] = j;
+  });
+  return obj;
+}

@@ -1478,61 +1478,75 @@
   }
   @media (min-width: 1100px) and (prefers-color-scheme: dark) { .listhead .fbtn.late { background: #2a1615; border-color: #5a2a27; } }
 
-  /* ---------- 왼쪽 메뉴(PC 넓은 화면) ---------- */
+  /* ---------- 왼쪽 메뉴: 메뉴 = 페이지(발주 현황 · 샘플 현황 · BOM · 발주잔량 · 네고 · 마감 · 주간보고 · 분석 · 설정) ---------- */
+  .sbnav { display: flex; gap: 2px; }
+  .sbnav button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; border-radius: 8px; padding: 7px 10px;
+    font-size: 13.5px; font-weight: 500; color: var(--ink-2); cursor: pointer; white-space: nowrap; line-height: 1.35; text-align: left; }
+  .sbnav button:hover { background: #eef1f5; color: var(--ink); }
+  .sbnav button.on { background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+  .sbnav button[hidden] { display: none; }
+  .sbnav button::before { content: ""; flex: 0 0 18px; width: 18px; height: 18px; background: currentColor; opacity: .85;
+    -webkit-mask: var(--ic) center / 18px 18px no-repeat; mask: var(--ic) center / 18px 18px no-repeat; }
+  .top #guideBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01'/%3E%3C/svg%3E"); }
+  .top #backTop::before { display: none; }
+  /* 페이지 머리 오른쪽 단추(새 발주 · 빠른 입고 · 상신 대기 / 새 샘플 · 업체 일괄 처리) — 팝업으로 연다 */
+  .phead { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+  .phead .phtx { flex: 1 1 auto; min-width: 0; }
+  .phact { display: flex; gap: 8px; flex-wrap: wrap; }
+  .phact .btn { padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; }
+  .phact .btn-solid::before { content: ""; width: 15px; height: 15px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E") center / 15px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E") center / 15px no-repeat; }
+  .phact #poPendBtn b { background: var(--accent); color: #fff; border-radius: 999px; padding: 0 7px; font-size: 11px; }
+  @media (max-width: 1099px) {
+    .top-in > .sbnav { order: 5; flex-basis: 100%; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    .sbnav .sblabel { display: none; }
+    .sbnav button { padding: 6px 10px; font-size: 13px; }
+    .sbnav button::before { display: none; }
+  }
   @media (min-width: 1100px) {
     body { padding-left: var(--sbw); }
     .top { position: fixed; left: 0; top: 0; bottom: 0; width: var(--sbw); border-bottom: 0; border-right: 1px solid var(--line); background: #fafbfc; overflow-y: auto; overflow-x: hidden; }
     .top-in { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 2px; padding: 16px 12px 14px; min-height: 100%; }
     .top-in > * { flex: 0 0 auto; }
-    .top-in > .tabs { margin-right: 0; }
     .top-in > .hdright { margin-left: 0; }
-    .logo { margin: 0 4px 14px; }
-    .modes { margin: 0 0 12px; border-radius: 10px; }
-    .modes button { flex: 1 1 0; padding: 7px 0; font-size: 13.5px; }
-    .sblabel { display: block; font-size: 11px; font-weight: 600; color: var(--ink-3); padding: 10px 10px 4px; }
+    .logo { margin: 0 4px 10px; }
+    .sbnav { flex-direction: column; }
+    .sblabel { display: block; font-size: 11px; font-weight: 600; color: var(--ink-3); padding: 12px 10px 4px; }
     .sbfoot-sep { display: block; flex: 1 1 auto; min-height: 16px; }
-    .tabs { flex-direction: column; background: none; border: 0; padding: 0; gap: 2px; border-radius: 0; }
-    .tabs button, .top-in > .btn { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: transparent;
-      border-radius: 8px; padding: 8px 10px; font-size: 13.5px; font-weight: 500; color: var(--ink-2); line-height: 1.35; }
-    .tabs button:hover, .top-in > .btn:hover { background: #eef1f5; color: var(--ink); }
-    .tabs button[aria-selected="true"] { background: var(--primary-soft); color: var(--primary); font-weight: 700; }
-    .tabs button::before, .top-in > .btn::before { content: ""; flex: 0 0 18px; width: 18px; height: 18px; background: currentColor;
-      -webkit-mask: var(--ic) center / 18px 18px no-repeat; mask: var(--ic) center / 18px 18px no-repeat; opacity: .85; }
-    .tabs button[hidden], .top-in > .btn[hidden] { display: none; }
-    .top-in > #newOrder, .top-in > #newSample { background: var(--primary); color: #fff; font-weight: 700; margin: 2px 0 6px; }
-    .top-in > #newOrder:hover, .top-in > #newSample:hover { background: var(--primary-2); color: #fff; }
+    .top-in > .btn { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: transparent;
+      border-radius: 8px; padding: 7px 10px; font-size: 13.5px; font-weight: 500; color: var(--ink-2); line-height: 1.35; }
+    .top-in > .btn:hover { background: #eef1f5; color: var(--ink); }
+    .top-in > .btn[hidden] { display: none; }
+    .top-in > #guideBtn::before { content: ""; flex: 0 0 18px; width: 18px; height: 18px; background: currentColor; opacity: .85;
+      -webkit-mask: var(--ic) center / 18px 18px no-repeat; mask: var(--ic) center / 18px 18px no-repeat; }
     .top-in > #backTop { background: var(--surface); border: 1px solid var(--line); margin-bottom: 8px; }
-    .top-in > #backTop::before { display: none; }
-    .top-in > #poPendBtn b { margin-left: auto; background: var(--accent); color: #fff; border-radius: 999px; padding: 0 7px; font-size: 11px; }
-    .bellbtn { justify-content: flex-start; }
-    .top-in > .bellbtn::before { display: none; }
-    .bellbtn b { position: static; margin-left: auto; }
+    .bellbtn b { position: static; margin-left: auto; order: 2; }
     .bellbtn::after { content: "기한 알림"; font-size: 13.5px; }
-    .bellbtn b { order: 2; }
     .who { padding: 10px 10px 0; border-top: 1px solid var(--line); margin-top: 8px; font-size: 11.5px; word-break: break-all; }
-    body.drawer-open .totop { right: calc(var(--drawer-w) + 16px); }
     main { padding: 22px 28px 16px; }
+    /* 메뉴 페이지(BOM · 발주잔량 · 네고 실적 · 주간보고): 팝업 대신 왼쪽 메뉴 옆 본문 자리에 */
+    #bomv, #rem, #nego, #wkrep, #nsov { left: var(--sbw) !important; background: var(--ground) !important; padding: 16px 20px !important;
+      align-items: stretch !important; justify-content: stretch !important; overflow: auto; }
+    #nsov > .nsbox { width: min(980px, 100%) !important; max-width: none !important; margin: 0 auto !important; box-shadow: none !important; border: 1px solid var(--line) !important; border-radius: 12px !important; padding: 22px 26px !important; align-self: flex-start; }
+    #bomv > .ngbox, #rem > .qin-box, #nego > .qin-box, #wkrep > .nsbox { width: 100% !important; max-width: none !important; max-height: none !important;
+      min-height: 100%; margin: 0 !important; box-shadow: none !important; border: 1px solid var(--line) !important; border-radius: 12px !important; }
   }
   @media (min-width: 1100px) and (prefers-color-scheme: dark) {
     .top { background: var(--surface); }
-    .tabs button:hover, .top-in > .btn:hover { background: var(--surface-2); }
+    .sbnav button:hover, .top-in > .btn:hover { background: var(--surface-2); }
   }
-  .top [data-view="board"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1'/%3E%3C/svg%3E"); }
-  .top [data-view="stats"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='M7 15l4-4 3 3 5-6'/%3E%3C/svg%3E"); }
-  .top [data-view="close"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18M8 15l2 2 4-4'/%3E%3C/svg%3E"); }
-  .top [data-view="admin"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'/%3E%3C/svg%3E"); }
-  .top #newOrder { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpath d='M14 3v6h6M12 12v6M9 15h6'/%3E%3C/svg%3E"); }
-  .top #newSample { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpath d='M14 3v6h6M12 12v6M9 15h6'/%3E%3C/svg%3E"); }
-  .top #bomView { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2 2 7l10 5 10-5-10-5z'/%3E%3Cpath d='m2 17 10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E"); }
-  .top #quickIn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 8v13H3V8'/%3E%3Cpath d='M1 3h22v5H1zM10 12h4'/%3E%3C/svg%3E"); }
-  .top #remBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2'/%3E%3Crect x='9' y='3' width='6' height='4' rx='1'/%3E%3Cpath d='M9 12h6M9 16h4'/%3E%3C/svg%3E"); }
-  .top #negoBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/%3E%3C/svg%3E"); }
-  .top #poPendBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2 11 13M22 2l-7 20-4-9-9-4z'/%3E%3C/svg%3E"); }
-  .top #wkBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6M8 13h8M8 17h5'/%3E%3C/svg%3E"); }
-  .top #sampleBulkV { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8'/%3E%3C/svg%3E"); }
-  .top #guideBtn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01'/%3E%3C/svg%3E"); }
-  .top #backTop { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 12H5M12 19l-7-7 7-7'/%3E%3C/svg%3E"); }
-
+  .sbnav [data-nav="sched"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18M7 14h6M10 18h7'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="snew"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpath d='M14 3v6h6M12 12v6M9 15h6'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="qt"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v18M5 21h14M3 7h18M6 7l-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="sround"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 6h11M10 12h11M10 18h11'/%3E%3Cpath d='m3 6 1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="po"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="sample"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3'/%3E%3Cpath d='M7 15h10'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="bom"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2 2 7l10 5 10-5-10-5z'/%3E%3Cpath d='m2 17 10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="rem"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2'/%3E%3Crect x='9' y='3' width='6' height='4' rx='1'/%3E%3Cpath d='M9 12h6M9 16h4'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="nego"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="close"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18M8 15l2 2 4-4'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="wk"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6M8 13h8M8 17h5'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="stats"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='M7 15l4-4 3 3 5-6'/%3E%3C/svg%3E"); }
+  .sbnav [data-nav="admin"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'/%3E%3C/svg%3E"); }
   /* ---------- 샘플 진행 관리: 상태 칩 · 보기 전환 · 업체 · 차수 표 ---------- */
   .sstrip { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; margin: 0 0 12px; }
   .svtog { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
@@ -1589,6 +1603,93 @@
   .spkpi em.late { color: var(--late); }
   .spkpi small { display: block; font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   @media (max-width: 760px) { .spkpi { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; } .spkpi > div:nth-child(odd) { border-left: 0; padding-left: 2px; } .spkpi .wide { grid-column: 1 / -1; } .stepper li span { font-size: 10px; } }
+
+  /* ---------- 샘플 상세 탭 · 카드(GWP 프로젝트 상세) ---------- */
+  .sptabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 0 0 14px; overflow-x: auto; scrollbar-width: none; position: sticky; top: -46px; z-index: 5; background: var(--surface); padding-top: 4px; }
+  .sptabs button { border: 0; background: none; padding: 9px 14px; font-size: 13.5px; color: var(--ink-3); cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 500; }
+  .sptabs button:hover { color: var(--ink); }
+  .sptabs button[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; }
+  .sptabs button em { font-style: normal; font-size: 11px; background: var(--surface-2); border-radius: 999px; padding: 0 6px; margin-left: 3px; color: var(--ink-3); }
+  .spcard { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 14px 16px; margin: 0 0 14px; }
+  .spch { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .spch b { font-size: 14px; }
+  .spch .btn-quiet { margin-left: auto; color: var(--primary); }
+  .spch .spbtns { margin-left: auto; display: flex; gap: 6px; }
+  .spsec { font-size: 13px; font-weight: 700; margin: 4px 0 8px; }
+  .sphome { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 2px; }
+  .sphome .spcard { margin-bottom: 12px; }
+  @media (max-width: 900px) { .sphome { grid-template-columns: 1fr; } }
+  .spkv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+  .spkv span { display: block; font-size: 11px; color: var(--ink-3); }
+  .spkv b { display: block; font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+  .spkv em.late { color: var(--late); font-style: normal; }
+  .spgrp { font-size: 12px; font-weight: 700; color: var(--ink-2); margin: 14px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  .spgrp:first-of-type { margin-top: 0; }
+  .spform { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; }
+  .spform label { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .spform label.wide { grid-column: 1 / -1; }
+  .spform label span { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+  .spform input, .spform select, .spform textarea { border: 1px solid var(--line-strong); border-radius: 8px; padding: 7px 10px; font-size: 13.5px; background: var(--surface); min-width: 0; width: 100%; }
+  .spform textarea { resize: vertical; }
+  @media (max-width: 760px) { .spform { grid-template-columns: 1fr 1fr; } }
+  .spfoot { display: flex; align-items: center; gap: 8px; justify-content: flex-end; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .spfoot .nghelp { margin-right: auto; }
+  .qtwrap { overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table.qtab { min-width: 0; width: max-content; min-width: 100%; table-layout: auto; font-size: 13px; border-collapse: collapse; }
+  .qtab th, .qtab td { padding: 7px 12px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); min-width: 170px; vertical-align: middle; position: static; }
+  .qtab thead th { background: #f3f6fa; color: var(--ink); font-size: 13px; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+  .qtab thead th small { color: var(--ink-3); font-weight: 500; margin-right: 4px; }
+  .qtab .qtl { position: sticky; left: 0; background: var(--surface-2); min-width: 150px; color: var(--ink-2); font-size: 12px; border-left: 0; z-index: 1; }
+  .qtab tr.qtg td { background: var(--surface-2); font-size: 11.5px; font-weight: 700; color: var(--primary); padding: 5px 12px; }
+  .qtab tbody tr { cursor: default; }
+  .qtab tbody tr:hover td { background: inherit; }
+  .qtab td input, .qtab td select { width: 100%; border: 1px solid var(--line-strong); border-radius: 6px; padding: 4px 7px; font-size: 13px; background: var(--surface); }
+  .qtab .qoff { color: var(--ink-3); background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(0,0,0,.025) 6px 12px); }
+  .qbest { display: inline-block; font-size: 10.5px; font-weight: 700; color: #1c6b41; background: #e5f4ec; border-radius: 999px; padding: 0 7px; margin-left: 4px; }
+  .qgood { color: #1c6b41; font-weight: 600; } .qbad { color: var(--late); font-weight: 600; } .qmid { color: #b26a00; font-weight: 600; }
+  .qst { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 6px; padding: 1px 8px; }
+  .qst.qr { background: var(--primary); color: #fff; } .qst.qc { background: #e5f4ec; color: #1c6b41; } .qst.qx { background: var(--surface-sunk); color: var(--ink-3); }
+  .qtpick { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; }
+  .qtpick select { flex: 0 1 720px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; height: 36px; padding: 0 10px; background: var(--surface); font-size: 13.5px; }
+  .rvsel { font-size: 11.5px; border: 1px solid var(--line-strong); border-radius: 6px; padding: 1px 4px; margin-left: 4px; background: var(--surface); max-width: 110px; }
+  .rvsel.qgood { border-color: #9fd3b4; background: #e5f4ec; } .rvsel.qbad { border-color: #f3c7c3; background: #fdecea; } .rvsel.qmid { border-color: #f1d49a; background: #fff6e0; }
+  .rvtag { font-size: 11.5px; margin-left: 4px; }
+  /* 간트(일정) */
+  .gantt { font-size: 12.5px; }
+  .grow { display: grid; grid-template-columns: 210px minmax(0, 1fr) 150px; align-items: center; border-bottom: 1px solid var(--line); min-height: 40px; }
+  .grow.ghead { min-height: 30px; color: var(--ink-3); font-size: 11.5px; }
+  .grow .gl { padding: 4px 8px 4px 0; min-width: 0; }
+  .grow .gl b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grow .gl small { display: block; color: var(--ink-3); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grow .gt { position: relative; height: 40px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+  .grow.ghead .gt { height: 30px; }
+  .grow .gs { padding-left: 10px; font-size: 12px; }
+  .gm { position: absolute; top: 7px; font-style: normal; font-size: 11px; color: var(--ink-3); border-left: 1px dashed var(--line-strong); padding-left: 4px; height: 100%; }
+  .gtoday { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid #e5484d; opacity: .7; }
+  .gbar { position: absolute; top: 15px; height: 10px; border-radius: 5px; background: #cfdcea; }
+  .gbar.late { background: #f6cfcc; }
+  .gd { position: absolute; top: 20px; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; transform: rotate(45deg); }
+  .gd.plan { border: 2px solid var(--primary); background: var(--surface); }
+  .gd.plan.late { border-color: #e5484d; }
+  .gd.act { background: var(--primary); }
+  .gd.po { background: var(--primary); }
+  .gd.eta { transform: none; border-radius: 50%; background: #2f8fd8; border: 2px solid var(--surface); width: 12px; height: 12px; margin: -6px 0 0 -6px; }
+  .gd.eta.late { background: #e5484d; }
+  .gd.arr { transform: none; background: #1c6b41; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 2px; }
+  .gclick { cursor: pointer; } .gclick:hover { background: var(--surface-2); }
+  .gpo { max-height: calc(100vh - 330px); overflow-y: auto; }
+  @media (max-width: 760px) { .grow { grid-template-columns: 120px minmax(0, 1fr) 84px; } }
+  table.schlate td.schmemo { max-width: 360px; white-space: normal; font-size: 12.5px; color: var(--ink-2); }
+  .pgview { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-bottom: 40px; }
+  .schf { margin-bottom: 12px; }
+  /* 이력 */
+  .evl { list-style: none; margin: 0; padding: 0 0 0 4px; }
+  .evl li { position: relative; padding: 0 0 12px 20px; border-left: 2px solid var(--line); margin-left: 5px; }
+  .evl li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .evl li::before { content: ""; position: absolute; left: -7px; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--primary); border: 2px solid var(--surface); }
+  .evl li.ev-ok::before { background: #1c9d5b; } .evl li.ev-rcv::before { background: #6a3fb0; } .evl li.ev-off::before { background: var(--ink-3); } .evl li.ev-rv::before { background: #d08a00; } .evl li.ev-qt::before { background: #2f8fd8; } .evl li.ev-memo::before { background: #8b95a1; }
+  .evl b { display: block; font-size: 13px; font-weight: 600; }
+  .evl small { display: block; font-size: 11.5px; color: var(--ink-3); }
 </style>
 </head>
 <body>
@@ -1601,11 +1702,31 @@
       <span class="ltx"><b>발주 실행판</b>
       <span>SCM 구매팀 · 발주 · 샘플 통합</span></span>
     </div>
+    <nav class="sbnav" id="sbnav" aria-label="메뉴">
+      <div class="sblabel">발주</div>
+      <button type="button" data-nav="po">발주 및 입고 관리</button>
+      <button type="button" data-nav="sched">전체 일정 관리</button>
+      <div class="sblabel">샘플</div>
+      <button type="button" data-nav="snew">신규 제작 요청</button>
+      <button type="button" data-nav="sample">구매 소싱 관리</button>
+      <button type="button" data-nav="qt">업체 견적 비교</button>
+      <button type="button" data-nav="sround">샘플 진행 관리</button>
+      <div class="sblabel">관리</div>
+      <button type="button" data-nav="bom">BOM 관리</button>
+      <button type="button" data-nav="rem">발주잔량</button>
+      <button type="button" data-nav="nego">네고 실적</button>
+      <button type="button" data-nav="close">월 마감</button>
+      <div class="sblabel">보고 · 분석</div>
+      <button type="button" data-nav="wk">주간보고</button>
+      <button type="button" data-nav="stats" hidden>분석</button>
+      <button type="button" data-nav="admin" hidden>설정</button>
+    </nav>
+    <!-- 예전 머리 단추(발주/샘플 · 탭 · 작업 단추)는 숨겨 두고 왼쪽 메뉴가 대신 누른다 — 기능 · 단축키는 그대로 -->
+    <div class="legacynav" hidden>
     <div class="modes" role="group" aria-label="업무 구분">
       <button type="button" data-mode="po" aria-pressed="true">발주</button>
       <button type="button" data-mode="sample" aria-pressed="false">샘플</button>
     </div>
-    <div class="sblabel">메뉴</div>
     <div class="tabs" role="tablist">
       <button type="button" role="tab" data-view="board" aria-selected="true">현황</button>
       <button type="button" role="tab" data-view="stats" aria-selected="false" id="tab-stats" hidden title="관리자만 보입니다">분석</button>
@@ -1613,16 +1734,11 @@
       <button type="button" role="tab" data-view="admin" aria-selected="false" id="tab-admin" hidden>설정</button>
     </div>
     <!-- 머리 단추(발주 · 샘플 같은 자리): [새 ○○] [BOM 보기] [탭별 단추] … 오른쪽 [가이드] [🔔] — 새로고침 단추는 없앰(자동으로 다시 읽음) -->
-    <div class="sblabel">작업</div>
-    <button class="btn btn-sm btn-solid" type="button" id="newOrder" title="새 발주건을 등록합니다. 발주 DB에 바로 올라갑니다">새 발주</button>
-    <button class="btn btn-sm btn-solid" type="button" id="newSample" hidden title="새 샘플 프로젝트를 등록합니다. _실행판_샘플 시트에 줄이 하나 붙습니다">새 샘플</button>
     <button class="btn btn-sm" type="button" id="bomView" title="품목을 검색해 BOM 구성을 봅니다">BOM 보기</button>
-    <button class="btn btn-sm" type="button" id="quickIn" title="입고를 빠르게 기록합니다 (단축키 I)">빠른 입고</button>
     <button class="btn btn-sm" type="button" id="remBtn" title="품목별 발주잔량을 봅니다 · 엑셀로 받을 수 있습니다">발주잔량</button>
     <button class="btn btn-sm" type="button" id="negoBtn" title="BOM 차수가 바뀔 때 원가가 준 만큼 × 연간 발주량 = 절감액(네고 실적) · 엑셀로 받기">네고 실적</button>
-    <button class="btn btn-sm" type="button" id="poPendBtn" hidden title="품의서를 내려받고 아직 상신 완료하지 않은 품의 — 아마란스에 올린 뒤 결재문서번호를 넣어 상신 완료">상신 대기 <b id="poPendN">0</b></button>
     <button class="btn btn-sm" type="button" id="wkBtn" title="주간보고 — 지난 금요일 ~ 이번 목요일 실행판 기록으로 채운 보고서 · 엑셀로 받기">주간보고</button>
-    <button class="btn btn-sm" type="button" id="sampleBulkV" hidden title="여러 프로젝트에 걸친 같은 업체 샘플을 한 번에 수신 · 드롭 처리합니다">업체 일괄 처리</button>
+    </div>
     <div class="sbfoot-sep" aria-hidden="true"></div>
     <button class="btn btn-sm hdright" type="button" id="guideBtn" title="사용 가이드">가이드</button>
     <button class="btn btn-sm bellbtn" type="button" id="bellBtn" title="기한 알림 — 1주 안에 받아야 할 발주 · 샘플과 기한 지난 것">🔔<b id="bellN" hidden></b></button>
@@ -1636,7 +1752,14 @@
   <!-- ============ 현황 ============ -->
   <section id="view-board" hidden>
     <div class="boardhead">
-    <div class="phead"><h1 id="phT">발주 현황</h1><p id="phS">발주건별 생산 · 입고 진행과 담당자별 처리 현황</p></div>
+    <div class="phead"><div class="phtx"><h1 id="phT">발주 현황</h1><p id="phS">발주건별 생산 · 입고 진행과 담당자별 처리 현황</p></div>
+      <div class="phact">
+        <button class="btn btn-sm btn-solid" type="button" id="newOrder" title="새 발주건을 등록합니다. 발주 DB에 바로 올라갑니다">새 발주</button>
+        <button class="btn btn-sm" type="button" id="quickIn" title="입고를 빠르게 기록합니다 (단축키 I)">빠른 입고</button>
+        <button class="btn btn-sm" type="button" id="poPendBtn" hidden title="품의서를 내려받고 아직 상신 완료하지 않은 품의 — 아마란스에 올린 뒤 결재문서번호를 넣어 상신 완료">상신 대기 <b id="poPendN">0</b></button>
+        <button class="btn btn-sm btn-solid" type="button" id="newSample" hidden title="새 샘플 프로젝트를 등록합니다. _실행판_샘플 시트에 줄이 하나 붙습니다">새 샘플</button>
+        <button class="btn btn-sm" type="button" id="sampleBulkV" hidden title="여러 프로젝트에 걸친 같은 업체 샘플을 한 번에 수신 · 드롭 처리합니다">업체 일괄 처리</button>
+      </div></div>
     <h2 class="sec" id="ownersTitle">담당자별 진행</h2>
     <div class="ownrow">
       <div class="owners" id="owners"></div>
@@ -1705,6 +1828,9 @@
   <!-- ============ 관리자 ============ -->
   <div id="sttip" hidden></div>
   <!-- ============ 분석(관리자만) ============ -->
+  <!-- ============ 전체 일정 관리(발주) · 업체 견적 비교(샘플) — 왼쪽 메뉴 페이지 ============ -->
+  <section id="view-sched" class="pgview" hidden></section>
+  <section id="view-qt" class="pgview" hidden></section>
   <section id="view-stats" hidden>
     <div class="stbar">
       <label>기간 <select id="st-from"></select> ~ <select id="st-to"></select> <span class="stq" data-tip="고른 기준(입고 월 · 처음 예정 월)이 이 기간(월) 안인 건만 판정합니다. 아직 예정일 전인 건은 빠집니다.">?</span></label>
@@ -3380,7 +3506,7 @@ function dateSlots_(steps, cfg, mode) {
     }
     if (view === "close" && v !== "close" && typeof clDirty === "function" && clDirty() && !confirm("저장하지 않은 마감 줄이 있습니다. 버리고 이동할까요?")) return;
     view = v;
-    ["board", "admin", "stats", "close"].forEach(function (k) {
+    ["board", "admin", "stats", "close", "sched", "qt"].forEach(function (k) {
       var el = $("view-" + k);
       if (el) el.hidden = k !== v;
     });
@@ -3391,6 +3517,9 @@ function dateSlots_(steps, cfg, mode) {
     if (v === "admin") { renderAdmin(); scrollTo_(0); }
     if (v === "stats") stLoad(false);
     if (v === "close") clOpen();
+    if (v === "sched") schedRender();
+    if (v === "qt") qtPageRender();
+    if (typeof navSync === "function") navSync();
   }
 
   /** 오른쪽 패널로 발주건 열기 — 현황은 그대로 보인다. */
@@ -3662,6 +3791,76 @@ function dateSlots_(steps, cfg, mode) {
       })
       .apiBootstrap(false, m);
   }
+
+  /* ------------------------------------------------------------------
+     왼쪽 메뉴(2026-10-26) — 메뉴 하나 = 페이지 하나.
+     발주 현황 · 샘플 현황 = 현황 화면(새 발주 · 빠른 입고 · 새 샘플 등은 그 페이지 안 단추 → 팝업)
+     BOM · 발주잔량 · 네고 실적 · 주간보고 = 본문 자리에 페이지로(PC). 월 마감 · 분석 · 설정 = 예전 탭
+     예전 머리 단추(.modes · .tabs · #bomView …)는 숨겨 두고 그대로 눌러 쓴다 — 기능 · 단축키는 그대로
+     ------------------------------------------------------------------ */
+  var NAV_PAGE = {
+    bom: { el: "bomv", btn: "bomView", close: "bomv-close" }, rem: { el: "rem", btn: "remBtn", close: "rem-close" },
+    nego: { el: "nego", btn: "negoBtn", close: "nego-close" }, wk: { el: "wkrep", btn: "wkBtn", close: "wk-close" }
+  };
+  function navWide() { return window.matchMedia && window.matchMedia("(min-width: 1100px)").matches; }
+  function navPageOpen() { for (var k in NAV_PAGE) { var el = $(NAV_PAGE[k].el); if (el && !el.hidden) return k; } return ""; }
+  /** 열린 메뉴 페이지를 닫는다(저장 안 한 것 묻기는 각 페이지 [닫기]가 한다). 못 닫았으면(취소) false */
+  function navClosePages(except) {
+    for (var k in NAV_PAGE) {
+      if (k === except) continue;
+      var el = $(NAV_PAGE[k].el);
+      if (!el || el.hidden) continue;
+      var c = el.querySelector("#" + NAV_PAGE[k].close); if (c) c.click();
+      el = $(NAV_PAGE[k].el);
+      if (el && !el.hidden && document.body.contains(el)) return false;
+    }
+    return true;
+  }
+  function navSync() {
+    var nav = $("sbnav"); if (!nav) return;
+    var pg = navPageOpen() || ($("nsov") ? "snew" : ""), cur = pg || (view === "board" ? (mode === "sample" ? (SVIEW === "round" ? "sround" : "sample") : "po") : view);
+    nav.querySelectorAll("button[data-nav]").forEach(function (b) { b.classList.toggle("on", b.dataset.nav === cur); });
+    var ts = $("tab-stats"), ta = $("tab-admin");
+    nav.querySelector('[data-nav="stats"]').hidden = !ts || ts.hidden;
+    nav.querySelector('[data-nav="admin"]').hidden = !ta || ta.hidden;
+  }
+  /** 발주 ↔ 샘플을 넘긴 뒤(불러오기 끝나면) then */
+  function navMode(m, then) {
+    if (mode !== m) { var mb = document.querySelector('.modes button[data-mode="' + m + '"]'); if (mb) mb.click(); }
+    var n = 0; (function w() { if (mode === m && $("loading").hidden && DATA && DATA.rows) then(); else if (n++ < 100) setTimeout(w, 120); })();
+  }
+  $("sbnav").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-nav]"); if (!b) return;
+    var k = b.dataset.nav;
+    if (NAV_PAGE[k]) {
+      if (navPageOpen() === k) return;
+      if (!navClosePages(k)) return;
+      $(NAV_PAGE[k].btn).click(); navSync(); return;
+    }
+    if (!navClosePages("")) return;
+    if (k === "po") return navMode("po", function () { if (view !== "board") setView("board"); navSync(); });
+    if (k === "sched") return navMode("po", function () { setView("sched"); });
+    if (k === "stats") return navMode("po", function () { setView("stats"); });
+    if (k === "sample" || k === "sround") return navMode("sample", function () {
+      SVIEW = k === "sround" ? "round" : "proj"; if (SVIEW === "proj") SVST = "";
+      try { localStorage.setItem("rb.sview", SVIEW); } catch (e1) { /* 넘어간다 */ }
+      if (view !== "board") setView("board"); else renderBoard(); navSync();
+    });
+    if (k === "qt") return navMode("sample", function () { setView("qt"); });
+    if (k === "snew") return navMode("sample", function () { if (view !== "board") setView("board"); if (!$("nsov")) $("newSample").click(); navSync(); });
+    setView(k); navSync();
+  });
+  // 페이지가 열리고 닫히는 걸 따라 메뉴 표시를 맞춘다(BOM 은 발주 상세 · 배지에서도 열린다)
+  (function () {
+    var mo = new MutationObserver(function () { clearTimeout(mo._t); mo._t = setTimeout(navSync, 30); });
+    mo.observe(document.body, { childList: true });
+    ["bomv", "rem", "nego", "tab-stats", "tab-admin"].forEach(function (id) { var el = $(id); if (el) mo.observe(el, { attributes: true, attributeFilter: ["hidden"] }); });
+    // PC 페이지 모드: 바깥(배경) 누름으로 페이지가 닫히지 않게
+    ["bomv", "rem", "nego"].forEach(function (id) {
+      var el = $(id); if (!el) return;
+      ["mousedown", "click"].forEach(function (ev) { el.addEventListener(ev, function (e) { if (e.target === el && navWide()) e.stopImmediatePropagation(); }, true); });
+    });
+  })();
 
   document.querySelector(".tabs").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-view]");
@@ -4221,7 +4420,7 @@ function dateSlots_(steps, cfg, mode) {
     poPendShow();
 
     if ($("newSample")) $("newSample").hidden = mode !== "sample";
-    if ($("phT")) { $("phT").textContent = mode === "sample" ? "샘플 진행 관리" : "발주 현황"; $("phS").textContent = mode === "sample" ? "업체별 샘플 요청 · 제작 · 수신 · 채택 현황 — 프로젝트별 또는 업체 · 차수별로 봅니다" : "발주건별 생산 · 입고 진행과 담당자별 처리 현황"; }
+    phSync();
     if ($("sampleBulkV")) $("sampleBulkV").hidden = mode !== "sample";
     var extra = mode === "sample"
       ? thc("브랜드", "brand") + thc("구분", "kind") + thc("업체", "vendor") + thc("수량", "qty", "num")
@@ -5582,7 +5781,7 @@ function dateSlots_(steps, cfg, mode) {
     if (DATA && DATA.canEdit === false) { toast("보기 전용 계정입니다"); return; }
     var ov = document.createElement("div");
     ov.className = "nsov"; ov.id = "nsov";
-    ov.innerHTML = '<div class="nsbox" role="dialog" aria-label="새 샘플 등록"><h3>새 샘플 프로젝트</h3><div class="sedit">' +
+    ov.innerHTML = '<div class="nsbox" role="dialog" aria-label="새 샘플 등록"><h3>신규 제작 요청 <span class="nghelp" style="font-weight:400">새 샘플 프로젝트 — 등록 뒤 상세 [요청 정보] 탭에 요청부서 · 목적 · 희망 일정 · 목표 단가 · 사양을 적습니다</span></h3><div class="sedit">' +
       NS_F.map(function (x) { return seField(x[0], x[1], pre && pre[x[0]] != null ? pre[x[0]] : (x[0] === "reqAt" ? todayIso() : ""), "ns-"); }).join("") +
       sampleOpts("sqMakeL", "make") + sampleOpts("sqSpecL", "spec") + sampleOpts("sqKindL", "kind") + sampleOpts("sqOwnerL", "owner") + sampleOpts("sqVendorL", "vendor") + sampleOpts("sqBrandL", "brand") +
       '<div class="sebtn"><button type="button" class="btn-quiet btn-sm" id="nsList" style="margin-right:auto" title="구성 · 사양 · 구분 칸에서 고를 목록을 직접 정합니다">구성 · 사양 · 구분 목록 고치기</button><button type="button" class="btn btn-sm" id="nsCancel">취소</button><button type="button" class="btn btn-sm btn-solid" id="nsSave">시트에 등록</button></div></div>' +
@@ -5779,7 +5978,7 @@ function dateSlots_(steps, cfg, mode) {
   /** 창 바깥(어두운 배경)을 눌러 닫기 — 누르기 시작한 곳도 배경일 때만. 칸 안에서 글자를 끌어 고르다 바깥에서 놓으면 닫혀 입력이 사라졌다 */
   var MD_T = null;
   document.addEventListener("mousedown", function (e) { MD_T = e.target; }, true);
-  function ovBackdrop(e, ov) { return e.target === ov && MD_T === ov; }
+  function ovBackdrop(e, ov) { if (ov && (ov.id === "wkrep" || ov.id === "nsov") && window.matchMedia && window.matchMedia("(min-width: 1100px)").matches) return false; return e.target === ov && MD_T === ov; }
   /** 시트 줄 확인용 — 서버가 그 행이 아직 이 업체 · 요청일 줄인지 본다(정렬 · 회차 삭제 뒤 옆 회차에 쓰지 않게) */
   /** 샘플 일괄 상태 저장 결과 — 시트 줄이 바뀌어 건너뛴 줄이 있으면 알리고 다시 읽는다(말없이 '처리됨'처럼 보이지 않게) */
   function sBulkDone(what) {
@@ -5975,7 +6174,7 @@ function dateSlots_(steps, cfg, mode) {
   function sampleRcvBox(q, iso) {
     var d = iso(q.doneAt), h = '<span class="tlrcvbox">';
 
-    if (d) h += '<span class="rcvd" title="' + d + ' 수신 — 아래 수신 줄에서 취소">✓ 수신</span>';
+    if (d) h += '<span class="rcvd" title="' + d + ' 수신 — 아래 수신 줄에서 취소">✓ 수신</span>' + rvBox(q);
     else if (SAMPLE_OFF[q.status]) h += '<button type="button" class="rcvx" data-sundrop="' + q.row + '" title="이 샘플 ' + esc(q.status) + '을 취소하고 진행중으로">✕ ' + esc(q.status) + " 취소</button>";
     else if (RCVEDIT === q.row) h += '<input type="date" data-rcvdate="' + q.row + '" value="' + todayIso() + '"><button type="button" class="btn btn-sm btn-solid" data-rcvok="' + q.row + '">확인</button><button type="button" class="btn-quiet btn-sm" data-rcvno="1">취소</button>';
     else h += '<button type="button" class="btn btn-sm" data-rcv="' + q.row + '" title="이 회차 샘플을 받았으면 — 수신일을 넣고 상태를 수신으로">수신</button>' +
@@ -6099,7 +6298,18 @@ function dateSlots_(steps, cfg, mode) {
     return out;
   }
   function svBucketOf(k) { return SV_BUCKETS.filter(function (x) { return x.k === k; })[0] || SV_BUCKETS[1]; }
+  function phSync() {
+    if (!$("phT")) return;
+    var sm = mode === "sample", rd = sm && SVIEW === "round";
+    $("phT").textContent = !sm ? "발주 및 입고 관리" : rd ? "샘플 진행 관리" : "구매 소싱 관리";
+    $("phS").textContent = !sm ? "발주건별 생산 · 입고 진행과 담당자별 처리 현황 — 새 발주 · 빠른 입고는 오른쪽 단추"
+      : rd ? "업체 · 차수(샘플 요청 한 번)별 요청 · 기한 · 수신 · 검토 결과 — 상태 칩으로 골라 보기"
+      : "샘플 프로젝트(품목)별 소싱 업체 · 다음 기한 — 줄을 누르면 단계 · 업체별 진행 · 이력";
+  }
   function sampleViewSync(rows) {
+    phSync();
+    if (view === "sched" && mode === "po" && !(document.activeElement && document.activeElement.id === "schQ")) setTimeout(schedRender, 0);
+    if (view === "qt" && !QTEDIT && typeof qtPageRender === "function") setTimeout(qtPageRender, 0);
     var on = mode === "sample";
     var strip = $("sstrip"), wrap = $("svWrap"), main = document.querySelector(".tablewrap");
     if (!strip || !wrap) return;
@@ -6135,7 +6345,7 @@ function dateSlots_(steps, cfg, mode) {
       return '<tr data-svid="' + esc(x.r.id) + '" data-svv="' + esc(x.g.name) + '" class="' + (x.b === "late" ? "laterow" : "") + (x.b === "off" ? " svdim" : "") + '">' +
         '<td class="cell-name">' + (x.r.brand ? '<span class="brtag">' + esc(x.r.brand) + "</span> " : "") + esc(x.r.name || "") + "</td>" +
         '<td class="swrap"><b>' + esc(x.g.name) + '</b> <span class="nsub">· ' + esc(R.label) + "</span>" + (q.qty ? '<small class="svsub">' + esc(q.qty) + (/^[0-9,]+$/.test(String(q.qty).trim()) ? "개" : "") + (q.spec ? " · " + esc(q.spec) : "") + "</small>" : (q.spec ? '<small class="svsub">' + esc(q.spec) + "</small>" : "")) + "</td>" +
-        '<td><span class="svst ' + B.c + '">' + esc(x.b === "off" ? (q.status || x.g.status || "드롭") : B.t) + "</span></td>" +
+        '<td><span class="svst ' + B.c + '">' + esc(x.b === "off" ? (q.status || x.g.status || "드롭") : B.t) + "</span>" + (function () { var rv = rvOf(x.r, q); return rv ? '<small class="svsub ' + ({ "승인": "qgood", "반려": "qbad" }[rv.res] || "qmid") + '" title="' + esc(rv.note || "") + '">검토 ' + esc(rv.res) + "</small>" : ""; })() + "</td>" +
         '<td class="swrap">' + esc(q.kind || x.r.kind || "") + "</td>" +
         '<td class="num">' + esc(md(sIso(q.reqAt)) || String(q.reqAt || "")) + "</td>" +
         '<td class="num dcol">' + due + "</td>" +
@@ -6151,6 +6361,7 @@ function dateSlots_(steps, cfg, mode) {
     if (t.dataset.sview) { SVIEW = t.dataset.sview; if (SVIEW === "proj") SVST = ""; try { localStorage.setItem("rb.sview", SVIEW); } catch (e1) { /* 넘어간다 */ } renderBoard(); return; }
     if (t.dataset.svst != null && t.classList.contains("svchip")) { SVST = SVST === t.dataset.svst ? "" : t.dataset.svst; if (SVST) { SVIEW = "round"; try { localStorage.setItem("rb.sview", "round"); } catch (e2) { /* 넘어간다 */ } } renderBoard(); return; }
     if (t.dataset.svid) {
+      SPTAB = "home";
       openRun(t.dataset.svid);
       var vn = t.dataset.svv;
       setTimeout(function () {
@@ -6191,6 +6402,386 @@ function dateSlots_(steps, cfg, mode) {
         '<div class="wide"><span>최근 진행</span><b class="lt">' + (last ? esc(last.v) + " · " + esc(last.m.text || "") : "—") + "</b>" + (last ? "<small>" + esc(String(last.m.at || "")) + "</small>" : "") + "</div>" +
       "</div></div>";
   }
+
+  /* ==================================================================
+     샘플 프로젝트 상세 — GWP 기능을 실행판 샘플에 붙임(2026-10-26)
+     탭: 진행 현황 · 요청 정보 · 견적 비교 · 샘플(업체 카드) · 일정 · 이력
+     저장: notes['i:req'] 요청 정보 / ['i:qt'] 업체별 견적 / ['i:rv'] 회차 검토 결과 — apiSampleProjInfo(칸별로 합침)
+     ================================================================== */
+  var SPTAB = (function () { try { var v = localStorage.getItem("rb.sptab") || "home"; return v === "vend" ? "home" : v; } catch (e) { return "home"; } })();
+  var SP_TABS = [["home", "진행 현황"], ["req", "요청 정보"], ["qt", "견적 비교"], ["sched", "일정"], ["hist", "이력"]];
+  var SPD = {};            // 고치는 중(저장 전) — { 건ID: { req: {칸: 값}, qt: { 업체키: {칸: 값} } } }
+  var QTEDIT = "";         // 견적 비교 고치는 중인 건ID
+  function sInfo(row, key) { try { var o = JSON.parse(((row && row.notes) || {})["i:" + key] || "{}"); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } }
+  function spDraft(row) { return (SPD[row.id] = SPD[row.id] || { req: {}, qt: {} }); }
+  function spInfoSave(row, key, sets, done) {
+    if (!row.projKey) { alert("시트에 저장되는 중인 프로젝트입니다 — 잠시 뒤 다시 해 주세요."); return; }
+    gsr().withSuccessHandler(function (obj) {
+      row.notes = Object.assign({}, row.notes || {}); row.notes["i:" + key] = JSON.stringify(obj || {});
+      if (done) done(obj);
+      if (currentId === row.id && !$("view-run").hidden) renderRun();
+      renderBoard(); if (view === "qt") qtPageRender();
+    }).withFailureHandler(function (e) { alert("저장하지 못했습니다: " + e.message); if (done) done(null, e); })
+      .apiSampleProjInfo(row.projKey, metaOf(row), key, sets);
+  }
+  var md2 = function (d) { return d ? String(d).slice(2, 10).replace(/-/g, "/") : ""; };
+  var dDiff = function (a, b) { return Math.round((new Date(a + "T00:00:00") - new Date(b + "T00:00:00")) / 864e5); };
+  var won = function (n) { return isFinite(n) && n !== null ? "₩" + Math.round(n).toLocaleString() : "—"; };
+  function spNum(v) { var n = Number(String(v == null ? "" : v).replace(/[^0-9.\-]/g, "")); return String(v == null ? "" : v).trim() === "" || isNaN(n) ? null : n; }
+
+  /* ---------- 요청 정보 ---------- */
+  var REQ_F = [
+    ["기본 정보", [["dept", "요청부서"], ["reqBy", "요청 담당자"], ["reqAt", "요청일", "date"], ["event", "행사명 · 용도"], ["target", "대상 고객"], ["purpose", "제작 목적", "area"]]],
+    ["수량 · 목표 단가", [["tqty", "목표(예상) 수량"], ["tprice", "목표 단가(원)"], ["budget", "예산(원)"]]],
+    ["일정 (예정)", [["designAt", "디자인 확정 예정일", "date"], ["pickBy", "업체 선정 목표일", "date"], ["wantPo", "희망 발주일", "date"], ["wantMass", "양산 완료 희망일", "date"], ["wantIn", "희망 납품(입고)일", "date"], ["launch", "출시 예정일", "date"]]],
+    ["디자인 · 포장 사양", [["size", "규격"], ["material", "소재"], ["color", "색상 · 인쇄"], ["pack", "포장 방식"], ["designSt", "디자인 확정 상태", "sel", ["", "미확정", "개발중", "확정"]], ["spec", "사양 메모", "area"]]],
+    ["기타", [["etc", "기타 요청사항", "area"]]]
+  ];
+  function spReqVal(row, f) { var d = spDraft(row).req; return f in d ? d[f] : (sInfo(row, "req")[f] || ""); }
+  function spReqTab(row) {
+    var ro = DATA && DATA.canEdit === false, R = sInfo(row, "req"), dirty = Object.keys(spDraft(row).req).length;
+    var h = '<div class="spcard"><div class="spch"><b>요청 정보</b><span class="nghelp">GWP 제작 요청서 — 요청부서 · 목적 · 희망 일정 · 목표 단가 · 사양. 일정 탭의 예정일과 견적 비교의 목표 단가 대비에 쓰입니다.</span>' +
+      (R._at ? '<span class="tlwho" style="margin-left:auto">' + esc(R._at + " · " + (R._by || "")) + "</span>" : "") + "</div>";
+    REQ_F.forEach(function (G) {
+      h += '<div class="spgrp">' + esc(G[0]) + '</div><div class="spform">';
+      G[1].forEach(function (F) {
+        var v = spReqVal(row, F[0]), id = 'data-spf="req|' + F[0] + '"', dis = ro ? " disabled" : "";
+        var inp = F[2] === "area" ? '<textarea ' + id + ' rows="2"' + dis + ">" + esc(v) + "</textarea>"
+          : F[2] === "date" ? '<input type="date" ' + id + ' value="' + esc(v) + '"' + dis + ">"
+          : F[2] === "sel" ? "<select " + id + dis + ">" + F[3].map(function (o) { return "<option" + (o === v ? " selected" : "") + ' value="' + esc(o) + '">' + esc(o || "—") + "</option>"; }).join("") + "</select>"
+          : '<input type="text" ' + id + ' value="' + esc(v) + '"' + dis + ">";
+        h += '<label class="' + (F[2] === "area" ? "wide" : "") + '"><span>' + esc(F[1]) + "</span>" + inp + "</label>";
+      });
+      h += "</div>";
+    });
+    if (!ro) h += '<div class="spfoot"><span class="nghelp">' + (dirty ? "저장하지 않은 칸 " + dirty + "개" : "") + '</span><button type="button" class="btn btn-sm" data-spreset="req"' + (dirty ? "" : " disabled") + '>되돌리기</button><button type="button" class="btn btn-sm btn-solid" data-spsave="req"' + (dirty ? "" : " disabled") + ">요청 정보 저장</button></div>";
+    return h + "</div>";
+  }
+
+  /* ---------- 견적 비교 ---------- */
+  var QT_ROWS = [
+    ["업체 정보", [["st", "상태", "sel", ["검토중", "후보", "제외"]], ["country", "국가 · 생산지"], ["contact", "업체 담당자"], ["file", "견적서 링크", "url"]]],
+    ["수량 · 단가", [["round", "견적 차수"], ["moq", "MOQ"], ["qty", "견적 수량"], ["price", "단가"], ["cur", "통화", "sel", ["KRW", "CNY", "USD", "EUR", "JPY"]], ["rate", "적용 환율(원)"], ["_krw", "단가(원화)", "calc"], ["vat", "VAT", "sel", ["", "별도", "포함"]], ["shipIn", "운송비 포함 여부", "sel", ["", "별도", "포함"]]]],
+    ["부대 비용(견적 통화)", [["fSample", "샘플비"], ["fMold", "금형비"], ["fPlate", "판비 · 동판"], ["fShip", "운송비"]]],
+    ["자동 계산", [["_total", "총 견적금액(원화)", "calc"], ["_low", "최저 단가 대비", "calc"], ["_tgt", "목표 단가 대비", "calc"]]],
+    ["일정", [["dSample", "샘플 제작기간(일)"], ["dLead", "양산 소요기간(일)"], ["avail", "납품 가능일", "date"], ["_want", "희망 납품일 대비", "calc"]]],
+    ["조건 · 의견", [["pay", "결제조건"], ["inco", "인코텀즈 · 납품조건"], ["mat", "주요 소재 · 제작방식"], ["qual", "품질 · 기술 특이사항"], ["opin", "구매팀 검토의견"]]]
+  ];
+  function qtVendors(row) {
+    return (row.vendors || []).filter(function (g) { return g.name !== "업체 미정"; }).slice().sort(function (a, b) { return (SAMPLE_OFF[a.status] ? 1 : 0) - (SAMPLE_OFF[b.status] ? 1 : 0); });
+  }
+  function qtVal(row, vk) { var d = spDraft(row).qt[vk] || {}, s = sInfo(row, "qt")[vk] || {}; return Object.assign({}, s, d); }
+  function qtCalc(row) {
+    var R = sInfo(row, "req"), out = {}, tgt = spNum(R.tprice), want = R.wantIn || "";
+    qtVendors(row).forEach(function (g) {
+      var vk = sampleVKey(g.name), q = qtVal(row, vk), p = spNum(q.price), cur = q.cur || "KRW", rate = cur === "KRW" ? 1 : spNum(q.rate);
+      var krw = p != null && rate != null ? p * rate : null, qty = spNum(q.qty);
+      var fees = ["fSample", "fMold", "fPlate", "fShip"].reduce(function (a, f) { var n = spNum(q[f]); return a + (n || 0); }, 0);
+      var total = krw != null && qty != null ? krw * qty + fees * (rate || 1) : null;
+      var lead = spNum(q.dLead), avail = q.avail || (lead != null ? new Date(Date.now() + lead * 864e5).toISOString().slice(0, 10) : "");
+      out[vk] = { q: q, krw: krw, total: total, avail: avail, availAuto: !q.avail && !!avail, off: q.st === "제외" || !!SAMPLE_OFF[g.status], want: want && avail ? dDiff(avail, want) : null, tgt: tgt != null && krw != null ? krw - tgt : null, tgtP: tgt ? (krw - tgt) / tgt : null, lead: lead };
+    });
+    var live = Object.keys(out).filter(function (k) { return !out[k].off && out[k].krw != null; });
+    var low = live.reduce(function (m, k) { return m == null || out[k].krw < m ? out[k].krw : m; }, null);
+    var fast = Object.keys(out).filter(function (k) { return !out[k].off && out[k].lead != null; }).reduce(function (m, k) { return m == null || out[k].lead < m ? out[k].lead : m; }, null);
+    Object.keys(out).forEach(function (k) { var c = out[k]; c.isLow = low != null && c.krw === low && !c.off; c.low = low != null && c.krw != null ? c.krw - low : null; c.lowP = low ? (c.krw - low) / low : null; c.isFast = fast != null && c.lead === fast && !c.off; });
+    return out;
+  }
+  function spQtTab(row) {
+    var V = qtVendors(row), ro = DATA && DATA.canEdit === false, ed = QTEDIT === row.id && !ro, C = qtCalc(row), R = sInfo(row, "req");
+    if (!V.length) return '<div class="spcard" data-sprow="' + esc(row.id) + '"><div class="spch"><b>업체 견적 비교</b></div><p class="nghelp">아직 업체가 없습니다 — [샘플 · 업체] 탭에서 업체를 추가하면 여기서 견적을 나란히 비교합니다.</p></div>';
+    var pct = function (x) { return (x > 0 ? "+" : "") + (x * 100).toFixed(1) + "%"; };
+    var h = '<div class="spcard" data-sprow="' + esc(row.id) + '"><div class="spch"><b>업체 견적 비교</b><span class="nghelp">업체별 단가 · 원화 환산 · 총액 · 최저/목표 대비 · 납기를 나란히. 희망 납품일 ' + esc(md2(R.wantIn) || "미입력") + " · 목표 단가 " + esc(R.tprice ? Number(spNum(R.tprice)).toLocaleString() + "원" : "미입력") + " (요청 정보 탭)</span>" +
+      '<span class="spbtns">' + (ro ? "" : ed ? '<button type="button" class="btn btn-sm" data-qtcancel="1">취소</button><button type="button" class="btn btn-sm btn-solid" data-qtsave="1">견적 저장</button>' : '<button type="button" class="btn btn-sm btn-solid" data-qtedit="1">견적 입력 · 수정</button>') +
+      '<button type="button" class="btn btn-sm" data-qtxls="1">엑셀</button></span></div>';
+    h += '<div class="qtwrap"><table class="qtab"><thead><tr><th class="qtl">구분</th>' + V.map(function (g, i) {
+      var c = C[sampleVKey(g.name)];
+      return '<th class="' + (c.off ? "qoff" : "") + '"><small>업체 ' + (i + 1) + "</small> " + esc(g.name) + ' <span class="tag ' + sstClass(g.status) + '">' + esc(g.status) + "</span></th>";
+    }).join("") + "</tr></thead><tbody>";
+    QT_ROWS.forEach(function (G) {
+      h += '<tr class="qtg"><td colspan="' + (V.length + 1) + '">' + esc(G[0]) + "</td></tr>";
+      G[1].forEach(function (F) {
+        h += '<tr><td class="qtl">' + esc(F[1]) + "</td>" + V.map(function (g) {
+          var vk = sampleVKey(g.name), c = C[vk], q = c.q, v = q[F[0]] == null ? "" : String(q[F[0]]), cls = c.off ? "qoff" : "";
+          if (F[2] === "calc") {
+            var t = "—";
+            if (F[0] === "_krw") t = c.krw != null ? won(c.krw) + (c.isLow ? ' <span class="qbest">최저</span>' : "") : "—";
+            if (F[0] === "_total") t = c.total != null ? "<b>" + won(c.total) + "</b>" : "—";
+            if (F[0] === "_low") t = c.low == null ? "—" : c.isLow ? "최저" : '<span class="qbad">+' + won(c.low).slice(1) + " (" + pct(c.lowP) + ")</span>";
+            if (F[0] === "_tgt") t = c.tgt == null ? "—" : '<span class="' + (c.tgt > 0 ? "qbad" : "qgood") + '">' + (c.tgt > 0 ? "+" : "−") + won(Math.abs(c.tgt)).slice(1) + "원 (" + pct(c.tgtP) + ")</span>";
+            if (F[0] === "_want") t = c.want == null ? "—" : c.want > 0 ? '<span class="qbad">' + c.want + "일 지연</span>" : '<span class="qgood">' + (c.want === 0 ? "맞춤" : -c.want + "일 여유") + "</span>";
+            return '<td class="' + cls + '">' + t + "</td>";
+          }
+          if (ed) {
+            var a = 'data-spf="qt|' + esc(vk) + "|" + F[0] + '"';
+            if (F[2] === "sel") return "<td><select " + a + ">" + F[3].map(function (o) { return "<option" + (o === (v || F[3][0]) ? " selected" : "") + ' value="' + esc(o) + '">' + esc(o || "—") + "</option>"; }).join("") + "</select></td>";
+            return '<td><input type="' + (F[2] === "date" ? "date" : "text") + '" ' + a + ' value="' + esc(v) + '"' + (F[0] === "avail" && !v && c.avail ? ' title="비우면 오늘 + 양산 소요기간(' + esc(c.avail) + ')"' : "") + "></td>";
+          }
+          var show = esc(v) || "—";
+          if (F[0] === "st") show = '<span class="qst q' + ({ "후보": "c", "제외": "x" }[v] || "r") + '">' + esc(v || "검토중") + "</span>";
+          if (F[0] === "price" && v) show = "<b>" + esc(Number(spNum(v)).toLocaleString()) + " " + esc(q.cur || "KRW") + "</b>";
+          if (F[0] === "file" && v) show = '<a href="' + esc(v) + '" target="_blank" rel="noopener">견적서 열기</a>';
+          if (F[0] === "avail") show = c.avail ? esc(c.avail) + (c.availAuto ? ' <span class="nsub">(소요기간으로 계산)</span>' : "") : "—";
+          if (F[0] === "dLead" && v && c.isFast) show += ' <span class="qbest">최단</span>';
+          return '<td class="' + cls + '">' + show + "</td>";
+        }).join("") + "</tr>";
+      });
+    });
+    return h + "</tbody></table></div></div>";
+  }
+  function qtXlsx(row) {
+    var V = qtVendors(row), C = qtCalc(row), lines = [["구분"].concat(V.map(function (g) { return g.name; }))];
+    QT_ROWS.forEach(function (G) { G[1].forEach(function (F) {
+      lines.push([F[1]].concat(V.map(function (g) { var c = C[sampleVKey(g.name)]; if (F[0] === "_krw") return c.krw == null ? "" : Math.round(c.krw); if (F[0] === "_total") return c.total == null ? "" : Math.round(c.total); if (F[0] === "_low") return c.low == null ? "" : Math.round(c.low); if (F[0] === "_tgt") return c.tgt == null ? "" : Math.round(c.tgt); if (F[0] === "_want") return c.want == null ? "" : c.want; if (F[0] === "avail") return c.avail || ""; return c.q[F[0]] || ""; })));
+    }); });
+    var csv = "﻿" + lines.map(function (r) { return r.map(function (x) { x = String(x == null ? "" : x); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }).join(","); }).join("\n");
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = "견적비교_" + String(row.name || "").replace(/[\\\/:*?"<>|]/g, "_").slice(0, 40) + "_" + todayIso() + ".csv"; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  /* ---------- 회차 검토 결과(샘플 받은 뒤: 승인 · 수정 요청 · 재샘플 · 반려) ---------- */
+  var RV_OPTS = ["승인", "수정 요청", "재샘플", "반려"];
+  function rvKey(q) { return q.sid ? String(q.sid) : "r" + q.row; }
+  function rvOf(row, q) { return sInfo(row, "rv")[rvKey(q)] || null; }
+  function rvBox(q) {
+    var row = rowById(currentId); if (!row || mode !== "sample") return "";
+    var r = rvOf(row, q), ro = DATA && DATA.canEdit === false;
+    var tagc = r ? { "승인": "qgood", "반려": "qbad" }[r.res] || "qmid" : "";
+    if (r && ro) return '<span class="rvtag ' + tagc + '" title="' + esc((r.note || "") + " · " + (r._at || "") + " " + (r._by || "")) + '">검토 ' + esc(r.res) + "</span>";
+    if (ro) return "";
+    return '<select class="rvsel ' + tagc + '" data-rvsel="' + esc(rvKey(q)) + '" title="' + esc(r ? "검토 결과 " + r.res + (r.note ? " — " + r.note : "") + " · " + (r._at || "") + " " + (r._by || "") : "받은 샘플 검토 결과(디자인 · 품질) — 승인 · 수정 요청 · 재샘플 · 반려") + '">' +
+      '<option value="">' + (r ? "검토 지우기" : "검토 결과…") + "</option>" + RV_OPTS.map(function (o) { return "<option" + (r && r.res === o ? " selected" : "") + ">" + o + "</option>"; }).join("") + "</select>";
+  }
+
+  /* ---------- 일정(예정 vs 실제) ---------- */
+  function spMilestones(row) {
+    var R = sInfo(row, "req"), V = (row.vendors || []).filter(function (g) { return g.name !== "업체 미정"; });
+    var minD = function (arr) { return arr.filter(Boolean).sort()[0] || ""; };
+    var reqs = [], rcv = [], dues = [], picks = [];
+    (row.vendors || []).forEach(function (g) {
+      var S = sampleRounds(row, g);
+      S.rounds.forEach(function (Rd) { reqs.push(sIso(Rd.q.reqAt)); if (Rd.received) rcv.push(Rd.received); if (Rd.due) dues.push(Rd.due); });
+      S.list.forEach(function (x) { if (x.st === "채택") picks.push(String(x.at || "").slice(0, 10)); });
+    });
+    var firstV = []; V.forEach(function (g) { (g.reqs || []).forEach(function (q) { firstV.push(sIso(q.reqAt)); }); });
+    return [
+      { t: "요청일", plan: R.reqAt || "", act: minD(reqs) },
+      { t: "디자인 사양 확정", plan: R.designAt || "", act: R.designSt === "확정" ? (R.designAt || "") : "", noAct: R.designSt !== "확정" },
+      { t: "업체 샘플 요청", plan: "", act: minD(firstV) },
+      { t: "샘플 수신", plan: minD(dues), act: minD(rcv) },
+      { t: "최종 업체 선정(채택)", plan: R.pickBy || "", act: minD(picks) },
+      { t: "발주", plan: R.wantPo || "", act: "", noAct: 1 },
+      { t: "양산 완료", plan: R.wantMass || "", act: "", noAct: 1 },
+      { t: "납품(입고)", plan: R.wantIn || "", act: "", noAct: 1 },
+      { t: "출시", plan: R.launch || "", act: "", noAct: 1 }
+    ];
+  }
+  function spSchedTab(row) {
+    var M = spMilestones(row), today = todayIso(), all = [today];
+    M.forEach(function (m) { if (m.plan) all.push(m.plan); if (m.act) all.push(m.act); });
+    all.sort();
+    var lo = new Date(all[0] + "T00:00:00"), hi = new Date(all[all.length - 1] + "T00:00:00");
+    lo = new Date(lo.getTime() - 3 * 864e5); hi = new Date(hi.getTime() + 5 * 864e5);
+    var span = Math.max(1, (hi - lo) / 864e5), pos = function (d) { return ((new Date(d + "T00:00:00") - lo) / 864e5 / span * 100).toFixed(2) + "%"; };
+    var months = [], c = new Date(lo.getFullYear(), lo.getMonth() + 1, 1);
+    while (c <= hi) { var iso = c.getFullYear() + "-" + String(c.getMonth() + 1).padStart(2, "0") + "-01"; months.push('<i class="gm" style="left:' + pos(iso) + '">' + String(c.getFullYear()).slice(2) + "." + (c.getMonth() + 1) + "</i>"); c = new Date(c.getFullYear(), c.getMonth() + 1, 1); }
+    var h = '<div class="spcard"><div class="spch"><b>일정 (예정 vs 실제)</b><span class="nghelp">예정일은 [요청 정보] 탭에서, 실제는 실행판 기록(요청 · 수신 · 채택)에서 자동. ◇ 예정 · ◆ 실제 · 빨간 ◇ 예정이 지났는데 아직 안 됨 · 세로선 = 오늘</span></div>' +
+      '<div class="gantt"><div class="grow ghead"><span class="gl">단계</span><span class="gt">' + months.join("") + "</span><span class=\"gs\">상태</span></div>";
+    M.forEach(function (m) {
+      var st = "", late = m.plan && !m.act && !m.noAct && m.plan < today;
+      if (m.act && m.plan) { var d = dDiff(m.act, m.plan); st = '<span class="' + (d > 0 ? "qbad" : "qgood") + '">완료 ' + (d === 0 ? "(예정대로)" : d > 0 ? "(" + d + "일 늦음)" : "(" + -d + "일 빠름)") + "</span>"; }
+      else if (m.act) st = '<span class="qgood">완료 ' + md2(m.act) + "</span>";
+      else if (m.plan) { var l = dDiff(m.plan, today); st = l < 0 ? (m.noAct ? '<span class="nsub">예정 ' + md2(m.plan) + "</span>" : '<span class="qbad">' + -l + "일 지남</span>") : '<span class="nsub">D-' + l + " · " + md2(m.plan) + "</span>"; }
+      else st = '<span class="nsub">예정일 없음</span>';
+      h += '<div class="grow"><span class="gl">' + esc(m.t) + "</span><span class=\"gt\">" + '<i class="gtoday" style="left:' + pos(today) + '"></i>' +
+        (m.plan ? '<i class="gd plan' + (late ? " late" : "") + '" style="left:' + pos(m.plan) + '" title="예정 ' + esc(m.plan) + '"></i>' : "") +
+        (m.act ? '<i class="gd act" style="left:' + pos(m.act) + '" title="실제 ' + esc(m.act) + '"></i>' : "") + '</span><span class="gs">' + st + "</span></div>";
+    });
+    return h + "</div></div>";
+  }
+
+  /* ---------- 이력(모든 기록을 시간순) ---------- */
+  function spEvents(row) {
+    var ev = [], add = function (at, who, t, kind) { if (at) ev.push({ at: String(at), who: who || "", t: t, k: kind || "" }); };
+    sProjMemo(row).forEach(function (m) { var a = String(m.at || ""); add(/^\d{2}\//.test(a) ? "20" + a.replace(/\//g, "-") : a, m.by, "프로젝트 비고 · " + (m.t || ""), "memo"); });
+    (row.vendors || []).forEach(function (g) {
+      var S = sampleRounds(row, g);
+      S.rounds.forEach(function (Rd) {
+        add(sIso(Rd.q.reqAt), Rd.q.owner || g.owner, g.name + " · " + Rd.label + " 샘플 요청" + (Rd.q.qty ? " · " + Rd.q.qty + (/^[0-9,]+$/.test(String(Rd.q.qty).trim()) ? "개" : "") : ""), "req");
+        if (Rd.received) add(Rd.received, "", g.name + " · " + Rd.label + " 샘플 수신", "rcv");
+        var rv = rvOf(row, Rd.q); if (rv) add(rv._at, rv._by, g.name + " · " + Rd.label + " 검토 " + rv.res + (rv.note ? " — " + rv.note : ""), rv.res === "승인" ? "ok" : "rv");
+      });
+      S.list.forEach(function (x) { add(x.at, x.who, g.name + " · " + (x.text || "") + (x.st ? " [" + x.st + "]" : ""), x.st === "채택" ? "ok" : x.st === "드롭" || x.st === "탈락" ? "off" : "memo"); });
+    });
+    var Q = sInfo(row, "qt"); Object.keys(Q).forEach(function (vk) { var q = Q[vk]; var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0]; add(q._at, q._by, (g ? g.name : vk) + " · 견적 입력" + (q.price ? " (" + q.price + " " + (q.cur || "KRW") + ")" : ""), "qt"); });
+    var R = sInfo(row, "req"); if (R._at) add(R._at, R._by, "요청 정보 수정", "memo");
+    ev.sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; });
+    return ev;
+  }
+  function spEvList(ev) {
+    return '<ul class="evl">' + ev.map(function (e) { return '<li class="ev-' + e.k + '"><b>' + esc(e.t) + '</b><small>' + esc((e.who ? e.who + " · " : "") + e.at) + "</small></li>"; }).join("") + "</ul>";
+  }
+  function spHistTab(row) {
+    var ev = spEvents(row);
+    return '<div class="spcard"><div class="spch"><b>진행 이력</b><span class="nghelp">요청 · 수신 · 진행 메모 · 검토 · 견적 · 비고를 한 줄로 — 최근 것이 위</span></div>' + (ev.length ? spEvList(ev) : '<p class="nghelp">기록이 없습니다.</p>') + "</div>";
+  }
+
+  /* ---------- 진행 현황(첫 탭) ---------- */
+  function spHomeTab(row) {
+    var R = sInfo(row, "req"), C = qtCalc(row), Q = sInfo(row, "qt"), items = svItems([row]), cnt = {};
+    items.forEach(function (x) { cnt[x.b] = (cnt[x.b] || 0) + 1; });
+    var kv = function (k, v) { return "<div><span>" + esc(k) + "</span><b>" + (v === "" || v == null ? "—" : v) + "</b></div>"; };
+    var lowK = Object.keys(C).filter(function (k) { return C[k].isLow; })[0], gOf = function (vk) { var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0]; return g ? g.name : vk; };
+    var picks = (row.vendors || []).filter(function (g) { return g.status === "채택"; });
+    var pickC = picks.length ? C[sampleVKey(picks[0].name)] : null;
+    var cand = Object.keys(C).filter(function (k) { return C[k].q.st === "후보"; }).map(gOf);
+    var rvC = {}; Object.keys(sInfo(row, "rv")).forEach(function (k) { var r = sInfo(row, "rv")[k]; rvC[r.res] = (rvC[r.res] || 0) + 1; });
+    var card = function (title, tab, body) { return '<div class="spcard sphc"><div class="spch"><b>' + title + "</b>" + (tab ? '<button type="button" class="btn-quiet btn-sm" data-sptab="' + tab + '">자세히</button>' : "") + '</div><div class="spkv">' + body + "</div></div>"; };
+    var h = sampleStepper(row) + '<div class="sphome">' +
+      card("요청 기본정보", "req", kv("요청부서", esc(R.dept || "")) + kv("요청일", esc(md2(R.reqAt || "") || "")) + kv("희망 발주일", esc(md2(R.wantPo))) + kv("희망 납품일", esc(md2(R.wantIn))) + kv("출시 예정일", esc(md2(R.launch))) + kv("목표 단가", R.tprice ? esc(Number(spNum(R.tprice)).toLocaleString()) + "원" : "")) +
+      card("디자인 · 포장 사양", "req", kv("규격", esc(R.size || "")) + kv("소재", esc(R.material || "")) + kv("색상 · 인쇄", esc(R.color || "")) + kv("포장 방식", esc(R.pack || "")) + kv("디자인 확정", esc(R.designSt || "")) + kv("확정 예정일", esc(md2(R.designAt)))) +
+      card("소싱 · 견적 · 샘플", "qt", kv("견적 업체", Object.keys(Q).length + "곳") + kv("후보 업체", esc(cand.join(" · "))) + kv("최저 단가", lowK ? esc(gOf(lowK)) + " " + won(C[lowK].krw) : "") + kv("선정(채택)", esc(picks.map(function (g) { return g.name; }).join(" · "))) +
+        kv("샘플", "진행 " + ((cnt.open || 0) + (cnt.late || 0)) + " · 수신 " + (cnt.rcv || 0) + (cnt.late ? ' · <em class="late">지남 ' + cnt.late + "</em>" : "")) + kv("검토 결과", esc(RV_OPTS.filter(function (o) { return rvC[o]; }).map(function (o) { return o + " " + rvC[o]; }).join(" · "))) +
+        (pickC ? kv("선정 업체 단가 · 납기", (pickC.krw != null ? won(pickC.krw) : "—") + " · " + esc(md2(pickC.avail) || "—")) : "")) +
+      "</div>" + sProjMemoBlock(row) + '<div class="spsec">업체별 진행</div>' + sampleBlock(row) +
+      '<div class="spcard"><div class="spch"><b>최근 진행 이력</b><button type="button" class="btn-quiet btn-sm" data-sptab="hist">전체 보기</button></div>' + (function () { var ev = spEvents(row).slice(0, 8); return ev.length ? spEvList(ev) : '<p class="nghelp">기록이 없습니다.</p>'; })() + "</div>";
+    return h;
+  }
+  function sampleDetail(row) {
+    var t = SPTAB, tabs = '<div class="sptabs" role="tablist">' + SP_TABS.map(function (x) {
+      var badge = "";
+      if (x[0] === "qt") badge = Object.keys(sInfo(row, "qt")).length ? ' <em>' + Object.keys(sInfo(row, "qt")).length + "</em>" : "";
+      return '<button type="button" role="tab" data-sptab="' + x[0] + '" aria-selected="' + (x[0] === t) + '">' + esc(x[1]) + badge + "</button>";
+    }).join("") + "</div>";
+    var body = t === "req" ? spReqTab(row) : t === "qt" ? spQtTab(row) : t === "sched" ? spSchedTab(row) : t === "hist" ? spHistTab(row) : spHomeTab(row);
+    return tabs + '<div class="spbody">' + body + "</div>";
+  }
+
+  /* ---------- 업체 견적 비교 페이지(샘플) — 프로젝트를 골라 업체 견적을 나란히 ---------- */
+  var QTPAGE = "";
+  function qtPageRender() {
+    var el = $("view-qt"); if (!el || mode !== "sample" || !DATA || !DATA.rows) return;
+    var rows = DATA.rows.filter(function (r) { return !(r.checks && r.checks._hidden) && (r.vendors || []).some(function (g) { return g.name !== "업체 미정"; }); });
+    var open = rows.filter(function (r) { return !isClosed(r); }), done = rows.filter(function (r) { return isClosed(r); });
+    if (!QTPAGE || !rowById(QTPAGE)) QTPAGE = (open[0] || rows[0] || {}).id || "";
+    var opt = function (r) { var V = (r.vendors || []).filter(function (g) { return g.name !== "업체 미정"; }); return '<option value="' + esc(r.id) + '"' + (r.id === QTPAGE ? " selected" : "") + ">" + esc((r.brand ? "[" + r.brand + "] " : "") + r.name + " — " + V.map(function (g) { return g.name; }).join(", ")) + (Object.keys(sInfo(r, "qt")).length ? " · 견적 " + Object.keys(sInfo(r, "qt")).length : "") + "</option>"; };
+    var row = rowById(QTPAGE);
+    el.innerHTML = '<div class="phead"><div class="phtx"><h1>업체 견적 비교</h1><p>프로젝트별 업체 견적 · 제작 조건 비교표 — 단가 · 원화 환산 · 총액 · 최저/목표 대비 · 납기 차이를 자동 계산</p></div></div>' +
+      '<div class="qtpick"><select id="qtSel">' + (open.length ? '<optgroup label="진행 중">' + open.map(opt).join("") + "</optgroup>" : "") + (done.length ? '<optgroup label="완료 · 마감">' + done.map(opt).join("") + "</optgroup>" : "") + "</select>" +
+      (row ? '<button type="button" class="btn btn-sm" id="qtOpenRow">프로젝트 상세 열기</button>' : "") + "</div>" +
+      (row ? spQtTab(row) : '<div class="empty">업체가 정해진 샘플 프로젝트가 없습니다.</div>');
+  }
+  document.addEventListener("change", function (e) { if (e.target && e.target.id === "qtSel") { if (QTEDIT && !confirm("저장하지 않은 견적 입력이 있습니다. 버리고 넘어갈까요?")) { e.target.value = QTPAGE; return; } QTEDIT = ""; QTPAGE = e.target.value; qtPageRender(); } });
+  document.addEventListener("click", function (e) { if (e.target && e.target.id === "qtOpenRow" && QTPAGE) { SPTAB = "qt"; openRun(QTPAGE); } });
+
+  /* ---------- 전체 일정 관리(발주) — 발주일 · 입고목표 · 입고예정 · 입고를 한 줄 간트로 + 지연 목록 ---------- */
+  var SCH = { brand: "", owner: "", late: false, q: "" };
+  function schIso(v, row, last) {
+    var t = String(v == null ? "" : v).trim(); if (!t) return "";
+    var toks = splitDates(t); if (last && toks.length) t = toks[toks.length - 1].replace(/^\(|\)$/g, "").split(",").pop();
+    var n = dateNum(t, row); return n ? String(n).replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3") : "";
+  }
+  function schedRender() {
+    var el = $("view-sched"); if (!el || mode !== "po" || !DATA || !DATA.rows) return;
+    var today = todayIso();
+    var base = DATA.rows.filter(function (r) { return !isClosed(r) && !(r.checks && r.checks._hidden); });
+    var brands = [], owners = [];
+    base.forEach(function (r) { if (r.brand && brands.indexOf(r.brand) < 0) brands.push(r.brand); ownersOf(r).forEach(function (o) { if (owners.indexOf(o) < 0) owners.push(o); }); });
+    var list = base.map(function (r) {
+      return { r: r, po: schIso(r.orderedAt, r), due: schIso(r.due, r), eta: schIso(r.eta, r), arr: schIso(r.arrivedAt, r, true), late: etaLateDays(r) };
+    }).filter(function (x) {
+      if (SCH.brand && x.r.brand !== SCH.brand) return false;
+      if (SCH.owner && ownersOf(x.r).indexOf(SCH.owner) < 0) return false;
+      if (SCH.late && !(x.late > 0)) return false;
+      if (SCH.q && (String(x.r.name || "") + " " + (x.r.code || "") + " " + (x.r.vendor || "") + " " + (x.r.doc || "")).toLowerCase().indexOf(SCH.q.toLowerCase()) < 0) return false;
+      return x.po || x.due || x.eta || x.arr;
+    }).sort(function (a, b) { var x = a.eta || a.due || "9999", y = b.eta || b.due || "9999"; return x < y ? -1 : x > y ? 1 : 0; });
+    var ds = [today]; list.forEach(function (x) { [x.po, x.due, x.eta, x.arr].forEach(function (d) { if (d) ds.push(d); }); });
+    ds.sort();
+    var lo = new Date(ds[0] + "T00:00:00"), hi = new Date(ds[ds.length - 1] + "T00:00:00");
+    var minLo = new Date(new Date(today + "T00:00:00").getTime() - 120 * 864e5); if (lo < minLo) lo = minLo;     // 너무 옛날 발주일은 잘라 본다(막대가 왼쪽에서 시작)
+    lo = new Date(lo.getTime() - 5 * 864e5); hi = new Date(hi.getTime() + 10 * 864e5);
+    var span = Math.max(1, (hi - lo) / 864e5);
+    var P = function (d) { var v = (new Date(d + "T00:00:00") - lo) / 864e5 / span * 100; return Math.max(0, Math.min(100, v)); };
+    var months = [], c = new Date(lo.getFullYear(), lo.getMonth() + 1, 1);
+    while (c <= hi) { var iso = c.getFullYear() + "-" + String(c.getMonth() + 1).padStart(2, "0") + "-01"; months.push('<i class="gm" style="left:' + P(iso).toFixed(2) + '%">' + String(c.getFullYear()).slice(2) + "." + (c.getMonth() + 1) + "</i>"); c = new Date(c.getFullYear(), c.getMonth() + 1, 1); }
+    var lateL = list.filter(function (x) { return x.late > 0; });
+    var sel = function (id, all, arr, v) { return '<select id="' + id + '"><option value="">' + all + "</option>" + arr.sort().map(function (o) { return "<option" + (o === v ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select>"; };
+    var h = '<div class="phead"><div class="phtx"><h1>전체 일정 관리</h1><p>발주건별 예정 일정과 실제 일정 비교 — 발주일 → 입고목표 · 입고예정 → 제품 입고. 줄을 누르면 건 상세</p></div></div>' +
+      '<div class="filters schf"><input type="search" id="schQ" placeholder="품목명 · 품목코드 · 업체 · 품의번호" value="' + esc(SCH.q) + '">' + sel("schBrand", "브랜드 전체", brands, SCH.brand) + sel("schOwner", "담당자 전체", owners, SCH.owner) +
+      '<button type="button" class="fbtn late' + (SCH.late ? " on" : "") + '" id="schLate">입고 지연만 <b>' + base.filter(function (r) { return etaLateDays(r) > 0; }).length + "</b></button></div>" +
+      '<div class="spcard"><div class="spch"><b>간트차트 (' + list.length + ')</b><span class="nghelp">막대: 발주일 ~ 입고예정(없으면 입고목표) · ◆ 발주일 · ◇ 입고목표 · ● 입고예정(지연이면 빨강) · ■ 제품 입고 · 세로선 = 오늘</span></div>' +
+      '<div class="gantt gpo"><div class="grow ghead"><span class="gl">발주건</span><span class="gt">' + months.join("") + '</span><span class="gs">입고예정</span></div>' +
+      list.map(function (x) {
+        var r = x.r, st = x.po || x.due || x.eta, en = x.eta || x.due || x.arr || x.po;
+        if (st && en && st > en) { var t0 = st; st = en; en = t0; }
+        var bar = st && en ? '<i class="gbar' + (x.late > 0 ? " late" : "") + '" style="left:' + P(st).toFixed(2) + "%;width:" + Math.max(0.6, P(en) - P(st)).toFixed(2) + '%"></i>' : "";
+        return '<div class="grow gclick" data-schid="' + esc(r.id) + '"><span class="gl"><b>' + esc(r.name || "") + (r.batch ? " " + esc(r.batch) : "") + "</b><small>" + esc([r.vendor, ownersOf(r).join("·")].filter(Boolean).join(" · ")) + "</small></span>" +
+          '<span class="gt"><i class="gtoday" style="left:' + P(today).toFixed(2) + '%"></i>' + bar +
+          (x.po ? '<i class="gd po" style="left:' + P(x.po).toFixed(2) + '%" title="발주일 ' + x.po + '"></i>' : "") +
+          (x.due ? '<i class="gd plan" style="left:' + P(x.due).toFixed(2) + '%" title="입고목표 ' + x.due + '"></i>' : "") +
+          (x.eta ? '<i class="gd eta' + (x.late > 0 ? " late" : "") + '" style="left:' + P(x.eta).toFixed(2) + '%" title="입고예정 ' + x.eta + '"></i>' : "") +
+          (x.arr ? '<i class="gd arr" style="left:' + P(x.arr).toFixed(2) + '%" title="제품 입고 ' + x.arr + '"></i>' : "") + "</span>" +
+          '<span class="gs">' + (x.eta ? md2(x.eta) : "—") + (x.late > 0 ? ' <span class="qbad">' + x.late + "일 지연</span>" : "") + "</span></div>";
+      }).join("") + (list.length ? "" : '<div class="empty">조건에 맞는 발주건이 없습니다.</div>') + "</div></div>" +
+      '<div class="spcard"><div class="spch"><b>지연 일정 (' + lateL.length + ')</b><span class="nghelp">입고예정이 지났는데 잔량이 남은 건 — 줄을 누르면 건 상세에서 입고예정 · 비고(지연 사유 · 대응)를 고칩니다</span></div>' +
+      (lateL.length ? '<table class="sttab schlate"><thead><tr><th>품목</th><th>업체</th><th>담당</th><th>입고목표</th><th>입고예정</th><th>지연</th><th class="num">잔량</th><th>비고(지연 사유 · 대응)</th></tr></thead><tbody>' +
+        lateL.sort(function (a, b) { return b.late - a.late; }).map(function (x) { var r = x.r; return '<tr class="gclick" data-schid="' + esc(r.id) + '"><td>' + esc(r.name || "") + "</td><td>" + esc(r.vendor || "") + "</td><td>" + esc(ownersOf(r).join(" · ")) + "</td><td>" + esc(md2(x.due)) + "</td><td>" + esc(md2(x.eta)) + '</td><td><span class="soon late" style="margin:0">' + x.late + '일</span></td><td class="num">' + numCell(r.remain) + '</td><td class="schmemo">' + (esc(memoOf(r)) || '<span class="qbad">미입력</span>') + "</td></tr>"; }).join("") + "</tbody></table>"
+        : '<p class="nghelp">지연된 건이 없습니다.</p>') + "</div>";
+    el.innerHTML = h;
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target; if (!t || !t.closest || !t.closest("#view-sched")) return;
+    if (t.id === "schLate") { SCH.late = !SCH.late; schedRender(); return; }
+    var g = t.closest("[data-schid]"); if (g) openRun(g.dataset.schid);
+  });
+  document.addEventListener("change", function (e) { var t = e.target; if (!t || !t.closest || !t.closest("#view-sched")) return; if (t.id === "schBrand") SCH.brand = t.value; if (t.id === "schOwner") SCH.owner = t.value; schedRender(); });
+  document.addEventListener("input", function (e) { var t = e.target; if (t && t.id === "schQ") { SCH.q = t.value; clearTimeout(t._t); t._t = setTimeout(function () { schedRender(); var q = $("schQ"); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 250); } });
+
+  function spRe() { if (!$("view-run").hidden) renderRun(); if (view === "qt") qtPageRender(); }
+  // 탭 · 저장 · 입력
+  document.addEventListener("click", function (e) {
+    var t = e.target; if (!t || !t.closest || mode !== "sample") return;
+    var spr = t.closest("[data-sprow]"), row = rowById(spr ? spr.dataset.sprow : currentId); if (!row) return;
+    var tb = t.closest("[data-sptab]");
+    if (tb && tb.closest("#view-run")) { SPTAB = tb.dataset.sptab; try { localStorage.setItem("rb.sptab", SPTAB); } catch (e1) { /* 넘어간다 */ } renderRun(); var vr = $("view-run"); var st = vr.querySelector(".sptabs"); if (st && st.getBoundingClientRect().top < 0) st.scrollIntoView({ block: "start" }); return; }
+    if (t.closest("[data-spreset]")) { spDraft(row).req = {}; renderRun(); return; }
+    if (t.closest("[data-spsave]")) {
+      var d = spDraft(row).req, sets = Object.keys(d).map(function (k) { return { sub: k, val: d[k] }; });
+      if (!sets.length) return;
+      t.closest("[data-spsave]").disabled = true;
+      spInfoSave(row, "req", sets, function (o, er) { if (!er) { spDraft(row).req = {}; toast("요청 정보를 저장했습니다"); } });
+      return;
+    }
+    if (t.closest("[data-qtedit]")) { QTEDIT = row.id; spDraft(row).qt = {}; spRe(); return; }
+    if (t.closest("[data-qtcancel]")) { QTEDIT = ""; spDraft(row).qt = {}; spRe(); return; }
+    if (t.closest("[data-qtxls]")) { qtXlsx(row); return; }
+    if (t.closest("[data-qtsave]")) {
+      var dq = spDraft(row).qt, saved = sInfo(row, "qt");
+      var setsQ = Object.keys(dq).map(function (vk) { var o = Object.assign({}, saved[vk] || {}, dq[vk]); delete o._at; delete o._by; return { sub: vk, val: o }; });
+      if (!setsQ.length) { QTEDIT = ""; spRe(); return; }
+      t.closest("[data-qtsave]").disabled = true;
+      spInfoSave(row, "qt", setsQ, function (o, er) { if (!er) { QTEDIT = ""; spDraft(row).qt = {}; toast("견적을 저장했습니다"); } });
+    }
+  });
+  document.addEventListener("input", function (e) {
+    var el = e.target; if (!el || !el.dataset || !el.dataset.spf || mode !== "sample") return;
+    var spr = el.closest("[data-sprow]"), row = rowById(spr ? spr.dataset.sprow : currentId); if (!row) return;
+    var p = el.dataset.spf.split("|"), D = spDraft(row);
+    if (p[0] === "req") { D.req[p[1]] = el.value; var foot = el.closest(".spcard").querySelector(".spfoot"); if (foot) { foot.querySelectorAll("button").forEach(function (b) { b.disabled = false; }); foot.querySelector(".nghelp").textContent = "저장하지 않은 칸 " + Object.keys(D.req).length + "개"; } }
+    if (p[0] === "qt") { (D.qt[p[1]] = D.qt[p[1]] || {})[p[2]] = el.value; }
+  });
+  document.addEventListener("change", function (e) {
+    var el = e.target; if (!el || !el.dataset || mode !== "sample") return;
+    if (el.dataset.spf) { el.dispatchEvent(new Event("input", { bubbles: true })); return; }
+    if (el.dataset.rvsel == null) return;
+    var row = rowById(currentId); if (!row) return;
+    var res = el.value, note = "";
+    if (res && res !== "승인") { note = prompt(res + " — 내용(무엇을 고칠지 · 이유)을 적어 주세요", ""); if (note === null) { renderRun(); return; } }
+    if (!res && !confirm("이 회차의 검토 결과를 지울까요?")) { renderRun(); return; }
+    el.disabled = true;
+    spInfoSave(row, "rv", [{ sub: el.dataset.rvsel, val: res ? { res: res, note: note || "" } : null }], function (o, er) { if (!er) toast(res ? "검토 결과 " + res + " 저장" : "검토 결과를 지웠습니다"); });
+  });
 
   /** 고른 프로젝트들에 걸친 업체 — 그 업체를 고른 프로젝트 모두에서 한 번에 수신 · 채택 · 탈락 · 드롭 */
   function bulkVendorHits(ids, vk, dropAll) {
@@ -6942,7 +7533,7 @@ function dateSlots_(steps, cfg, mode) {
 
       "";
 
-    var topBlock = (mode === "sample") ? sampleStepper(row) + sProjMemoBlock(row) + sampleBlock(row) : "";
+    var topBlock = (mode === "sample") ? sampleDetail(row) : "";
     var bak = (row.checks || {})._etaResetBak;
     if (mode === "po" && bak && bak.keys && Object.keys(bak.keys).length) {
       topBlock += '<div class="resetnote">입고예정이 ' + esc(bak.from) + " → " + esc(bak.to) + " 로 바뀌어 (" + esc(bak.at) + ") " +
