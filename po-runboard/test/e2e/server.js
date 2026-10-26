@@ -2,9 +2,9 @@
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path');
 const { makeContext, READS, CALLS } = require('./gas-mock');
-const SRC = path.join(__dirname, '..', '..', 'src');
+const SRC = process.env.RB_SRC || path.join(__dirname, '..', '..', 'src');   // RB_SRC: 다른 코드 폴더(빈 양식판 등)
 const code = fs.readFileSync(path.join(SRC, 'Code.gs'), 'utf8');
-const ctx = makeContext({ data: process.argv[2], src: SRC, ssId: code.match(/SS_ID: '([^']+)'/)[1], bomId: code.match(/BOM_SS_ID: '([^']+)'/)[1], user: process.env.RB_USER });
+const ctx = makeContext({ data: process.argv[2], src: SRC, ssId: (code.match(/SS_ID: '([^']+)'/) || [0, 'MAIN'])[1], bomId: (code.match(/BOM_SS_ID: '([^']+)'/) || [0, 'BOMFILE'])[1], user: process.env.RB_USER });
 const port = Number(process.argv[3] || 8765);
 const SHIM = `<script>(function(){function mk(ok,fail,uo){return new Proxy({},{get:function(_,k){
 if(k==='withSuccessHandler')return function(f){return mk(f,fail,uo)};if(k==='withFailureHandler')return function(f){return mk(ok,f,uo)};
