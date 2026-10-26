@@ -207,85 +207,124 @@ function apiWeeklyReport(from, to) {
   var first = function (s) { return wkDay_(String(s).split(',')[0]); };
   var PUSHED = OLD_CHG.concat(NEW_CHG).filter(function (x) { var a = first(str_(x[0][hi['새값']])), b = first(str_(x[0][hi['이전값']])); return a && b && a > b; });
 
-  // ----- 표 -----
-  var T = function (t, cols, rows, o) { o = o || {}; return { t: t, cols: cols, rows: rows || [], manual: o.manual == null ? 2 : o.manual, ex: o.ex || null, log: o.log || '' }; };
-  var VCOL = ['일자', '구분', '프로젝트(품목) · 구성', '업체', '단가', '전달예정일', '비고(이 기간 실행판 메모)', '담당'];
-  var parts = [
-    { h: '1. 이번 주 처리한 주요 건', subs: [
-      { t: '① 신제품 구매 및 개발', items: [
-        T('신규 제품 부자재 소싱 및 견적 검토 — 샘플 요청', ['요청일', '구분', '프로젝트(품목)', '구성 · 사양', '업체', '전달예정', '상태(드롭 · 탈락 사유)', '담당'],
-          S_REQ.map(function (x) { return [wkMd_(x[si['요청일']]), str_(x[si['구분']]), str_(x[si['품목명']]), [str_(x[si['구성']]), str_(x[si['사양']]), str_(x[si['수량']]) ? wkQty_(x[si['수량']]) + '개' : ''].filter(String).join(' · '), str_(x[si['업체명']]) || '미정', wkMd_(x[si['전달예정일']]) || '미정', stTxt(x), wkWho_(x[si['담당자']])]; }), { log: 1 }),
-        T('앞 주 요청 샘플 — 진행 중(기한 전) · 이번 주 드롭/탈락', ['요청일', '구분', '프로젝트(품목)', '구성 · 사양', '업체', '전달예정', '상태 · 최근 진행 메모', '담당'],
-          S_OPEN.map(function (x) { return [wkMd_(x[si['요청일']]), str_(x[si['구분']]), str_(x[si['품목명']]), [str_(x[si['구성']]), str_(x[si['사양']])].filter(String).join(' · '), str_(x[si['업체명']]) || '미정', wkMd_(x[si['전달예정일']]) || '미정', S_OFF(x) ? stTxt(x) + ' (' + dmd(offAt(x)) + ')' : ('진행중' + (lastMemo(x) ? ' · ' + lastMemo(x) : '')), wkWho_(x[si['담당자']])]; }), { manual: 0 }),
-        T('신제품별 샘플 제작, 발주 및 입고 일정 관리', ['일자', '구분', '품목', '내용', '업체', '일정', '담당'],
-          S_RCV.map(function (x) { return [wkMd_(x[si['전달일']]), '샘플 수신', str_(x[si['품목명']]), str_(x[si['구성']]) + ' · 상태 ' + str_(x[si['상태']]), str_(x[si['업체명']]), '', wkWho_(x[si['담당자']])]; })
-            .concat(NEW_PO.map(function (x) { return [wkMd_(x[pi['작성일']]), '신제품 발주', str_(x[pi['품목명']]), poDesc(x), str_(x[pi['업체명']]), '입고목표 ' + wkMd_(x[pi['입고목표']]), wkWho_(x[pi['구매담당자']])]; }))
-            .concat(NEW_IN.map(function (a) { var r = a[0], p = a[1]; return [wkMd_(r[yi['입고일']]), '신제품 입고', str_(p[pi['품목명']]), str_(p[pi['발주차수']]) + ' · ' + wkQty_(r[yi['수량']]) + '개', str_(p[pi['업체명']]), '', wkWho_(p[pi['구매담당자']])]; }))
-            .concat(NEW_CHG.map(function (a) { var r = a[0], p = a[1]; return [wkMd_(r[hi['시각']]), '입고일정 변경', str_(r[hi['품목명']]), chgTxt(r), p ? str_(p[pi['업체명']]) : '', '', wkWho_(r[hi['바꾼사람']])]; })), { log: 1 }),
-        T('디자인·개발·제조사 간 부자재 사양 협의 — 샘플 진행 메모', ['일자', '구분', '프로젝트(품목)', '협의 내용', '업체', '기한', '담당'],
-          S_SPEC.map(function (m) { return [dmd(m.at), m.st || '메모', m.proj, m.text, m.vendor, dmd(m.due), m.who]; }), { log: 1 })
-      ] },
-      { t: '② 기존제품 구매 및 공급관리', items: [
-        T('주요 제품 발주 및 입고 일정 관리 — 발주 / 입고 / 입고일정 변경', ['일자', '구분', '품목명', '차수 · 수량', '업체', '입고목표 · 일정', '담당'],
-          OLD_PO.map(function (x) { return [wkMd_(x[pi['작성일']]), '발주', str_(x[pi['품목명']]), poDesc(x), str_(x[pi['업체명']]), wkMd_(x[pi['입고목표']]), wkWho_(x[pi['구매담당자']])]; })
-            .concat(OLD_IN.map(function (a) { var r = a[0], p = a[1]; return [wkMd_(r[yi['입고일']]), '입고', str_(p[pi['품목명']]), str_(p[pi['발주차수']]) + ' · ' + wkQty_(r[yi['수량']]) + '개', str_(p[pi['업체명']]), '', wkWho_(p[pi['구매담당자']])]; }))
-            .concat(OLD_CHG.map(function (a) { var r = a[0], p = a[1]; return [wkMd_(r[hi['시각']]), '입고일정 변경', str_(r[hi['품목명']]), p ? str_(p[pi['발주차수']]) : '', p ? str_(p[pi['업체명']]) : '', chgTxt(r), wkWho_(r[hi['바꾼사람']])]; })), { log: 1 }),
-        T('제품별 생산 일정 및 공급 가능 수량 확인', ['일자', '구분', '품목명', '내용', '업체', '일정', '담당'],
-          PROD.map(function (r) { return [wkMd_(r[hi['시각']]), '생산진행 체크', str_(r[hi['품목명']]), str_(r[hi['항목']]) + ' ' + str_(r[hi['새값']]), '', '', wkWho_(r[hi['바꾼사람']])]; }),
-          { log: 1, ex: ['(예)10/15', '생산일정', '○○ 크림 50ml', '11/3 생산 확정, 2만개 가능', '한국콜마', '11/10 입고', 'Jayden'] }),
-        T('품절 우려 제품 및 안전재고 현황 점검', ['일자', '구분', '품목명', '현재고 · 안전재고', '업체', '대응', '담당'], [],
-          { manual: 3, ex: ['(예)10/16', '품절 우려', '○○ 세럼 150ml', '재고 1.2개월분(안전 2개월)', '코스메카', '추가 발주 10/21', 'Nova'] })
-      ] },
-      { t: '③ 협력사 및 원가관리', items: [
-        T('기존 협력사 단가 및 거래조건 협의', VCOL, V_OLD.map(function (r) { return vrow(r, '기존 업체'); }), { log: 1 }),
-        T('신규 협력사 발굴 및 견적 비교 (중국 부자재 · GWP 포함)', VCOL, V_NEW, { log: 1 }),
-        T('중국 부자재 및 GWP 소싱 진행 — 샘플은 위 표(구분 \'중국 · GWP\'), 여기는 중국 발주', VCOL,
-          CN_PO.map(function (x) { return [wkMd_(x[pi['작성일']]), '발주', str_(x[pi['품목명']]) + ' ' + str_(x[pi['발주차수']]), str_(x[pi['업체명']]), (str_(x[pi['단가']]) + ' ' + str_(x[pi['통화']])).trim(), '입고목표 ' + wkMd_(x[pi['입고목표']]), wkQty_(x[pi['발주수량']]) + '개 · ' + str_(x[pi['진행상태']]) + (str_(x[pi['비고']]) ? ' / ' + str_(x[pi['비고']]) : ''), wkWho_(x[pi['구매담당자']])]; }), { log: 1 })
-      ] }
-    ] },
-    { h: '2. 다음 주 주요 계획', subs: [
-      { t: '① 신제품', items: [
-        T('신제품별 미확정 사양 및 견적 확정 — 다음 주 샘플 전달 예정', ['전달예정', '구분', '프로젝트(품목)', '구성 · 사양', '업체', '최근 진행 메모', '담당'],
-          NX_SMP.map(function (x) { return [wkMd_(x[si['전달예정일']]), str_(x[si['구분']]), str_(x[si['품목명']]), str_(x[si['구성']]) + ' · ' + str_(x[si['사양']]), str_(x[si['업체명']]), lastMemo(x), wkWho_(x[si['담당자']])]; })),
-        T('샘플 승인 및 양산 일정 협의 — 받았는데 채택 · 드롭을 아직 안 정한 샘플', ['수신일', '구분', '프로젝트(품목)', '구성', '업체', '최근 진행 메모', '담당'],
-          NX_DEC.map(function (x) { return [wkMd_(x[si['전달일']]), str_(x[si['구분']]), str_(x[si['품목명']]), str_(x[si['구성']]), str_(x[si['업체명']]), lastMemo(x), wkWho_(x[si['담당자']])]; }))
-      ] },
-      { t: '② 기존제품', items: [
-        T('주요 제품 생산 및 입고 일정 점검 — 다음 주 입고 예정', ['입고예정', '구분', '품목명', '차수 · 수량', '업체', '', '담당'],
-          NX_IN.map(function (a) { var r = a[0], p = a[1]; return [wkMd_(r[yi['입고일']]), isnew(p) ? '신제품' : '기존', str_(p[pi['품목명']]), str_(p[pi['발주차수']]) + ' · ' + wkQty_(r[yi['수량']]) + '개', str_(p[pi['업체명']]), '', wkWho_(p[pi['구매담당자']])]; })),
-        T('공급 지연 예상 품목 선제 대응 — 입고예정일이 지났는데 아직 입고 안 된 건', ['입고예정', '구분', '품목명', '차수 · 남은 수량', '업체', '대응(직접)', '담당'],
-          late.map(function (x) { return [wkMd_(x.t), days(x.t) + '일 지남', str_(x.p[pi['품목명']]), str_(x.p[pi['발주차수']]) + ' · ' + wkQty_(x.q) + '개', str_(x.p[pi['업체명']]), '', wkWho_(x.p[pi['구매담당자']])]; }))
-      ] },
-      { t: '③ 구매 프로세스 개선', items: [
-        T('구매 SOP 및 업무 프로세스 개선', ['목표일', '구분', '과제', '내용', '', '', '담당'], [], { ex: ['(예)10/30', 'SOP', '발주 승인 단계 정리', '상신 → 승인 기준 문서화', '', '', 'Day'] }),
-        T('협력사 관리 및 구매업무 효율화 검토', ['목표일', '구분', '과제', '내용', '', '', '담당'], [])
-      ] }
-    ] },
-    { h: '3. 진행 중 과제 및 주요 문제점', subs: [
-      { t: '① 신제품 관련 이슈', items: [
-        T('품목명 / 문제점 / 현재 진행상황 / 해결 예정일', ['전달예정', '문제점', '품목명', '현재 진행상황(최근 메모)', '업체', '해결 예정일', '담당'],
-          S_LATE.map(function (x) { return [wkMd_(x[si['전달예정일']]), '샘플 ' + days(wkDay_(x[si['전달예정일']])) + '일 지연', str_(x[si['품목명']]) + ' ' + str_(x[si['구성']]), lastMemo(x), str_(x[si['업체명']]), '', wkWho_(x[si['담당자']])]; }))
-      ] },
-      { t: '② 기존제품 관련 이슈', items: [
-        T('품목명 / 입고 지연 및 공급 문제 / 대응방안 / 해결 예정일', ['입고예정', '입고 지연 및 공급 문제', '품목명', '대응방안(직접)', '업체', '해결 예정일', '담당'],
-          late.map(function (x) { return [wkMd_(x.t), '입고 ' + days(x.t) + '일 지연 · 남은 ' + wkQty_(x.q) + '개', str_(x.p[pi['품목명']]) + ' ' + str_(x.p[pi['발주차수']]), '', str_(x.p[pi['업체명']]), '', wkWho_(x.p[pi['구매담당자']])]; })
-            .concat(PUSHED.map(function (a) { var r = a[0], p = a[1]; return [wkMd_(r[hi['시각']]), '입고일정 늦춰짐', str_(r[hi['품목명']]), chgTxt(r), p ? str_(p[pi['업체명']]) : '', String(str_(r[hi['새값']])).split(',')[0], wkWho_(r[hi['바꾼사람']])]; })))
-      ] },
-      { t: '③ 품질 및 협력사 이슈', items: [
-        T('품목명 또는 협력사 / 품질 문제 / 원인 및 개선방안 / 조치 일정', ['발생일', '품질 문제', '품목명 · 협력사', '원인 및 개선방안', '업체', '조치 일정', '담당'], [],
-          { manual: 3, ex: ['(예)10/14', '인쇄 번짐 2%', '○○ 용기', '금형 세척 · 입고 검사 강화', '○○산업', '10/25', 'Jayden'] })
-      ] },
-      { t: '④ 구매 프로세스 개선 과제', items: [
-        T('과제명 / 진행상황 / 병목사항 / 완료 목표일', ['', '과제명', '진행상황', '병목사항', '', '완료 목표일', '담당'], [], { manual: 3 })
-      ] }
-    ], note: '※ 주요 지연 건은 원인, 대응방안, 예상 해결 일정을 함께 보고' }
+  // ----- 표 (2026-10-26 개편: 첫 장 요약 → 병목 · 이슈 → 진행 업무 상세 → 다음 주 계획 · 같은 건은 한 번만) -----
+  var T = function (t, cols, rows, o) { o = o || {}; return { t: t, cols: cols, rows: rows || [], manual: o.manual == null ? 0 : o.manual, ex: o.ex || null, log: o.log || '' }; };
+  var pidOf = function (p) { return p ? str_(p[pi['실행판ID']]).toLowerCase() : ''; };
+  var who = function (r, i, k) { return wkWho_(r[i[k]]); };
+  var nm = function (p) { return str_(p[pi['품목명']]) + ' ' + str_(p[pi['발주차수']]); };
+  var proj = function (x) { return projCol(x); };
+  var lateIds = {}; late.forEach(function (x) { lateIds[pidOf(x.p)] = 1; });
+
+  // ── 병목 · 이슈: 실행판에서 찾은 막힌 건(지연 · 일정 늦춰짐 · 샘플 지연 · 받았는데 결정 안 한 샘플) — 한 표, 같은 건 한 번
+  var B = [];
+  late.forEach(function (x) { B.push({ o: 0, d: x.t, row: ['입고 지연 ' + days(x.t) + '일', nm(x.p), str_(x.p[pi['업체명']]), '예정 ' + wkMd_(x.t) + ' · 남은 ' + wkQty_(x.q) + '개', '', '', wkWho_(x.p[pi['구매담당자']])] }); });
+  var pushedSeen = {};
+  PUSHED.forEach(function (a) {
+    var r = a[0], p = a[1], k = pidOf(p) || str_(r[hi['품목명']]);
+    if (lateIds[pidOf(p)] || pushedSeen[k]) return; pushedSeen[k] = 1;
+    B.push({ o: 1, d: wkDay_(r[hi['시각']]), row: ['입고일정 늦춰짐', p ? nm(p) : str_(r[hi['품목명']]), p ? str_(p[pi['업체명']]) : '', chgTxt(r), '', '', wkWho_(r[hi['바꾼사람']])] });
+  });
+  S_LATE.forEach(function (x) { var d = wkDay_(x[si['전달예정일']]); B.push({ o: 2, d: d, row: ['샘플 지연 ' + days(d) + '일', proj(x), str_(x[si['업체명']]) || '미정', '전달예정 ' + wkMd_(x[si['전달예정일']]), lastMemo(x), '', who(x, si, '담당자')] }); });
+  // 받았는데 결정 안 한 샘플 — 받은 지 7일이 넘은 것만 병목(최근 받은 건 다음 주 계획 '결정 예정')
+  var DEC_OLD = NX_DEC.filter(function (x) { var d = wkDay_(x[si['전달일']]); return !d || days(d) >= 7; }), DEC_NEW = NX_DEC.filter(function (x) { return DEC_OLD.indexOf(x) < 0; });
+  DEC_OLD.forEach(function (x) { var d = wkDay_(x[si['전달일']]); B.push({ o: 3, d: d, row: ['결정 대기(수신 ' + (d ? days(d) : '?') + '일)', proj(x), str_(x[si['업체명']]) || '미정', '수신 ' + wkMd_(x[si['전달일']]) + ' · 채택/드롭 미정', lastMemo(x), '', who(x, si, '담당자')] }); });
+  B.sort(function (a, b) { return a.o - b.o || (a.d && b.d ? a.d - b.d : 0); });
+  var BCOL = ['구분', '품목 · 구성', '업체', '상태', '최근 진행 메모', '대응 · 해결 예정일', '담당'];
+
+  // ── 진행 업무 상세 ① 발주 · 입고 · 생산(신제품/기존은 구분 칸으로 — 예전 신제품 · 기존 · 중국 표 셋을 하나로)
+  var tagNew = function (p) { return (isnew(p) ? '신제품' : '기존') + (str_(p[pi['업체명']]).indexOf('중국') > -1 ? ' · 중국' : ''); };
+  var D1 = [];
+  NEW_PO.concat(OLD_PO).forEach(function (x) { D1.push({ d: wkDay_(x[pi['작성일']]), row: [wkMd_(x[pi['작성일']]), '발주 · ' + tagNew(x), nm(x), wkQty_(x[pi['발주수량']]) + '개 · ' + str_(x[pi['진행상태']]) + ((str_(x[pi['단가']]) && str_(x[pi['업체명']]).indexOf('중국') > -1) ? ' · ' + str_(x[pi['단가']]) + ' ' + str_(x[pi['통화']]) : ''), str_(x[pi['업체명']]), '입고목표 ' + wkMd_(x[pi['입고목표']]), wkWho_(x[pi['구매담당자']])] }); });
+  NEW_IN.concat(OLD_IN).forEach(function (a) { var r = a[0], p = a[1]; D1.push({ d: wkDay_(r[yi['입고일']]), row: [wkMd_(r[yi['입고일']]), '입고 · ' + tagNew(p), nm(p), wkQty_(r[yi['수량']]) + '개', str_(p[pi['업체명']]), '', wkWho_(p[pi['구매담당자']])] }); });
+  NEW_CHG.concat(OLD_CHG).forEach(function (a) {
+    var r = a[0], p = a[1], k = pidOf(p) || str_(r[hi['품목명']]);
+    if (pushedSeen[k] || lateIds[pidOf(p)]) return;                   // 늦춰진 건은 병목 표에
+    D1.push({ d: wkDay_(r[hi['시각']]), row: [wkMd_(r[hi['시각']]), '입고일정 변경', p ? nm(p) : str_(r[hi['품목명']]), chgTxt(r), p ? str_(p[pi['업체명']]) : '', '', wkWho_(r[hi['바꾼사람']])] });
+  });
+  PROD.forEach(function (r) { D1.push({ d: wkDay_(r[hi['시각']]), row: [wkMd_(r[hi['시각']]), '생산 진행', str_(r[hi['품목명']]), str_(r[hi['항목']]) + ' ' + str_(r[hi['새값']]), '', '', wkWho_(r[hi['바꾼사람']])] }); });
+  D1.sort(function (a, b) { return (a.d || 0) - (b.d || 0); });
+
+  // ── ② 샘플 · 소싱 — 프로젝트 · 업체마다 한 줄(이번 주 요청 · 수신 · 견적 · 협의 메모 · 드롭/탈락을 한 칸에). 예전 요청 · 진행 중 · 수신 · 사양 협의 · 기존/신규 협력사 표 여섯 개를 하나로
+  var lateS = {}; S_LATE.forEach(function (x) { lateS[pjOf(x) + '|' + vk(str_(x[si['업체명']]) || '미정')] = 1; });
+  var decS = {}; DEC_OLD.forEach(function (x) { decS[pjOf(x) + '|' + vk(str_(x[si['업체명']]) || '미정')] = 1; });
+  var SV = {}, SVK = [];
+  var svOf = function (r) {
+    var k = pjOf(r) + '|' + vk(str_(r[si['업체명']]) || '미정');
+    if (!SV[k]) { SV[k] = { k: k, r: r, ev: [], d: null }; SVK.push(k); }
+    var c = SV[k]; if (wkKey_(r[si['요청일']]) >= wkKey_(c.r[si['요청일']])) c.r = r;
+    return c;
+  };
+  var ev = function (c, d, t) { c.ev.push({ d: d, t: t }); if (d && (!c.d || d > c.d)) c.d = d; };
+  SMP.forEach(function (r) {
+    if (inwk(r[si['요청일']])) ev(svOf(r), wkDay_(r[si['요청일']]), wkMd_(r[si['요청일']]) + ' ' + str_(r[si['구성']]) + ' 샘플 요청' + (str_(r[si['수량']]) ? ' ' + wkQty_(r[si['수량']]) + '개' : ''));
+    if (inwk(r[si['전달일']])) ev(svOf(r), wkDay_(r[si['전달일']]), wkMd_(r[si['전달일']]) + ' 샘플 수신');
+    if (inwk(r[si['견적수신일']])) ev(svOf(r), wkDay_(r[si['견적수신일']]), wkMd_(r[si['견적수신일']]) + ' 견적 수신');
+    if (S_OFF(r) && inwk(offAt(r))) ev(svOf(r), wkDay_(offAt(r)), wkMd_(offAt(r)) + ' ' + str_(r[si['상태']]) + ' — ' + offWhy(r));
+  });
+  memoWk.forEach(function (m) {
+    var r = SMP.filter(function (x) { return pjOf(x) === m.pj && vk(str_(x[si['업체명']]) || '미정') === m.vk; })[0];
+    if (!r || !m.text) return;
+    ev(svOf(r), wkDay_(m.at), dmd(m.at) + ' ' + m.text + (m.st && m.st !== '메모' ? ' [' + m.st + ']' : ''));
+  });
+  var D2 = SVK.map(function (k) { return SV[k]; }).filter(function (c) { return c.ev.length; }).map(function (c) {
+    var r = c.r, v = str_(r[si['업체명']]), tags = [];
+    if (str_(r[si['구분']])) tags.push(str_(r[si['구분']]));
+    if (CN(r)) tags.push('중국 · GWP');
+    if (v && v !== '미정' && !oldV(r)) tags.push('신규 업체');
+    if (grp[str_(r[si['품목명']]) + '|' + str_(r[si['구성']])] > 1) tags.push('견적 비교');
+    c.ev.sort(function (a, b) { return (a.d || 0) - (b.d || 0); });
+    var st = str_(r[si['상태']]) || '진행중';
+    if (lateS[c.k]) st += ' · 지연(병목 표)'; else if (decS[c.k]) st += ' · 결정 대기(병목 표)';
+    else if (st === '진행중' && str_(r[si['전달예정일']])) st += ' · 전달예정 ' + wkMd_(r[si['전달예정일']]);
+    return { d: c.d, row: [c.d ? wkMd_(c.d) : '', tags.join(' · '), proj(r), v || '미정', c.ev.map(function (e) { return e.t; }).join(' / '), st, who(r, si, '담당자')] };
+  }).sort(function (a, b) { var x = a.row[2], y = b.row[2]; return x < y ? -1 : x > y ? 1 : (a.d || 0) - (b.d || 0); });
+
+  // ── 다음 주 계획 — 입고 예정 · 샘플 전달 예정 한 표(결정 대기 샘플은 병목 표에)
+  var N1 = NX_IN.map(function (a) { var r = a[0], p = a[1]; return { d: wkDay_(r[yi['입고일']]), row: [wkMd_(r[yi['입고일']]), '입고 예정 · ' + tagNew(p), nm(p), wkQty_(r[yi['수량']]) + '개', str_(p[pi['업체명']]), wkWho_(p[pi['구매담당자']])] }; })
+    .concat(NX_SMP.map(function (x) { return { d: wkDay_(x[si['전달예정일']]), row: [wkMd_(x[si['전달예정일']]), '샘플 전달 예정', proj(x), lastMemo(x), str_(x[si['업체명']]) || '미정', who(x, si, '담당자')] }; }))
+    .concat(DEC_NEW.map(function (x) { return { d: wkDay_(x[si['전달일']]), row: [wkMd_(x[si['전달일']]) + ' 수신', '채택 · 드롭 결정', proj(x), lastMemo(x), str_(x[si['업체명']]) || '미정', who(x, si, '담당자')] }; }))
+    .sort(function (a, b) { return (a.d || 0) - (b.d || 0); }).map(function (x) { return x.row; });
+
+  // ── 첫 장 요약 — 숫자 · 담당자별 주요 건
+  var adopt = memoWk.filter(function (m) { return m.st === '채택'; });
+  var sOff = SMP.filter(function (r) { return S_OFF(r) && inwk(offAt(r)); });
+  var kpi = [
+    { k: 'po', label: '발주', v: NEW_PO.length + OLD_PO.length, sub: '신제품 ' + NEW_PO.length + ' · 기존 ' + OLD_PO.length },
+    { k: 'in', label: '입고', v: NEW_IN.length + OLD_IN.length, sub: '신제품 ' + NEW_IN.length + ' · 기존 ' + OLD_IN.length },
+    { k: 'smp', label: '샘플 요청 · 수신', v: S_REQ.length + ' · ' + S_RCV.length, sub: '채택 ' + adopt.length + ' · 드롭/탈락 ' + sOff.length },
+    { k: 'bn', label: '병목 · 이슈', v: B.length, sub: '입고 지연 ' + late.length + ' · 샘플 지연 ' + S_LATE.length + ' · 결정 대기(7일↑) ' + DEC_OLD.length, warn: B.length > 0 },
+    { k: 'nx', label: '다음 주 예정', v: N1.length, sub: '입고 ' + NX_IN.length + ' · 샘플 전달 ' + NX_SMP.length + ' · 결정 ' + DEC_NEW.length }
   ];
-  // 4. 팀원별 — 1번 실행판 줄 중 그 담당자 줄 수
-  var cnt = {};
-  parts[0].subs.forEach(function (s) { s.items.forEach(function (it) { if (!it.log) return; it.rows.forEach(function (x) { var w = x[x.length - 1]; cnt[w] = (cnt[w] || 0) + 1; }); }); });
-  var team = RB_WK_TEAM.map(function (t) { return { name: t[0], role: t[1], n: cnt[t[0]] || 0 }; });
-  return { from: ymd(d0), to: ymd(d1), nextFrom: ymd(n0), nextTo: ymd(n1), parts: parts, team: team,
-    decision: [T('의사결정 필요사항 : 안건 / 선택 가능한 대안 / 구매팀 의견', ['', '안건', '선택 가능한 대안', '구매팀 의견', '', '', '담당'], []),
-      T('유관부서 협조 요청 : 요청부서 / 요청내용 / 필요 일정', ['', '요청부서', '요청내용', '', '', '필요 일정', '담당'], [])],
-    decisionNote: '※ 추가 의사결정이 필요한 사항은 대안을 검토하여 보고하고, 선택 가능한 대안이 없는 경우 별도 협의 요청' };
+  // 담당자별 주요 건(상세 표 줄 수 · 앞의 몇 건)
+  var byWho = {};
+  var addW = function (w, t) { if (!w || w === '-') return; (byWho[w] = byWho[w] || []).push(t); };
+  D1.forEach(function (x) { addW(x.row[6], x.row[1].split(' · ')[0] + ' ' + x.row[2]); });
+  D2.forEach(function (x) { addW(x.row[6], '샘플 ' + x.row[2] + ' · ' + x.row[3]); });
+  var team = RB_WK_TEAM.map(function (t) { var L = byWho[t[0]] || []; return { name: t[0], role: t[1], n: L.length, top: L.slice(0, 3) }; });
+  var hl = [];                                             // 주요 업무(자동) — 신제품 발주 · 채택 · 큰 지연
+  NEW_PO.slice(0, 4).forEach(function (x) { hl.push('신제품 발주 — ' + nm(x) + ' (' + str_(x[pi['업체명']]) + ', ' + wkQty_(x[pi['발주수량']]) + '개)'); });
+  adopt.slice(0, 4).forEach(function (m) { hl.push('샘플 채택 — ' + m.proj + ' · ' + m.vendor); });
+  late.slice(0, 3).forEach(function (x) { hl.push('입고 지연 ' + days(x.t) + '일 — ' + nm(x.p) + ' (' + str_(x.p[pi['업체명']]) + ')'); });
+
+  var parts = [
+    { h: '2. 병목 · 이슈', subs: [
+      { t: '실행판에서 찾은 막힌 건 — 지연 · 일정 늦춰짐 · 샘플 지연 · 받았는데 결정 안 한 샘플', items: [T('대응 · 해결 예정일은 담당자가 직접', BCOL, B.map(function (x) { return x.row; }), { log: 1 })] },
+      { t: '직접 작성', items: [
+        T('품질 · 협력사 이슈', ['발생일', '품질 · 협력사 문제', '품목 · 협력사', '원인 · 개선방안', '', '조치 일정', '담당'], [], { manual: 2, ex: ['(예)10/14', '인쇄 번짐 2%', '○○ 용기 · ○○산업', '금형 세척 · 입고 검사 강화', '', '10/25', 'Jayden'] }),
+        T('의사결정 필요사항', ['', '안건', '선택 가능한 대안', '구매팀 의견', '', '', '담당'], [], { manual: 2 }),
+        T('유관부서 협조 요청', ['', '요청부서', '요청내용', '', '', '필요 일정', '담당'], [], { manual: 2 })
+      ] }
+    ], note: '※ 지연 건은 원인 · 대응방안 · 예상 해결 일정을 함께 · 대안이 없으면 별도 협의 요청' },
+    { h: '3. 진행 업무 상세', subs: [
+      { t: '① 발주 · 입고 · 생산', items: [T('신제품 · 기존은 구분 칸 · 늦춰진 입고일정은 병목 표에', ['일자', '구분', '품목 · 차수', '내용', '업체', '일정', '담당'], D1.map(function (x) { return x.row; }), { log: 1 })] },
+      { t: '② 샘플 · 소싱(신제품 부자재 · 협력사 견적 · 중국 · GWP)', items: [T('프로젝트 · 업체마다 한 줄 — 이번 주 진행을 한 칸에', ['최근', '구분', '프로젝트 · 구성', '업체', '이번 주 진행(요청 · 수신 · 견적 · 협의 메모)', '상태', '담당'], D2.map(function (x) { return x.row; }), { log: 1 })] },
+      { t: '③ 그 밖(직접)', items: [T('품절 우려 · 안전재고 · 단가 협의 · 프로세스 개선 등', ['일자', '구분', '품목 · 과제', '내용', '업체', '일정', '담당'], [], { manual: 3, ex: ['(예)10/16', '품절 우려', '○○ 세럼 150ml', '재고 1.2개월분(안전 2개월)', '코스메카', '추가 발주 10/21', 'Nova'] })] }
+    ] },
+    { h: '4. 다음 주 계획', subs: [
+      { t: '입고 예정 · 샘플 전달 예정 · 채택/드롭 결정', items: [T('받은 지 7일 넘은 결정 대기 샘플은 병목 표에', ['일자', '구분', '품목 · 구성', '내용 · 최근 메모', '업체', '담당'], N1, { log: 1, manual: 2 })] }
+    ] }
+  ];
+  return { v: 2, from: ymd(d0), to: ymd(d1), nextFrom: ymd(n0), nextTo: ymd(n1),
+    summary: { kpi: kpi, hl: hl, team: team }, parts: parts };
 }
+
