@@ -1524,10 +1524,10 @@
     .who { padding: 10px 10px 0; border-top: 1px solid var(--line); margin-top: 8px; font-size: 11.5px; word-break: break-all; }
     main { padding: 22px 28px 16px; }
     /* 메뉴 페이지(BOM · 발주잔량 · 네고 실적 · 주간보고): 팝업 대신 왼쪽 메뉴 옆 본문 자리에 */
-    #bomv, #rem, #nego, #wkrep, #nsov { left: var(--sbw) !important; background: var(--ground) !important; padding: 16px 20px !important;
+    #bomv, #nego, #wkrep, #nsov { left: var(--sbw) !important; background: var(--ground) !important; padding: 16px 20px !important;
       align-items: stretch !important; justify-content: stretch !important; overflow: auto; }
     #nsov > .nsbox { width: min(980px, 100%) !important; max-width: none !important; margin: 0 auto !important; box-shadow: none !important; border: 1px solid var(--line) !important; border-radius: 12px !important; padding: 22px 26px !important; align-self: flex-start; }
-    #bomv > .ngbox, #rem > .qin-box, #nego > .qin-box, #wkrep > .nsbox { width: 100% !important; max-width: none !important; max-height: none !important;
+    #bomv > .ngbox, #nego > .qin-box, #wkrep > .nsbox { width: 100% !important; max-width: none !important; max-height: none !important;
       min-height: 100%; margin: 0 !important; box-shadow: none !important; border: 1px solid var(--line) !important; border-radius: 12px !important; }
   }
   @media (min-width: 1100px) and (prefers-color-scheme: dark) {
@@ -1713,7 +1713,6 @@
       <button type="button" data-nav="sround">샘플 진행 관리</button>
       <div class="sblabel">관리</div>
       <button type="button" data-nav="bom">BOM 관리</button>
-      <button type="button" data-nav="rem">발주잔량</button>
       <button type="button" data-nav="nego">네고 실적</button>
       <button type="button" data-nav="close">월 마감</button>
       <div class="sblabel">보고 · 분석</div>
@@ -1735,7 +1734,6 @@
     </div>
     <!-- 머리 단추(발주 · 샘플 같은 자리): [새 ○○] [BOM 보기] [탭별 단추] … 오른쪽 [가이드] [🔔] — 새로고침 단추는 없앰(자동으로 다시 읽음) -->
     <button class="btn btn-sm" type="button" id="bomView" title="품목을 검색해 BOM 구성을 봅니다">BOM 보기</button>
-    <button class="btn btn-sm" type="button" id="remBtn" title="품목별 발주잔량을 봅니다 · 엑셀로 받을 수 있습니다">발주잔량</button>
     <button class="btn btn-sm" type="button" id="negoBtn" title="BOM 차수가 바뀔 때 원가가 준 만큼 × 연간 발주량 = 절감액(네고 실적) · 엑셀로 받기">네고 실적</button>
     <button class="btn btn-sm" type="button" id="wkBtn" title="주간보고 — 지난 금요일 ~ 이번 목요일 실행판 기록으로 채운 보고서 · 엑셀로 받기">주간보고</button>
     </div>
@@ -1756,6 +1754,7 @@
       <div class="phact">
         <button class="btn btn-sm btn-solid" type="button" id="newOrder" title="새 발주건을 등록합니다. 발주 DB에 바로 올라갑니다">새 발주</button>
         <button class="btn btn-sm" type="button" id="quickIn" title="입고를 빠르게 기록합니다 (단축키 I)">빠른 입고</button>
+        <button class="btn btn-sm" type="button" id="remBtn" title="품목별 발주잔량을 봅니다 · 엑셀로 받을 수 있습니다">발주잔량</button>
         <button class="btn btn-sm" type="button" id="poPendBtn" hidden title="품의서를 내려받고 아직 상신 완료하지 않은 품의 — 아마란스에 올린 뒤 결재문서번호를 넣어 상신 완료">상신 대기 <b id="poPendN">0</b></button>
         <button class="btn btn-sm btn-solid" type="button" id="newSample" hidden title="새 샘플 프로젝트를 등록합니다. _실행판_샘플 시트에 줄이 하나 붙습니다">새 샘플</button>
         <button class="btn btn-sm" type="button" id="sampleBulkV" hidden title="여러 프로젝트에 걸친 같은 업체 샘플을 한 번에 수신 · 드롭 처리합니다">업체 일괄 처리</button>
@@ -3803,7 +3802,7 @@ function dateSlots_(steps, cfg, mode) {
      예전 머리 단추(.modes · .tabs · #bomView …)는 숨겨 두고 그대로 눌러 쓴다 — 기능 · 단축키는 그대로
      ------------------------------------------------------------------ */
   var NAV_PAGE = {
-    bom: { el: "bomv", btn: "bomView", close: "bomv-close" }, rem: { el: "rem", btn: "remBtn", close: "rem-close" },
+    bom: { el: "bomv", btn: "bomView", close: "bomv-close" },
     nego: { el: "nego", btn: "negoBtn", close: "nego-close" }, wk: { el: "wkrep", btn: "wkBtn", close: "wk-close" }
   };
   function navWide() { return window.matchMedia && window.matchMedia("(min-width: 1100px)").matches; }
@@ -3867,9 +3866,9 @@ function dateSlots_(steps, cfg, mode) {
   (function () {
     var mo = new MutationObserver(function () { clearTimeout(mo._t); mo._t = setTimeout(navSync, 30); });
     mo.observe(document.body, { childList: true });
-    ["bomv", "rem", "nego", "tab-stats", "tab-admin"].forEach(function (id) { var el = $(id); if (el) mo.observe(el, { attributes: true, attributeFilter: ["hidden"] }); });
+    ["bomv", "nego", "tab-stats", "tab-admin"].forEach(function (id) { var el = $(id); if (el) mo.observe(el, { attributes: true, attributeFilter: ["hidden"] }); });
     // PC 페이지 모드: 바깥(배경) 누름으로 페이지가 닫히지 않게
-    ["bomv", "rem", "nego"].forEach(function (id) {
+    ["bomv", "nego"].forEach(function (id) {
       var el = $(id); if (!el) return;
       ["mousedown", "click"].forEach(function (ev) { el.addEventListener(ev, function (e) { if (e.target === el && navWide()) e.stopImmediatePropagation(); }, true); });
     });
@@ -6480,8 +6479,17 @@ function dateSlots_(steps, cfg, mode) {
     ["일정", [["dSample", "샘플 제작기간(일)"], ["dLead", "양산 소요기간(일)"], ["avail", "납품 가능일", "date"], ["_want", "희망 납품일 대비", "calc"]]],
     ["조건 · 의견", [["pay", "결제조건"], ["inco", "인코텀즈 · 납품조건"], ["mat", "주요 소재 · 제작방식"], ["qual", "품질 · 기술 특이사항"], ["opin", "구매팀 검토의견"]]]
   ];
+  /** 비교 열: 샘플 업체(시트) + 견적만 받은 업체(견적 비교에서 [+ 업체 추가] — notes 에만, 샘플 요청 줄은 없음) */
   function qtVendors(row) {
-    return (row.vendors || []).filter(function (g) { return g.name !== "업체 미정"; }).slice().sort(function (a, b) { return (SAMPLE_OFF[a.status] ? 1 : 0) - (SAMPLE_OFF[b.status] ? 1 : 0); });
+    var V = (row.vendors || []).filter(function (g) { return g.name !== "업체 미정"; }).slice().sort(function (a, b) { return (SAMPLE_OFF[a.status] ? 1 : 0) - (SAMPLE_OFF[b.status] ? 1 : 0); });
+    var have = {}; V.forEach(function (g) { have[sampleVKey(g.name)] = 1; });
+    var Q = sInfo(row, "qt"), D = spDraft(row).qt, ex = [];
+    Object.keys(Q).concat(Object.keys(D)).forEach(function (vk) {
+      if (have[vk]) return; have[vk] = 1;
+      var nm = (D[vk] && D[vk].name) || (Q[vk] && Q[vk].name);
+      if (nm) ex.push({ name: nm, status: "견적만", extra: true, reqs: [] });
+    });
+    return V.concat(ex);
   }
   function qtVal(row, vk) { var d = spDraft(row).qt[vk] || {}, s = sInfo(row, "qt")[vk] || {}; return Object.assign({}, s, d); }
   function qtCalc(row) {
@@ -6502,14 +6510,15 @@ function dateSlots_(steps, cfg, mode) {
   }
   function spQtTab(row) {
     var V = qtVendors(row), ro = DATA && DATA.canEdit === false, ed = QTEDIT === row.id && !ro, C = qtCalc(row), R = sInfo(row, "req");
-    if (!V.length) return '<div class="spcard" data-sprow="' + esc(row.id) + '"><div class="spch"><b>업체 견적 비교</b></div><p class="nghelp">아직 업체가 없습니다 — [샘플 · 업체] 탭에서 업체를 추가하면 여기서 견적을 나란히 비교합니다.</p></div>';
+    if (!V.length) return '<div class="spcard" data-sprow="' + esc(row.id) + '"><div class="spch"><b>업체 견적 비교</b>' + (ro ? "" : '<span class="spbtns"><button type="button" class="btn btn-sm btn-solid" data-qtadd="1">+ 업체 추가</button></span>') + '</div><p class="nghelp">아직 업체가 없습니다 — [+ 업체 추가]로 견적 받은 업체를 넣거나, 진행 현황의 [업체 추가]로 샘플을 요청하면 여기서 나란히 비교합니다.</p></div>';
     var pct = function (x) { return (x > 0 ? "+" : "") + (x * 100).toFixed(1) + "%"; };
     var h = '<div class="spcard" data-sprow="' + esc(row.id) + '"><div class="spch"><b>업체 견적 비교</b><span class="nghelp">업체별 단가 · 원화 환산 · 총액 · 최저/목표 대비 · 납기를 나란히. 희망 납품일 ' + esc(md2(R.wantIn) || "미입력") + " · 목표 단가 " + esc(R.tprice ? Number(spNum(R.tprice)).toLocaleString() + "원" : "미입력") + " (요청 정보 탭)</span>" +
-      '<span class="spbtns">' + (ro ? "" : ed ? '<button type="button" class="btn btn-sm" data-qtcancel="1">취소</button><button type="button" class="btn btn-sm btn-solid" data-qtsave="1">견적 저장</button>' : '<button type="button" class="btn btn-sm btn-solid" data-qtedit="1">견적 입력 · 수정</button>') +
+      '<span class="spbtns">' + (ro ? "" : '<button type="button" class="btn btn-sm" data-qtadd="1" title="샘플 요청 없이 견적만 받은 업체를 비교에 더합니다(시트 샘플 줄은 안 생김)">+ 업체 추가</button>') + (ro ? "" : ed ? '<button type="button" class="btn btn-sm" data-qtcancel="1">취소</button><button type="button" class="btn btn-sm btn-solid" data-qtsave="1">견적 저장</button>' : '<button type="button" class="btn btn-sm btn-solid" data-qtedit="1">견적 입력 · 수정</button>') +
       '<button type="button" class="btn btn-sm" data-qtxls="1">엑셀</button></span></div>';
     h += '<div class="qtwrap"><table class="qtab"><thead><tr><th class="qtl">구분</th>' + V.map(function (g, i) {
       var c = C[sampleVKey(g.name)];
-      return '<th class="' + (c.off ? "qoff" : "") + '"><small>업체 ' + (i + 1) + "</small> " + esc(g.name) + ' <span class="tag ' + sstClass(g.status) + '">' + esc(g.status) + "</span></th>";
+      return '<th class="' + (c.off ? "qoff" : "") + '"><small>업체 ' + (i + 1) + "</small> " + esc(g.name) + ' <span class="tag ' + (g.extra ? "" : sstClass(g.status)) + '"' + (g.extra ? ' title="샘플 요청 없이 견적만 받은 업체 — 샘플을 요청하려면 진행 현황의 [업체 추가]"' : "") + ">" + esc(g.status) + "</span>" +
+        (g.extra && !ro ? ' <button type="button" class="btn-quiet btn-sm" data-qtdel="' + esc(sampleVKey(g.name)) + '" title="이 업체를 견적 비교에서 뺍니다">✕</button>' : "") + "</th>";
     }).join("") + "</tr></thead><tbody>";
     QT_ROWS.forEach(function (G) {
       h += '<tr class="qtg"><td colspan="' + (V.length + 1) + '">' + esc(G[0]) + "</td></tr>";
@@ -6626,7 +6635,7 @@ function dateSlots_(steps, cfg, mode) {
       });
       S.list.forEach(function (x) { add(x.at, x.who, g.name + " · " + (x.text || "") + (x.st ? " [" + x.st + "]" : ""), x.st === "채택" ? "ok" : x.st === "드롭" || x.st === "탈락" ? "off" : "memo"); });
     });
-    var Q = sInfo(row, "qt"); Object.keys(Q).forEach(function (vk) { var q = Q[vk]; var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0]; add(q._at, q._by, (g ? g.name : vk) + " · 견적 입력" + (q.price ? " (" + q.price + " " + (q.cur || "KRW") + ")" : ""), "qt"); });
+    var Q = sInfo(row, "qt"); Object.keys(Q).forEach(function (vk) { var q = Q[vk]; var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0]; add(q._at, q._by, (g ? g.name : (q.name || vk)) + " · 견적 입력" + (q.price ? " (" + q.price + " " + (q.cur || "KRW") + ")" : ""), "qt"); });
     var R = sInfo(row, "req"); if (R._at) add(R._at, R._by, "요청 정보 수정", "memo");
     ev.sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; });
     return ev;
@@ -6644,7 +6653,7 @@ function dateSlots_(steps, cfg, mode) {
     var R = sInfo(row, "req"), C = qtCalc(row), Q = sInfo(row, "qt"), items = svItems([row]), cnt = {};
     items.forEach(function (x) { cnt[x.b] = (cnt[x.b] || 0) + 1; });
     var kv = function (k, v) { return "<div><span>" + esc(k) + "</span><b>" + (v === "" || v == null ? "—" : v) + "</b></div>"; };
-    var lowK = Object.keys(C).filter(function (k) { return C[k].isLow; })[0], gOf = function (vk) { var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0]; return g ? g.name : vk; };
+    var lowK = Object.keys(C).filter(function (k) { return C[k].isLow; })[0], gOf = function (vk) { var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0]; return g ? g.name : ((Q[vk] && Q[vk].name) || vk); };
     var picks = (row.vendors || []).filter(function (g) { return g.status === "채택"; });
     var pickC = picks.length ? C[sampleVKey(picks[0].name)] : null;
     var cand = Object.keys(C).filter(function (k) { return C[k].q.st === "후보"; }).map(gOf);
@@ -6769,6 +6778,23 @@ function dateSlots_(steps, cfg, mode) {
     if (t.closest("[data-qtedit]")) { QTEDIT = row.id; spDraft(row).qt = {}; spRe(); return; }
     if (t.closest("[data-qtcancel]")) { QTEDIT = ""; spDraft(row).qt = {}; spRe(); return; }
     if (t.closest("[data-qtxls]")) { qtXlsx(row); return; }
+    if (t.closest("[data-qtadd]")) {
+      var nm = prompt("견적 비교에 더할 업체명", ""); nm = String(nm || "").trim(); if (!nm) return;
+      var vk0 = sampleVKey(nm);
+      if (qtVendors(row).some(function (g) { return sampleVKey(g.name) === vk0; })) { alert("이미 있는 업체입니다: " + nm); return; }
+      if (QTEDIT !== row.id) { QTEDIT = row.id; spDraft(row).qt = {}; }
+      spDraft(row).qt[vk0] = { name: nm, st: "검토중" };
+      spRe(); return;
+    }
+    var qd = t.closest("[data-qtdel]");
+    if (qd) {
+      var vkd = qd.dataset.qtdel, D0 = spDraft(row).qt;
+      if (!sInfo(row, "qt")[vkd]) { delete D0[vkd]; spRe(); return; }      // 아직 저장 안 한 업체
+      if (!confirm("이 업체를 견적 비교에서 뺄까요? 입력한 견적도 지워집니다.")) return;
+      delete D0[vkd];
+      spInfoSave(row, "qt", [{ sub: vkd, val: null }], function (o, er) { if (!er) toast("견적 비교에서 뺐습니다"); });
+      return;
+    }
     if (t.closest("[data-qtsave]")) {
       var dq = spDraft(row).qt, saved = sInfo(row, "qt");
       var setsQ = Object.keys(dq).map(function (vk) { var o = Object.assign({}, saved[vk] || {}, dq[vk]); delete o._at; delete o._by; return { sub: vk, val: o }; });
