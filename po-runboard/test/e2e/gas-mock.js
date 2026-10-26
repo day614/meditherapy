@@ -74,7 +74,7 @@ class Range {
   setValues(a) { this.sh._ensure(this.r + a.length - 1, this.c + (a[0] || []).length - 1); a.forEach((row, i) => row.forEach((x, j) => {
     const s = String(x == null ? '' : x);
     if (s.charAt(0) === '=') { this.sh.f[this.r + i - 1][this.c + j - 1] = s; this.sh.v[this.r + i - 1][this.c + j - 1] = ''; }
-    else { this.sh.v[this.r + i - 1][this.c + j - 1] = x; this.sh.f[this.r + i - 1][this.c + j - 1] = ''; } })); return this; }
+    else { this.sh.v[this.r + i - 1][this.c + j - 1] = typeof x === 'string' && x.charAt(0) === "'" ? x.slice(1) : x; this.sh.f[this.r + i - 1][this.c + j - 1] = ''; } })); return this; }   // 실제 시트처럼 글자 표시 ' 는 값에 남지 않는다
   setValue(x) { return this.setValues(this._map(() => x)); }
   setFormula(f) { return this.setFormulas(this._map(() => f)); }
   setFormulas(a) { this.sh._ensure(this.r + a.length - 1, this.c + a[0].length - 1); a.forEach((row, i) => row.forEach((f, j) => { this.sh.f[this.r + i - 1][this.c + j - 1] = f; })); return this; }

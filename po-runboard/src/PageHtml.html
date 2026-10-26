@@ -1690,6 +1690,24 @@
   .evl li.ev-ok::before { background: #1c9d5b; } .evl li.ev-rcv::before { background: #6a3fb0; } .evl li.ev-off::before { background: var(--ink-3); } .evl li.ev-rv::before { background: #d08a00; } .evl li.ev-qt::before { background: #2f8fd8; } .evl li.ev-memo::before { background: #8b95a1; }
   .evl b { display: block; font-size: 13px; font-weight: 600; }
   .evl small { display: block; font-size: 11.5px; color: var(--ink-3); }
+
+  /* 신규 제작 요청(요청서) */
+  .nsreqbox { width: min(1100px, 100%) !important; }
+  .nsreqbox .nssec { margin-bottom: 4px; }
+  .nsreqbox .spform { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .nsreqbox .spform label { font-size: 12px; color: var(--ink-2); font-weight: 600; display: flex; flex-direction: column; gap: 3px; }
+  .nsreqbox .spform label.full { grid-column: 1 / -1; }
+  .nsreqbox .spform label.w2 { grid-column: span 2; }
+  .nsreqbox .spform input, .nsreqbox .spform select, .nsreqbox .spform textarea { font-weight: 400; border: 1px solid var(--line-strong); border-radius: 8px; padding: 7px 10px; font-size: 13.5px; background: var(--surface); width: 100%; min-width: 0; }
+  .nsneed { font-style: normal; font-size: 10.5px; color: #c4320a; background: #fdece6; border-radius: 4px; padding: 0 5px; margin-left: 4px; }
+  @media (max-width: 760px) { .nsreqbox .spform { grid-template-columns: 1fr 1fr; } .nsreqbox .spform label.w2 { grid-column: 1 / -1; } }
+  /* 발주잔량: 화면을 넓게 */
+  #rem { padding: 20px !important; align-items: stretch !important; }
+  #rem .qin-box { width: 100% !important; max-width: none !important; max-height: none !important; height: 100%; }
+  #rem .qin-wrap { flex: 1 1 auto !important; max-height: none !important; min-height: 0; }
+  .nsreqbox .spform .dtxtwrap, .spform .dtxtwrap { display: flex; width: 100%; }
+  .nsreqbox .spform .dtxtwrap input, .spform .dtxtwrap input { flex: 1 1 auto; width: 100% !important; max-width: none !important; }
+  @media (min-width: 1100px) { #rem { left: var(--sbw); } }
 </style>
 </head>
 <body>
@@ -1709,8 +1727,6 @@
       <div class="sblabel">샘플</div>
       <button type="button" data-nav="snew">신규 제작 요청</button>
       <button type="button" data-nav="sample">구매 소싱 관리</button>
-      <button type="button" data-nav="qt">업체 견적 비교</button>
-      <button type="button" data-nav="sround">샘플 진행 관리</button>
       <div class="sblabel">관리</div>
       <button type="button" data-nav="bom">BOM 관리</button>
       <button type="button" data-nav="nego">네고 실적</button>
@@ -3822,7 +3838,7 @@ function dateSlots_(steps, cfg, mode) {
   function navSync() {
     var nav = $("sbnav"); if (!nav) return;
     if (NAV_PEND) return;                 // 넘어가는 중 — 누른 메뉴 표시를 그대로 둔다
-    var pg = navPageOpen() || ($("nsov") ? "snew" : ""), cur = pg || (view === "board" ? (mode === "sample" ? (SVIEW === "round" ? "sround" : "sample") : "po") : view);
+    var pg = navPageOpen() || ($("nsov") ? "snew" : ""), cur = pg || (view === "board" ? (mode === "sample" ? "sample" : "po") : view === "qt" ? "sample" : view);
     nav.querySelectorAll("button[data-nav]").forEach(function (b) { b.classList.toggle("on", b.dataset.nav === cur); });
     var ts = $("tab-stats"), ta = $("tab-admin");
     nav.querySelector('[data-nav="stats"]').hidden = !ts || ts.hidden;
@@ -5774,8 +5790,8 @@ function dateSlots_(steps, cfg, mode) {
 
 
   /* ---------- 새 샘플 프로젝트 — _실행판_샘플 시트에 첫 줄을 붙인다 ---------- */
-  var NS_F = [["name", "품목명(프로젝트명) *"], ["code", "품목코드"], ["brand", "브랜드"], ["owner", "담당자"], ["reqAt", "요청일"], ["vendor", "업체명 (나중에 정해도 됨)"], ["qty", "수량"],
-    ["make", "구성"], ["spec", "사양"], ["kind", "구분"], ["planAt", "전달예정일 *"], ["note", "비고/피드백"], ["link", "프로젝트 링크 (슬랙 · 구글문서 등 주소, 여러 개는 띄어쓰기로)"]];
+  var NS_F = [["name", "제품명(품목명 · 프로젝트명) *"], ["code", "품목코드"], ["brand", "브랜드"], ["owner", "구매 담당자"], ["reqAt", "요청일"], ["vendor", "업체명"], ["qty", "수량"],
+    ["make", "구성"], ["spec", "사양"], ["kind", "구분"], ["planAt", "샘플 전달예정일"], ["note", "비고/피드백"], ["link", "프로젝트 링크 (슬랙 · 구글문서 등 주소, 여러 개는 띄어쓰기로)"]];
   /** 등록 중인 새 샘플 — 서버 답을 기다리지 않고 목록에 먼저 보인다(다시 읽으면 진짜 줄로 바뀐다) */
   function nsTempRow(p) {
     var yy = function (v) { return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(v || "") ? v.slice(2).replace(/-/g, "/") : (v || ""); };
@@ -5793,14 +5809,31 @@ function dateSlots_(steps, cfg, mode) {
     if (DATA && DATA.canEdit === false) { toast("보기 전용 계정입니다"); return; }
     var ov = document.createElement("div");
     ov.className = "nsov"; ov.id = "nsov";
-    ov.innerHTML = '<div class="nsbox" role="dialog" aria-label="새 샘플 등록"><h3>신규 제작 요청 <span class="nghelp" style="font-weight:400">새 샘플 프로젝트 — 등록 뒤 상세 [요청 정보] 탭에 요청부서 · 목적 · 희망 일정 · 목표 단가 · 사양을 적습니다</span></h3><div class="sedit">' +
-      NS_F.map(function (x) { return seField(x[0], x[1], pre && pre[x[0]] != null ? pre[x[0]] : (x[0] === "reqAt" ? todayIso() : ""), "ns-"); }).join("") +
+    // GWP 제작 요청서 구성(2026-10-26): 기본 정보 → 수량 · 사양 → 일정 · 납품 → 첫 샘플 요청(선택) → 기타. 요청서 칸은 프로젝트 [요청 정보]로 저장
+    var nsDraft = null; try { nsDraft = pre ? null : JSON.parse(localStorage.getItem("rb.nsdraft") || "null"); } catch (eD) { nsDraft = null; }
+    var P0 = pre || (nsDraft && nsDraft.p) || {}, RQ0 = (pre && pre.req) || (nsDraft && nsDraft.req) || {};
+    var nsF = function (f) { var x = NS_F.filter(function (y) { return y[0] === f; })[0]; return seField(f, x[1], P0[f] != null ? P0[f] : (f === "reqAt" ? todayIso() : ""), "ns-"); };
+    var rqF = function (f, label, type, need) {
+      var v = RQ0[f] || "", lb = "<span>" + esc(label) + (need ? ' <em class="nsneed">필수</em>' : "") + "</span>";
+      if (type === "area") return '<label class="full">' + lb + '<textarea data-nsreq="' + f + '" rows="2">' + esc(v) + "</textarea></label>";
+      return "<label>" + lb + '<input type="' + (type || "text") + '" data-nsreq="' + f + '" value="' + esc(v) + '"></label>';
+    };
+    var sec = function (t, sub, body) { return '<div class="nssec"><div class="spgrp">' + esc(t) + (sub ? ' <span class="nghelp" style="font-weight:400">' + esc(sub) + "</span>" : "") + '</div><div class="spform">' + body + "</div></div>"; };
+    ov.innerHTML = '<div class="nsbox nsreqbox" role="dialog" aria-label="신규 제작 요청"><h3>신규 제작 요청</h3>' +
+      '<p class="nghelp" style="margin:-4px 0 10px">제작 요청서 — 기본정보 · 수량 · 일정 · 납품을 먼저 적습니다. 업체가 정해졌으면 아래 [첫 샘플 요청]도. [임시 저장]은 이 브라우저에 남겨 두고 이어서 씁니다.' + (nsDraft && !pre ? ' <b>임시 저장한 내용을 불러왔습니다(' + esc(nsDraft.at || "") + ").</b>" : "") + "</p>" +
+      sec("기본 정보", "", nsF("brand") + nsF("name").replace('<label class="full">', '<label class="w2">') + rqF("dept", "요청부서", "", 1) + rqF("reqBy", "요청 담당자") + nsF("reqAt") + nsF("code") + nsF("owner") + rqF("event", "행사명 · 용도") + rqF("target", "대상 고객") + rqF("purpose", "제작 목적 (용도 · 프로모션 목적 · 증정 조건)", "area")) +
+      sec("수량 · 단가 · 사양", "", rqF("tqty", "목표(예상) 수량") + rqF("tprice", "목표 단가(원)") + rqF("budget", "예산(원)") + rqF("size", "규격") + rqF("material", "소재") + rqF("color", "색상 · 인쇄") + rqF("pack", "포장 방식")) +
+      sec("일정 · 납품", "예정일 — 일정 탭에서 실제와 비교", rqF("wantPo", "희망 발주일", "date") + rqF("wantMass", "양산 완료 희망일", "date") + rqF("wantIn", "희망 납품(입고)일", "date") + rqF("launch", "출시 예정일", "date") + rqF("pickBy", "업체 선정 목표일", "date") + rqF("designAt", "디자인 확정 예정일", "date")) +
+      sec("첫 샘플 요청 (선택)", "업체가 정해졌으면 — 비우면 업체 없이 프로젝트만 등록, 업체는 나중에 [업체 추가]", nsF("vendor") + nsF("qty") + nsF("planAt") + nsF("make") + nsF("spec") + nsF("kind") + nsF("note")) +
+      sec("기타", "", rqF("etc", "기타 요청사항", "area") + nsF("link")) +
       sampleOpts("sqMakeL", "make") + sampleOpts("sqSpecL", "spec") + sampleOpts("sqKindL", "kind") + sampleOpts("sqOwnerL", "owner") + sampleOpts("sqVendorL", "vendor") + sampleOpts("sqBrandL", "brand") +
-      '<div class="sebtn"><button type="button" class="btn-quiet btn-sm" id="nsList" style="margin-right:auto" title="구성 · 사양 · 구분 칸에서 고를 목록을 직접 정합니다">구성 · 사양 · 구분 목록 고치기</button><button type="button" class="btn btn-sm" id="nsCancel">취소</button><button type="button" class="btn btn-sm btn-solid" id="nsSave">시트에 등록</button></div></div>' +
-      '<p class="hint-line" style="margin:8px 0 0">_실행판_샘플 시트 맨 아래에 줄이 하나 붙습니다(상태 진행중). 같은 품목명 · 품목코드가 이미 있으면 그 프로젝트에 업체 줄로 붙습니다.</p></div>';
+      '<div class="sebtn"><button type="button" class="btn-quiet btn-sm" id="nsList" style="margin-right:auto" title="구성 · 사양 · 구분 칸에서 고를 목록을 직접 정합니다">구성 · 사양 · 구분 목록 고치기</button>' +
+        '<button type="button" class="btn btn-sm" id="nsCancel">취소</button><button type="button" class="btn btn-sm" id="nsTemp" title="이 브라우저에 남겨 두고 나중에 이어서 씁니다">임시 저장</button><button type="button" class="btn btn-sm btn-solid" id="nsSave">작성 완료 · 등록</button></div>' +
+      '<p class="hint-line" style="margin:8px 0 0">_실행판_샘플 시트 맨 아래에 줄이 하나 붙습니다(상태 진행중). 같은 품목명 · 품목코드가 이미 있으면 그 프로젝트에 업체 줄로 붙습니다. 요청서 칸은 프로젝트 [요청 정보] 탭에 저장됩니다.</p></div>';
     document.body.appendChild(ov);
     // 빈 곳 클릭 · Esc 로 닫을 때 적은 게 있으면 묻는다(closeAsk_ — [확인] 저장 · [취소] 버릴지 한 번 더) — [취소] 단추는 바로 닫는다
-    var nsSnap = function () { var a = []; ov.querySelectorAll("[data-sef]").forEach(function (el) { a.push(String(el.value || "").trim()); }); return a.join(String.fromCharCode(1)); };
+    var nsSnap = function () { var a = []; ov.querySelectorAll("[data-sef], [data-nsreq]").forEach(function (el) { a.push(String(el.value || "").trim()); }); return a.join(String.fromCharCode(1)); };
+    var nsReq = function () { var o = {}; ov.querySelectorAll("[data-nsreq]").forEach(function (el) { var v = String(el.value || "").trim(); if (v) o[el.dataset.nsreq] = v; }); return o; };
     var ns0 = nsSnap();
     ov.__closeAsk = function () {
       if (nsSnap() !== ns0) { closeAsk_("", function (c) { if (c === "save") { var sb = ov.querySelector("#nsSave"); if (sb) sb.click(); } else ov.remove(); }); return; }
@@ -5811,13 +5844,25 @@ function dateSlots_(steps, cfg, mode) {
       if (e.target.id === "nsCancel") { ov.remove(); return; }
       if (ovBackdrop(e, ov)) { ov.__closeAsk(); return; }
       if (e.target.id === "nsList") { slistOpen(); return; }
-      if (e.target.id !== "nsSave") return;
+      if (e.target.id !== "nsSave" && e.target.id !== "nsTemp") return;
       var p = {};
       ov.querySelectorAll("[data-sef]").forEach(function (el) { p[el.dataset.sef] = String(el.value || "").trim(); });
       ["brand", "owner"].forEach(function (k) { if (p[k] === "__other") p[k] = ""; });
-      if (!p.name) { toast("품목명을 넣어 주세요"); $("ns-name").focus(); return; }
-      if (!p.planAt) { toast("전달예정일을 넣어 주세요(필수)"); $("ns-planAt").focus(); return; }
+      var rq = nsReq();
+      if (e.target.id === "nsTemp") {
+        try { localStorage.setItem("rb.nsdraft", JSON.stringify({ p: p, req: rq, at: new Date().toLocaleString() })); toast("임시 저장했습니다 — [신규 제작 요청]을 다시 열면 이어서 씁니다"); ns0 = nsSnap(); }
+        catch (eT) { toast("임시 저장 실패: " + eT.message); }
+        return;
+      }
+      if (!p.name) { toast("제품명(품목명)을 넣어 주세요"); $("ns-name").focus(); return; }
+      if (!rq.dept) { toast("요청부서를 넣어 주세요(필수)"); var dq = ov.querySelector('[data-nsreq="dept"]'); if (dq) dq.focus(); return; }
+      if (p.vendor && !p.planAt) { toast("첫 샘플 요청의 전달예정일을 넣어 주세요(업체를 넣었으면 필수)"); $("ns-planAt").focus(); return; }
+      if (!p.planAt) {            // 업체 없이 등록 — 시트 전달예정일 칸은 업체 선정 목표일 · 희망 발주일 · 2주 뒤 순으로 채운다(기한 알림용)
+        p.planAt = rq.pickBy || rq.wantPo || new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+      }
       if (!p.vendor && !confirm("업체 없이 프로젝트만 등록합니다. 업체는 나중에 건 상세의 [업체 추가]로 넣으면 이 줄에 채워집니다. 등록할까요?")) return;
+      if (rq.reqBy || rq.dept) rq.reqAt = p.reqAt || todayIso();
+      p.req = rq;
       // 창은 바로 닫고 목록에 먼저 보인다(예전: 시트에 쓸 때까지 창에서 5~7초 + 다시 읽을 때까지 더 기다렸다).
       // 저장이 안 되면 그 줄을 빼고, 넣은 값 그대로 창을 다시 연다.
       ov.remove();
@@ -5826,7 +5871,13 @@ function dateSlots_(steps, cfg, mode) {
       toast("[" + p.name + "] 등록하는 중 — 목록에 먼저 보입니다");
       gsr().withSuccessHandler(function (r) {
           toast("[" + p.name + "] 등록했습니다 (시트 " + r.row + "행)" + (r.reopened ? " — 같은 이름의 " + r.reopened + " 프로젝트에 붙여 다시 진행 중으로 열었습니다" : ""));
-          lastSync = 0; setTimeout(revalidate, 300);
+          try { localStorage.removeItem("rb.nsdraft"); } catch (eR) { /* 넘어간다 */ }
+          var rqK = Object.keys(p.req || {});
+          if (rqK.length && r.projKey) {        // 요청서 칸 → 프로젝트 [요청 정보]
+            gsr().withSuccessHandler(function () { lastSync = 0; setTimeout(revalidate, 300); })
+              .withFailureHandler(function (eQ) { toast("요청 정보 저장 실패: " + eQ.message + " — 상세 [요청 정보] 탭에서 다시 적어 주세요"); lastSync = 0; setTimeout(revalidate, 300); })
+              .apiSampleProjInfo(r.projKey, { name: p.name, brand: p.brand, code: p.code, owner: p.owner }, "req", rqK.map(function (k) { return { sub: k, val: p.req[k] }; }));
+          } else { lastSync = 0; setTimeout(revalidate, 300); }
         })
         .withFailureHandler(function (err) {
           D0.rows = D0.rows.filter(function (x) { return x !== tmp; }); renderBoard();
@@ -6313,10 +6364,10 @@ function dateSlots_(steps, cfg, mode) {
   function phSync() {
     if (!$("phT")) return;
     var sm = mode === "sample", rd = sm && SVIEW === "round";
-    $("phT").textContent = !sm ? "발주 및 입고 관리" : rd ? "샘플 진행 관리" : "구매 소싱 관리";
-    $("phS").textContent = !sm ? "발주건별 생산 · 입고 진행과 담당자별 처리 현황 — 새 발주 · 빠른 입고는 오른쪽 단추"
-      : rd ? "업체 · 차수(샘플 요청 한 번)별 요청 · 기한 · 수신 · 검토 결과 — 상태 칩으로 골라 보기"
-      : "샘플 프로젝트(품목)별 소싱 업체 · 다음 기한 — 줄을 누르면 단계 · 업체별 진행 · 이력";
+    $("phT").textContent = !sm ? "발주 및 입고 관리" : "구매 소싱 관리";
+    $("phS").textContent = !sm ? "발주건별 생산 · 입고 진행과 담당자별 처리 현황 — 새 발주 · 빠른 입고 · 발주잔량은 오른쪽 단추"
+      : rd ? "샘플 진행 — 업체 · 차수(샘플 요청 한 번)별 요청 · 기한 · 수신 · 검토 결과. 상태 칩으로 골라 보기 · 줄을 누르면 프로젝트 상세"
+      : "샘플 프로젝트별 소싱 — 줄을 누르면 진행 단계 · 업체별 진행 · 견적 비교 · 일정 · 이력";
   }
   function sampleViewSync(rows) {
     phSync();
@@ -6333,7 +6384,7 @@ function dateSlots_(steps, cfg, mode) {
     items.forEach(function (x) { cnt[x.b] = (cnt[x.b] || 0) + 1; });
     strip.innerHTML = '<span class="svtog" role="group" aria-label="보기">' +
         '<button type="button" data-sview="proj" aria-pressed="' + (SVIEW === "proj") + '" title="프로젝트(품목) 한 줄씩">프로젝트별</button>' +
-        '<button type="button" data-sview="round" aria-pressed="' + (SVIEW === "round") + '" title="업체 회차(샘플 요청 한 번) 한 줄씩 — 업체 · 차수별 진행">업체 · 차수별</button></span>' +
+        '<button type="button" data-sview="round" aria-pressed="' + (SVIEW === "round") + '" title="업체 회차(샘플 요청 한 번) 한 줄씩 — 업체 · 차수별 진행">샘플 진행(업체 · 차수별)</button></span>' +
       '<span class="svchips"><button type="button" class="svchip' + (SVST ? "" : " on") + '" data-svst="">전체 <b>' + items.length + "</b></button>" +
       SV_BUCKETS.map(function (B) {
         return '<button type="button" class="svchip ' + B.c + (SVST === B.k ? " on" : "") + '" data-svst="' + B.k + '" title="업체 · 차수별 보기에서 ' + B.t + '인 회차만">' + B.t + " <b>" + (cnt[B.k] || 0) + "</b></button>";
