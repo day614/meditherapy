@@ -46,7 +46,7 @@ function apiWeeklyReport(from, to, kind) {
 
   var P = wkTab_(RB.STATUS_TAB), pi = P.i, PO = P.rows.filter(function (r) { return str_(r[pi['품목명']]); });
   var poById = {}; PO.forEach(function (r) { var k = str_(r[pi['실행판ID']]).toLowerCase(); if (k) poById[k] = r; });
-  var H = wkTab_(RB.T_AUDIT), hi = H.i;
+  var H = kind === 'day' ? { i: {}, rows: [] } : wkTab_(RB.T_AUDIT), hi = H.i;       // 일일보고는 변경이력(수천 줄)을 안 읽는다 — 전주 일정변경 표를 뺀 뒤 쓰는 곳이 없다(여는 속도)
   var SM = wkTab_(RB.SAMPLE_TAB), si = SM.i, SMP = SM.rows.filter(function (r) { return str_(r[si['품목명']]); });
   var Y = wkTab_(RB_LINE.TAB), yi = Y.i, PAY = Y.rows;
   var G = wkTab_(RB.T_SPROGRESS), gi = G.i;
@@ -488,8 +488,25 @@ function apiWeeklyReport(from, to, kind) {
     P_ISS.push({ warn: 1, c: ['입고 지연', poNo(x.p), str_(x.p[pi['업체명']]), nm(x.p), wkMd_(x.t), tx], iss: iss(key, { kind: '발주', ref: 'po:' + pid, name: nm(x.p), vendor: str_(x.p[pi['업체명']]), text: '[입고 지연] 예정 ' + wkMd_(x.t) + ' · ' + tx }) });
   });
   var P_NEW = T_PO.map(function (x) { return { cat: catOf(x), c: [wkMd_(x[pi['작성일']]), poNo(x), str_(x[pi['업체명']]), nm(x), wkQty_(x[pi['발주수량']]), wkMd_(x[pi['입고목표']]), tagNew(x) + ' · ' + str_(x[pi['진행상태']])] }; });
+  // 데이터 변경(발주 단계의 [변경 없음/있음] 항목) — 항목: 변경 있음(종류) — 내용 · 표시(18층 …) / 변경 없음
+  var CHG_ST = []; try { CHG_ST = readSteps_('po'); } catch (eS) { CHG_ST = []; }
+  var CHG_PG = {}; try { CHG_PG = readProgress_('po').map; } catch (eP) { CHG_PG = {}; }
+  var chgTxt2 = function (p) {
+    var id = str_(p[pi['실행판ID']]), rec = CHG_PG[id] || CHG_PG[id.toLowerCase()]; if (!rec) return '';
+    var ck = rec.checks || {}, nt = rec.notes || {}, out = [];
+    CHG_ST.forEach(function (st) { (st.items || []).forEach(function (it, i) {
+      if (!it || !it.chg) return;
+      var k = itemKey_(st, i), d = ck['cy:' + k]; if (d !== 'Y' && d !== 'N') return;
+      var fl = (it.f || []).filter(function (f) { return ck['fl:' + k + ':' + f.k]; }).map(function (f) { return f.t; });
+      var t = str_(it.t).replace(/\s+/g, ' ');
+      if (d === 'N') { out.push(t + ': 변경 없음'); return; }
+      var ty = str_(ck['cs:' + k]), memo = str_(nt['c:' + k]);
+      out.push(t + ': 변경 있음' + (ty ? '(' + ty + ')' : '') + (memo ? ' — ' + memo : '') + (fl.length ? ' · ' + fl.join(', ') : ''));
+    }); });
+    return out.join(' / ');
+  };
   var P_IN_W = IN_W.map(function (a) { var r = a[0], p = a[1], t = wkDay_(r[yi['입고일']]), lt = t < TODAY;
-    return { cat: catOf(p), warn: lt ? 1 : 0, c: [wkMd_(t), poNo(p), str_(p[pi['업체명']]), nm(p), wkQty_(r[yi['수량']]), lt ? '지연 ' + days(t) + '일' : (t - TODAY === 0 ? '오늘' : '예정'), memoOfPo(p)] }; });
+    return { cat: catOf(p), warn: lt ? 1 : 0, c: [wkMd_(t), poNo(p), str_(p[pi['업체명']]), nm(p), wkQty_(r[yi['수량']]), lt ? '지연 ' + days(t) + '일' : (t - TODAY === 0 ? '오늘' : '예정'), chgTxt2(p), memoOfPo(p)] }; });
   var P_CHG = H.rows.filter(function (r) { return inR(r[hi['시각']], p0, p1) && str_(r[hi['종류']]) === '입고일정'; }).sort(function (a, b) { return wkDay_(a[hi['시각']]) - wkDay_(b[hi['시각']]); }).map(function (r) {
     var p = poOfHist(r), a0 = first(str_(r[hi['이전값']])), b0 = first(str_(r[hi['새값']])), push = a0 && b0 && b0 > a0;
     return { cat: catOf(p), warn: push ? 1 : 0, c: [wkMd_(r[hi['시각']]), p ? poNo(p) : str_(r[hi['품의번호']]), p ? str_(p[pi['업체명']]) : '', p ? nm(p) : str_(r[hi['품목명']]), dts(r[hi['이전값']]), dts(r[hi['새값']]) + (push ? ' (늦춰짐)' : ''), str_(r[hi['사유']]), wkWho_(r[hi['바꾼사람']])] };
@@ -530,7 +547,7 @@ function apiWeeklyReport(from, to, kind) {
   var KPI = [
     { k: 'po', label: '발주 건수', v: poOpen.length, sub: '진행 중' },
     { k: 'poin', label: '발주 접수건수', v: T_PO.length, sub: WK ? '주간' : '당일 · 금주 ' + cntW.po },
-    { k: 'sreq', label: '샘플요청 접수건', v: T_REQ.length, sub: WK ? '주간' : '당일 · 금주 ' + cntW.req },
+    { k: 'sreq', label: '샘플 요청건', v: T_REQ.length, sub: WK ? '주간' : '당일 · 금주 ' + cntW.req },
     { k: 'sopen', label: '샘플 진행건수', v: sOpen.length, sub: '받기 전' },
     { k: 'srcv', label: '샘플 수신건수', v: T_RCV.length, sub: WK ? '주간' : '당일 · 금주 ' + cntW.rcv },
     { k: 'poiss', label: '발주 이슈건', v: nPoIss, warn: 1, sub: '피드백 전' },
@@ -541,12 +558,12 @@ function apiWeeklyReport(from, to, kind) {
   var wr = function (a, b) { return md(a) + '~' + md(b); };
   var PO_S = [
     SEC('p1', '2-1. 발주 이슈', ['구분', '발주번호', '협력업체', '품목명 / 차수', '입고예정', '이슈 내용'], P_ISS, { fb: 1, hot: 1 })
-  ].concat(byCat('p2', '2-2. 금주 입고예정 (' + wr(w0, w1) + ')', ['입고예정일', '발주번호', '협력업체', '품목명 / 차수', '수량', '상태', '비고'], P_IN_W))
-    .concat(byCat('p5', '2-3. ' + PL + ' 발주 접수', ['작성일', '발주번호', '협력업체', '품목명 / 차수', '발주수량', '입고목표', '구분 · 상태'], P_NEW));
+  ].concat(byCat('p5', '2-2. ' + PL + ' 발주 접수', ['작성일', '발주번호', '협력업체', '품목명 / 차수', '발주수량', '입고목표', '구분 · 상태'], P_NEW))
+    .concat(byCat('p2', '2-3. 금주 입고예정 (' + wr(w0, w1) + ')', ['입고예정일', '발주번호', '협력업체', '품목명 / 차수', '수량', '상태', '데이터 변경 내용', '비고'], P_IN_W));
   var SM_S = [
     SEC('s1', '3-1. 샘플 이슈', ['구분', '샘플관리ID', '업체', '샘플 품목', '이슈 내용'], S_ISS, { fb: 1, hot: 1 }),
-    SEC('s2', '3-2. 수신 샘플 (' + PL + ')', ['수신일', '샘플관리ID', '업체', '샘플 품목', '수량', '검토현황 및 후속조치'], S_RCV2),
-    SEC('s3', '3-3. 접수 샘플 (' + PL + ' 요청)', ['요청일', '샘플관리ID', '업체', '샘플 품목', '수량', '전달예정', '구분'], S_REQ2),
+    SEC('s3', '3-2. ' + PL + ' 샘플 요청', ['요청일', '샘플관리ID', '업체', '샘플 품목', '수량', '전달예정', '구분'], S_REQ2),
+    SEC('s2', '3-3. 수신 샘플 (' + PL + ')', ['수신일', '샘플관리ID', '업체', '샘플 품목', '수량', '검토현황 및 후속조치'], S_RCV2),
     SEC('s4', '3-4. 회신 대기', ['요청일', '샘플관리ID', '업체', '샘플 품목', '대기 대상 · 요청 내용', '회신 기한'], S_WAIT, { fb: 1 }),
     SEC('s5', '3-5. 회신 받음 (' + PL + ')', ['회신일', '샘플관리ID', '업체', '샘플 품목', '대기 대상 · 요청 내용', '회신 내용'], S_DONE),
     SEC('s6', '3-6. ' + PL + ' 진행 업데이트', [WK ? '일자' : '시각', '샘플관리ID', '업체', '샘플 품목', '내용', '상태 변경', '담당'], S_UPD)

@@ -10290,8 +10290,9 @@ function dateSlots_(steps, cfg, mode) {
   /** 일일보고 표 칸 너비 — 내용에 맞춰 고정(표가 화면 폭으로 늘어나지 않게). 첫 네 칸은 모든 표에서 같은 자리 · 너비 */
   function dlyColW(c, i) {
     if (i === 0) return 76; if (i === 1) return 160; if (i === 2) return 104; if (i === 3) return 240;
+    if (/내용|비고|사유|검토현황|후속조치/.test(c)) return 0;          // 긴 글 칸만 남는 폭을 나눠 쓴다
     if (/수량|금액/.test(c)) return 76;
-    return 0;
+    return 92;                                                         // 날짜 · 상태 · 구분 · 담당 같은 짧은 칸
   }
   function dlyRowAt(R, k) { return k.length === 3 ? (((R[k[0]] || [])[+k[1]] || { rows: [] }).rows[+k[2]]) : (R[k[0]] || { rows: [] }).rows[+k[1]]; }
   /** 일일보고 v7 — 1. 현황 요약 → 2. 발주건(항목마다 표) → 3. 샘플건(항목마다 표) → 4. 기타 특이사항 및 명일 계획 */
@@ -10362,7 +10363,7 @@ function dateSlots_(steps, cfg, mode) {
     };
     var draw = function () {
       var d = R, today = todayIso(), ro = DATA && DATA.canEdit === false, box0;
-      var state = D.saved ? (D.live ? "오늘 보고서 — 지금 기록으로 만들고 저장했습니다(" + esc(D.savedAt || "") + ")" : "저장된 보고서 — " + esc(D.savedAt || "") + " · " + esc(D.savedBy || "") + " 기준 그대로")
+      var state = D.saved ? (D.live ? (D.cached ? "오늘 보고서 — " + esc(D.savedAt || "") + "에 만든 것(10분 안) · 지금 기록으로 다시 보려면 [새로고침]" : "오늘 보고서 — 지금 기록으로 만들고 저장했습니다(" + esc(D.savedAt || "") + ")") : "저장된 보고서 — " + esc(D.savedAt || "") + " · " + esc(D.savedBy || "") + " 기준 그대로")
         : "이 날짜는 저장된 기록이 없어 지금 기록으로 다시 계산했습니다(지연 · 대기 같은 그때 상태는 다를 수 있음)";
       var WO = d.wk || (d.week && typeof d.week === "object" ? d.week : null);
       if (WKM) state = "주간 취합 — " + esc(D.from) + " ~ " + esc(D.to) + " (그 주 기록을 모아 지금 계산 · 저장하지 않음). 날짜를 고르면 일일보고로 돌아갑니다";

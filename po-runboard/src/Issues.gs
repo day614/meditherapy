@@ -40,7 +40,7 @@ function apiIssueAdd(kind, ref, name, vendor, text) {
     var id = 'I' + Utilities.getUuid().replace(/-/g, '').slice(0, 10);
     var at = sh.getLastRow() + 1; ensureRows_(sh, at);
     sh.getRange(at, 1, 1, RB_ISS_HEAD.length).setValues([[id, kind === '발주' ? '발주' : '샘플', ref, str_(name).slice(0, 200), str_(vendor).slice(0, 100), text, issNow_(), issWho_(), '열림', '', '', '']]);
-  } finally { lock.releaseLock(); }
+  } finally { lock.releaseLock(); dailyDirty_(); }
   return apiIssueList(ref);
 }
 
@@ -62,7 +62,7 @@ function apiIssueFeedback(id, fb, meta) {
       var at = sh.getLastRow() + 1; ensureRows_(sh, at);
       sh.getRange(at, 1, 1, RB_ISS_HEAD.length).setValues([[id, meta.kind === '발주' ? '발주' : '샘플', str_(meta.ref), str_(meta.name).slice(0, 200), str_(meta.vendor).slice(0, 100), str_(meta.text).slice(0, 1000), now, '자동', '확인', fb, who, now]]);
     }
-  } finally { lock.releaseLock(); }
+  } finally { lock.releaseLock(); dailyDirty_(); }
   return { ok: true, id: id, fbBy: issWho_(), fbAt: issNow_() };
 }
 
@@ -74,7 +74,7 @@ function apiIssueReopen(id) {
     var hit = issAll_().filter(function (x) { return x.id === str_(id); })[0];
     if (!hit) throw new Error('이슈를 찾을 수 없습니다.');
     sh.getRange(hit.row, 9).setValue('열림');
-  } finally { lock.releaseLock(); }
+  } finally { lock.releaseLock(); dailyDirty_(); }
   return { ok: true };
 }
 function apiIssueDelete(id) {
@@ -85,6 +85,6 @@ function apiIssueDelete(id) {
     if (!hit) throw new Error('이슈를 찾을 수 없습니다.');
     if (hit.st === '확인') throw new Error('피드백까지 받은 이슈는 지울 수 없습니다.');
     sh.deleteRow(hit.row);
-  } finally { lock.releaseLock(); }
+  } finally { lock.releaseLock(); dailyDirty_(); }
   return { ok: true };
 }

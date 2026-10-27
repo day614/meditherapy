@@ -1229,6 +1229,7 @@ function apiSampleWaitDone(id, meta, vkey, idx, orig, done, reply) {
     if (done) { o.waitDone = today; o.waitBy = who; if (str_(reply)) o.waitReply = str_(reply).slice(0, 500); } else { delete o.waitDone; delete o.waitBy; delete o.waitReply; }     // 회신 내용(2026-10-27)
     st.notes[k] = JSON.stringify(list);
   });
+  try { dailyDirty_(); } catch (eD) { /* 넘어간다 */ }
   return { notes: res.state.notes };
 }
 function apiSampleStatus(sheetRow, status, projKey, exp) {

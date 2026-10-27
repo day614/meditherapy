@@ -61,6 +61,12 @@ function apiDailyReport(date, refresh) {
   if (date > today) throw new Error('앞으로의 날짜는 볼 수 없습니다.');
   var sh = dailyTab_(), at = dailyFind_(sh, date), old = at ? dailyRead_(sh, at) : null;
   if (old && old.rep && !refresh && date !== today) return { date: date, saved: true, savedAt: old.savedAt, savedBy: old.savedBy, rep: old.rep, issues: old.issues };
+  // 오늘 보고서: 10분 안에 저장한 게 있으면 그대로(열 때마다 다시 계산 · 저장하느라 느렸다). [새로고침]은 다시 계산
+  if (old && old.rep && !refresh && date === today && old.rep.v >= 7) {
+    var ago = (new Date().getTime() - new Date(old.savedAt.replace(' ', 'T') + ':00+09:00').getTime()) / 60000;
+    var dirty = 0; try { dirty = Number(CacheService.getScriptCache().get('daily:dirty')) || 0; } catch (eC) { dirty = 0; }
+    if (ago >= 0 && ago < 10 && dirty < new Date(old.savedAt.replace(' ', 'T') + ':00+09:00').getTime()) return { date: date, saved: true, savedAt: old.savedAt, savedBy: old.savedBy, rep: old.rep, issues: old.issues, live: true, cached: true };
+  }
   var rep = dailyCompute_(date), issues = old ? old.issues : [];
   if (date === today || refresh) {
     if (canEdit_()) { dailyWrite_(date, rep, issues); return { date: date, saved: true, savedAt: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'), savedBy: me_().split('@')[0], rep: rep, issues: issues, live: date === today }; }
@@ -121,3 +127,6 @@ function apiDailyWeek(anyDate) {
   }
   return { date: to, from: from, to: to, week: true, saved: false, rep: rep, issues: issues };
 }
+
+/** 이슈 · 회신이 바뀌면 오늘 보고서 캐시(10분)를 버린다 */
+function dailyDirty_() { try { CacheService.getScriptCache().put('daily:dirty', String(new Date().getTime()), 21600); } catch (e) { /* 넘어간다 */ } }

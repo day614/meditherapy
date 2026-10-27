@@ -709,5 +709,6 @@ function apiWaitReply(w, reply) {
     o.waitDone = today; o.waitBy = who; if (str_(reply)) o.waitReply = str_(reply).slice(0, 500);
     st.notes[k] = JSON.stringify(list);
   });
+  dailyDirty_();
   return { ok: true, waitDone: today, waitBy: who };
 }
