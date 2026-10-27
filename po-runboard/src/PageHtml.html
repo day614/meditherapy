@@ -1723,6 +1723,7 @@
   .plrow { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; }
   .plrow:hover { background: var(--surface-2); }
   .plrow b { display: block; font-size: 13px; } .plrow small { color: var(--ink-3); font-size: 11.5px; }
+  .svtable td.wkblank { background: #fffbe6; height: 26px; }
 </style>
 </head>
 <body>
@@ -9859,7 +9860,8 @@ function dateSlots_(steps, cfg, mode) {
     var cols = it.cols, h = '<div class="wkit">* ' + esc(it.t) + (it.rows.length ? "<small>" + it.rows.length + "건 · 실행판</small>" : "") + "</div>";
     h += '<div style="overflow-x:auto"><table class="svtable"><thead><tr>' + cols.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>";
     h += it.rows.map(function (r) { return "<tr>" + r.map(function (v) { return "<td>" + esc(v) + "</td>"; }).join("") + "</tr>"; }).join("");
-    if (!it.rows.length) h += '<tr><td colspan="' + cols.length + '" class="nghelp">이번 기간 실행판 기록 없음 — 엑셀에서 노란 칸에 직접</td></tr>';
+    if (it.blank) { for (var bi = 0; bi < Math.min(it.manual || 3, 4); bi++) h += "<tr>" + cols.map(function () { return '<td class="wkblank">&nbsp;</td>'; }).join("") + "</tr>"; }
+    else if (!it.rows.length) h += '<tr><td colspan="' + cols.length + '" class="nghelp">이번 주 없음</td></tr>';
     return h + "</tbody></table></div>";
   }
   function wkOpen(to) {
@@ -9879,13 +9881,13 @@ function dateSlots_(steps, cfg, mode) {
       R = d;
       var h = '<h3>구매팀 주간보고 <span class="nghelp" style="font-weight:400">' + esc(d.from) + " ~ " + esc(d.to) + " · 다음 주 " + esc(d.nextFrom.slice(5)) + " ~ " + esc(d.nextTo.slice(5)) + "</span></h3>" +
         '<div class="svbar" style="margin-bottom:6px"><button type="button" class="btn btn-sm" id="wk-prev">← 앞 주</button><label>기간 끝(목) <input type="date" id="wk-to" value="' + esc(d.to) + '"></label><button type="button" class="btn btn-sm" id="wk-next">다음 주 →</button><span style="flex:1"></span><button type="button" class="btn btn-sm btn-solid" id="wk-xlsx">엑셀 받기</button><button type="button" class="btn btn-sm" id="wk-close">닫기</button></div>' +
-        '<p class="hint-line">기간 = 지난 금요일 ~ 이번 목요일. 표는 실행판 기록(발주 DB · 지급 줄 · 샘플 · 샘플 진행 메모 · 변경이력)을 빠짐없이 모은 것이고, 실행판에 없는 내용(품절 · 품질 · 프로세스 · 의사결정 등)은 엑셀의 노란 칸에 담당자가 직접 씁니다. 샘플 드롭 · 탈락은 상태 칸에 사유와 함께 나옵니다.</p>';
+        '<p class="hint-line">기간 = 지난 금요일 ~ 이번 목요일. 1. 요약 숫자 → 2. 항목별 리스트(실행판 기록 그대로) → 3. 병목 · 이슈(담당자가 엑셀 노란 칸에 직접).</p>';
       // 1. 한 주 요약(첫 장) — 숫자 · 주요 업무 · 담당자별
       var S = d.summary || { kpi: [], hl: [], team: [] };
-      h += '<h4>1. 한 주 요약</h4><div class="wkkpi">' + S.kpi.map(function (k) { return '<div class="wkk' + (k.warn ? " warn" : "") + '"><small>' + esc(k.label) + "</small><b>" + esc(String(k.v)) + "</b><span>" + esc(k.sub || "") + "</span></div>"; }).join("") + "</div>" +
-        '<div class="wkhl"><b>주요 업무</b>' + (S.hl.length ? "<ul>" + S.hl.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" : '<p class="nghelp">이번 주 실행판에 신제품 발주 · 채택 · 지연 건이 없습니다</p>') + '<p class="nghelp">엑셀에서 노란 줄에 이번 주 핵심을 한두 줄 직접 덧붙이세요.</p></div>' +
-        "<table class='svtable'><thead><tr><th>담당</th><th>역할</th><th>이번 주</th><th>주요 건</th></tr></thead><tbody>" +
-        S.team.map(function (t) { return "<tr><td>" + esc(t.name) + "</td><td>" + esc(t.role) + "</td><td>" + t.n + "건</td><td>" + esc((t.top || []).join(" / ")) + "</td></tr>"; }).join("") + "</tbody></table>";
+      h += '<h4>1. 요약</h4><div class="wkkpi">' + S.kpi.map(function (k) { return '<div class="wkk' + (k.warn ? " warn" : "") + '"><small>' + esc(k.label) + "</small><b>" + esc(String(k.v)) + "</b><span>" + esc(k.sub || "") + "</span></div>"; }).join("") + "</div>" +
+        (S.hl && S.hl.length ? '<div class="wkhl"><b>주요 업무</b><ul>' + S.hl.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul></div>" : "") +
+        (S.team && S.team.length ? "<table class='svtable'><thead><tr><th>담당</th><th>역할</th><th>이번 주</th><th>주요 건</th></tr></thead><tbody>" +
+        S.team.map(function (t) { return "<tr><td>" + esc(t.name) + "</td><td>" + esc(t.role) + "</td><td>" + t.n + "건</td><td>" + esc((t.top || []).join(" / ")) + "</td></tr>"; }).join("") + "</tbody></table>" : "");
       d.parts.forEach(function (p) {
         h += "<h4>" + esc(p.h) + "</h4>";
         p.subs.forEach(function (s) { h += "<h5>" + esc(s.t) + "</h5>" + s.items.map(wkTable).join(""); });
@@ -9924,31 +9926,28 @@ function dateSlots_(steps, cfg, mode) {
         }
         var x = ws.getCell(r, 1); x.value = "* " + it.t; x.font = { name: F, size: 9, bold: true, color: { argb: "FF1F4E78" } };
         ws.getCell(r, W).value = rows.length ? rows.length + "건" : ""; ws.getCell(r, W).font = gray; r++;
-        line(cols.concat(new Array(W - 1 - cols.length).fill(""), ["출처"]), { font: bold, fill: fillC });
+        line(cols.concat(new Array(W - 1 - cols.length).fill(""), [it.blank ? "" : "출처"]), { font: bold, fill: fillC });
         rows.forEach(function (v) { line(v.concat(new Array(Math.max(0, W - 1 - v.length)).fill(""), ["실행판"])); ws.getCell(r - 1, W).font = gray; });
-        if (!rows.length) { line(["", "이번 기간 실행판 기록 없음"]); ws.getCell(r - 1, 2).font = gray; }
-        for (var i = 0; i < (it.manual == null ? 2 : it.manual); i++) { line((i === 0 && ex ? ex : []).concat(new Array(W).fill("")).slice(0, W - 1).concat(["직접"]), { fill: fillIn }); ws.getCell(r - 1, W).font = gray; }
+        if (!rows.length && !it.blank) { line(["", "이번 주 없음"]); ws.getCell(r - 1, 2).font = gray; }
+        for (var i = 0; i < (it.manual == null ? 2 : it.manual); i++) { line((i === 0 && ex ? ex : []).concat(new Array(W).fill("")).slice(0, W - 1).concat([it.blank ? "" : "직접"]), { fill: fillIn }); ws.getCell(r - 1, W).font = gray; }
         r++;
       };
       var t = ws.getCell(r, 1); t.value = "구매팀 주간보고"; t.font = { name: F, size: 14, bold: true }; r++;
       ws.getCell(r, 1).value = "기간 " + R.from + " ~ " + R.to + "  ·  다음 주 " + R.nextFrom.slice(5) + " ~ " + R.nextTo.slice(5) + "  ·  출처: 실행판(발주 DB · 지급 줄 · 샘플 · 샘플 진행 메모 · 변경이력)"; ws.getCell(r, 1).font = gray; r++;
-      ws.getCell(r, 1).value = "흰 줄 = 실행판 기록(빠짐없이 전부) · 노란 줄 = 담당자가 직접 적는 칸(첫 줄은 예시 — 지우고 쓰세요)"; ws.getCell(r, 1).font = gray; r += 2;
+      ws.getCell(r, 1).value = "1. 요약 → 2. 항목별 리스트(흰 줄 = 실행판 기록) → 3. 병목 · 이슈(노란 줄 = 담당자가 직접)"; ws.getCell(r, 1).font = gray; r += 2;
       // 1. 한 주 요약(첫 장)
       var S = R.summary || { kpi: [], hl: [], team: [] }, hb = { name: F, size: 11, bold: true, color: { argb: "FFFFFFFF" } };
-      band("1. 한 주 요약", fillH, hb);
+      band("1. 요약", fillH, hb);
       line(["항목", "", "건수", "내용", "", "", "", "", ""], { font: bold, fill: fillC });
       S.kpi.forEach(function (k) { line([k.label, "", String(k.v), k.sub || ""]); if (k.warn) ws.getCell(r - 1, 3).font = { name: F, size: 9, bold: true, color: { argb: "FFC00000" } }; });
       r++;
-      band("주요 업무", fillS, { name: F, size: 10, bold: true });
-      (S.hl.length ? S.hl : ["(이번 주 실행판에 신제품 발주 · 채택 · 지연 건 없음)"]).forEach(function (t) { line(["•", t]); });
-      for (var q = 0; q < 2; q++) { line(["•", q === 0 ? "(이번 주 핵심 한 줄 — 직접)" : ""].concat(new Array(W - 3).fill(""), ["직접"]), { fill: fillIn }); ws.getCell(r - 1, W).font = gray; }
-      r++;
-      band("담당자별", fillS, { name: F, size: 10, bold: true });
-      line(["담당", "", "역할", "이번 주", "주요 건", "", "", "", ""], { font: bold, fill: fillC });
-      S.team.forEach(function (m) { line([m.name, "", m.role, m.n + "건", (m.top || []).join(" / ")]); });
-      line(["특이사항", "", "없음 / 발생 시 별도 기재"], { fill: fillIn });
-      try { ws.getRow(r).addPageBreak(); } catch (ePb) { /* 쪽 나눔 안 되면 그대로 */ }
-      r++;
+      if (S.hl && S.hl.length) { band("주요 업무", fillS, { name: F, size: 10, bold: true }); S.hl.forEach(function (t) { line(["•", t]); }); r++; }
+      if (S.team && S.team.length) {
+        band("담당자별", fillS, { name: F, size: 10, bold: true });
+        line(["담당", "", "역할", "이번 주", "주요 건", "", "", "", ""], { font: bold, fill: fillC });
+        S.team.forEach(function (m) { line([m.name, "", m.role, m.n + "건", (m.top || []).join(" / ")]); });
+        r++;
+      }
       R.parts.forEach(function (p) {
         band(p.h, fillH, hb);
         p.subs.forEach(function (s) { band(s.t, fillS, { name: F, size: 10, bold: true }); s.items.forEach(item); });
