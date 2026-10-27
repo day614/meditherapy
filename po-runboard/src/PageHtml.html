@@ -1520,9 +1520,10 @@
     .who { padding: 10px 10px 0; border-top: 1px solid var(--line); margin-top: 8px; font-size: 11.5px; word-break: break-all; }
     main { padding: 22px 28px 16px; }
     /* 메뉴 페이지(BOM · 발주잔량 · 네고 실적 · 주간보고): 팝업 대신 왼쪽 메뉴 옆 본문 자리에 */
-    #bomv, #nego, #wkrep, #nsov { left: var(--sbw) !important; background: var(--ground) !important; padding: 16px 20px !important;
+    #bomv, #nego, #wkrep { left: var(--sbw) !important; background: var(--ground) !important; padding: 16px 20px !important;
       align-items: stretch !important; justify-content: stretch !important; overflow: auto; }
-    #nsov > .nsbox { width: min(980px, 100%) !important; max-width: none !important; margin: 0 auto !important; box-shadow: none !important; border: 1px solid var(--line) !important; border-radius: 12px !important; padding: 22px 26px !important; align-self: flex-start; }
+    /* 신규 프로젝트 등록은 팝업(2026-10-27 — 메뉴 페이지에서 구매 소싱 관리 화면의 단추로 옮김) */
+    #nsov > .nsbox.nsreqbox { width: min(980px, calc(100vw - 48px)) !important; max-height: calc(100vh - 48px); overflow: auto; }
     #bomv > .ngbox, #nego > .qin-box, #wkrep > .nsbox { width: 100% !important; max-width: none !important; max-height: none !important;
       min-height: 100%; margin: 0 !important; box-shadow: none !important; border: 1px solid var(--line) !important; border-radius: 12px !important; }
   }
@@ -1824,12 +1825,9 @@
       <span>SCM 구매팀 · 발주 · 샘플 통합</span></span>
     </div>
     <nav class="sbnav" id="sbnav" aria-label="메뉴">
-      <div class="sblabel">발주</div>
+      <button type="button" data-nav="sample">구매 소싱 관리</button>
       <button type="button" data-nav="po">발주 및 입고 관리</button>
       <button type="button" data-nav="sched">전체 일정 관리</button>
-      <div class="sblabel">샘플</div>
-      <button type="button" data-nav="snew">신규 프로젝트 등록</button>
-      <button type="button" data-nav="sample">구매 소싱 관리</button>
       <div class="sblabel">관리</div>
       <button type="button" data-nav="bom">BOM 관리</button>
       <button type="button" data-nav="nego">네고 실적</button>
@@ -1875,7 +1873,7 @@
         <button class="btn btn-sm" type="button" id="quickIn" title="입고를 빠르게 기록합니다 (단축키 I)">빠른 입고</button>
         <button class="btn btn-sm" type="button" id="remBtn" title="품목별 발주잔량을 봅니다 · 엑셀로 받을 수 있습니다">발주잔량</button>
         <button class="btn btn-sm" type="button" id="poPendBtn" hidden title="품의서를 내려받고 아직 상신 완료하지 않은 품의 — 아마란스에 올린 뒤 결재문서번호를 넣어 상신 완료">상신 대기 <b id="poPendN">0</b></button>
-        <button class="btn btn-sm btn-solid" type="button" id="newSample" hidden title="새 샘플 프로젝트를 등록합니다. _실행판_샘플 시트에 줄이 하나 붙습니다">새 샘플</button>
+        <button class="btn btn-sm btn-solid" type="button" id="newSample" hidden title="신규 프로젝트(제작 요청서)를 등록합니다. _실행판_샘플 시트에 줄이 하나 붙습니다">신규 프로젝트 등록</button>
         <button class="btn btn-sm" type="button" id="sampleBulkV" hidden title="여러 프로젝트에 걸친 같은 업체 샘플을 한 번에 수신 · 드롭 처리합니다">업체 일괄 처리</button>
       </div></div>
     <h2 class="sec" id="ownersTitle">담당자별 진행</h2>
@@ -3964,7 +3962,7 @@ function dateSlots_(steps, cfg, mode) {
   function navSync() {
     var nav = $("sbnav"); if (!nav) return;
     if (NAV_PEND) return;                 // 넘어가는 중 — 누른 메뉴 표시를 그대로 둔다
-    var pg = navPageOpen() || ($("nsov") ? "snew" : ""), cur = pg || (view === "board" ? (mode === "sample" ? "sample" : "po") : view === "qt" ? "sample" : view);
+    var pg = navPageOpen(), cur = pg || (view === "board" ? (mode === "sample" ? "sample" : "po") : view === "qt" ? "sample" : view);
     nav.querySelectorAll("button[data-nav]").forEach(function (b) { b.classList.toggle("on", b.dataset.nav === cur); });
     var ts = $("tab-stats"), ta = $("tab-admin");
     nav.querySelector('[data-nav="stats"]').hidden = !ts || ts.hidden;
@@ -6539,7 +6537,7 @@ function dateSlots_(steps, cfg, mode) {
     $("phT").textContent = !sm ? "발주 및 입고 관리" : "구매 소싱 관리";
     $("phS").textContent = !sm ? "발주건별 생산 · 입고 진행과 담당자별 처리 현황 — 새 발주 · 빠른 입고 · 발주잔량은 오른쪽 단추"
       : rd ? "샘플 진행 — 업체 · 차수(샘플 요청 한 번)별 요청 · 기한 · 수신 · 검토 결과. 상태 칩으로 골라 보기 · 줄을 누르면 프로젝트 상세"
-      : "샘플 프로젝트별 소싱 — 줄을 누르면 진행 단계 · 업체별 진행 · 견적 비교 · 일정 · 이력";
+      : "샘플 프로젝트별 소싱 — [신규 프로젝트 등록]은 오른쪽 단추 · 줄을 누르면 진행 단계 · 업체별 진행 · 견적 비교 · 일정 · 이력";
   }
   function sampleViewSync(rows) {
     phSync();
