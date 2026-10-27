@@ -3131,6 +3131,7 @@ function dateSlots_(steps, cfg, mode) {
   function touched() { writeSeq++; }
 
   function busyEditing() {
+    if (typeof navPageOpen === "function" && navPageOpen()) return true;   // BOM · 네고 · 일일보고 페이지를 보는 중이면 뒤 화면을 다시 그리지 않는다(화면이 들썩였다)
     if (Object.keys(selected).length) return true;          // 고른 게 있으면
     if (!$("preview").hidden) return true;                    // 창이 떠 있으면
     if (view === "admin" || stepsDirty) return true;         // 단계를 고치는 중이면
@@ -3235,6 +3236,7 @@ function dateSlots_(steps, cfg, mode) {
     document.body.appendChild(bar);
   }
   function checkVer() {
+    if (typeof navPageOpen === "function" && navPageOpen()) return;      // 메뉴 페이지를 보는 동안은 쉬었다가 닫으면 이어서(바뀐 번호는 그때 한꺼번에)
     if (verBusy && Date.now() - (checkVer.at || 0) < 60000) return;      // 1분 넘게 답이 없으면 끊긴 것 — 다시 묻는다
     verBusy = true; checkVer.at = Date.now();
     gsr().withSuccessHandler(function (v) {
@@ -13404,12 +13406,28 @@ function dateSlots_(steps, cfg, mode) {
     if (!$("bomv-rev").hidden) { REV.top = $("bomv-rev").scrollTop; bomRevMode(false); }
     var q = $("bomv-q").value;
     if (!String(q).trim() || bvListMode()) { bvDrop(false); return; }     // 품목 목록이 보이면 목록이 바로 걸러진다 — 드롭다운은 띄우지 않는다(목록을 가림)
+    // 품목 목록(BL.list)을 이미 받아 두었으면 서버에 묻지 않고 여기서 바로 찾는다(2026-10-27 — 드롭다운이 느렸다)
+    if (typeof BL !== "undefined" && BL.list && BL.list.length) { bomList = bvLocalSearch(q); bomPick = bomList.length ? 0 : -1; bvDropRender(); return; }
     bomQT = setTimeout(function () {
       gsr().withSuccessHandler(function (list) {
         bomList = list || []; bomPick = bomList.length ? 0 : -1;
         bvDropRender();
       }).withFailureHandler(function (e) { $("bomv-res").innerHTML = '<div class="nghelp">검색하지 못했습니다: ' + esc(e.message) + "</div>"; bvDrop(true); }).apiBomSearch(q);
     }, 200);
+  }
+  /** 품목 목록에서 바로 찾기 — 이름 · 코드에 다 있으면 먼저, 아니면 업체 · 사양 · 자재코드에 있으면 그 이유와 함께 */
+  function bvLocalSearch(q) {
+    var toks = searchToks(q), head = [], rest = [];
+    if (!toks.length) return [];
+    BL.list.forEach(function (x) {
+      var main = [x.code, x.name, x.brand, x.parents || ""].join(" ");
+      if (matchToks(main, toks)) { head.push({ code: x.code, name: x.name, brand: x.brand, why: x.semi ? "반제품" : "" }); return; }
+      if (!matchToks([main, x.mats || "", x.vendors || "", x.specs || ""].join(" "), toks)) return;
+      var hit = function (str, sep) { return String(str || "").split(sep).filter(function (v) { return v && toks.some(function (t) { return v.toLowerCase().indexOf(t) > -1; }); }); };
+      var vd = hit(x.vendors, "|"), sp = hit(x.specs, "|"), mt = hit(x.mats, " ");
+      rest.push({ code: x.code, name: x.name, brand: x.brand, why: vd.length ? "업체 " + vd.slice(0, 2).join(", ") : sp.length ? "사양 " + sp.slice(0, 2).join(" / ") : mt.length ? "자재 " + mt.slice(0, 3).join(", ") : "여러 칸에서" });
+    });
+    return head.concat(rest).slice(0, 200);
   }
   /** BOM 보기 첫 화면(품목 목록)이 보이는 때 — 검색은 목록 거르기만 */
   function bvListMode() { return !BV.code && !$("bomv-list").hidden && $("bomv-new").hidden; }
