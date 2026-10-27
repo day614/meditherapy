@@ -1180,6 +1180,7 @@ function apiSampleLog(id, meta, vkey, entry, del, sheetRow, projKey, editIdx, ed
   var e = entry ? { at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'), text: str_(entry.text).slice(0, 500),
     due: /^\d{4}-\d{2}-\d{2}$/.test(str_(entry.due)) ? str_(entry.due) : '', st: str_(entry.st).slice(0, 10), who: me_().split('@')[0] } : null;
   if (e && str_(entry.rk)) e.rk = str_(entry.rk).slice(0, 60);          // 어느 회차 메모인지(구성#차수)
+  if (e && str_(entry.wait)) e.wait = str_(entry.wait).slice(0, 20);   // 역요청 대기(요청부서 · 디자인팀 · 업체 회신 …) — 기한은 회신 기한(시트 전달예정일은 안 바꿈)
   if (e && !e.text && !e.st && !e.due) throw new Error('적을 내용이 없습니다.');
   var dueSync = '';
   var res = editProgress_(id, meta, 'sample', function (st) {
@@ -1193,18 +1194,19 @@ function apiSampleLog(id, meta, vkey, entry, del, sheetRow, projKey, editIdx, ed
       if (!same(o)) { o = null; for (var q = 0; q < list.length; q++) if (same(list[q])) { o = list[q]; break; } }
       if (!o) throw new Error('그 기록이 바뀌었거나 지워졌습니다. 새로고침 후 다시 해 주세요.');
       o.text = e.text; o.due = e.due; o.st = e.st; o.edited = e.at + ' ' + e.who;
-      var lastDue = null; list.forEach(function (x) { if (x.due && String(x.rk || '') === String(o.rk || '')) lastDue = x; });   // 같은 회차 메모 중 마지막 기한
+      if (entry.wait != null) { if (e.wait) o.wait = e.wait; else delete o.wait; }
+      var lastDue = null; list.forEach(function (x) { if (x.due && !x.wait && String(x.rk || '') === String(o.rk || '')) lastDue = x; });   // 같은 회차 메모 중 마지막 기한(대기 기한은 빼고)
       dueSync = lastDue === o ? o.due : '';                        // 고친 기록이 마지막 기한일 때만 시트 전달예정일도
-    } else if (e) { list.push(e); dueSync = e.due; }
+    } else if (e) { list.push(e); dueSync = e.wait ? '' : e.due; }
     else if (del != null) {                                       // 지우기: 번호 + (주면) 적은 날 · 내용으로 확인 — 그사이 밀렸으면 내용으로 다시 찾는다
       var di = Number(del), dOk = function (x) { return x && (editOrig == null || (String(x.at) === String(editOrig.at) && String(x.text || '') === String(editOrig.text || ''))); };
       if (!dOk(list[di])) { di = -1; for (var q2 = 0; q2 < list.length; q2++) if (dOk(list[q2])) { di = q2; break; } }
       if (di > -1) {
         // 지운 기록이 그 회차의 마지막 기한이었으면 시트 전달예정일을 남은 기록 중 마지막 기한으로 되돌린다(남은 기한이 없으면 시트는 그대로)
         var dx = list[di], dLast = null, dRk = String(dx.rk || '');
-        list.forEach(function (x) { if (x.due && String(x.rk || '') === dRk) dLast = x; });
+        list.forEach(function (x) { if (x.due && !x.wait && String(x.rk || '') === dRk) dLast = x; });
         list.splice(di, 1);
-        if (dx.due && dLast === dx) { var dPrev = null; list.forEach(function (x) { if (x.due && String(x.rk || '') === dRk) dPrev = x; }); dueSync = dPrev ? dPrev.due : ''; }
+        if (dx.due && !dx.wait && dLast === dx) { var dPrev = null; list.forEach(function (x) { if (x.due && !x.wait && String(x.rk || '') === dRk) dPrev = x; }); dueSync = dPrev ? dPrev.due : ''; }
       }
     }
     if (list.length) st.notes[k] = JSON.stringify(list.slice(-200)); else delete st.notes[k];
@@ -1214,6 +1216,20 @@ function apiSampleLog(id, meta, vkey, entry, del, sheetRow, projKey, editIdx, ed
   // 기한을 적으면(새 기록 · 마지막 기한 고침) 그 업체 마지막 회차 [전달예정일]도 그 날짜로 — 예전 기한 대신 마지막 기한이 보이게
   if (dueSync && sheetRow) { var dErr = sampleDueToSheet_(sheetRow, projKey, dueSync, { v: vkey, sid: rowSid }); if (dErr) sheetErr = (sheetErr ? sheetErr + ' · ' : '') + dErr; }
   return { notes: res.state.notes, sheetErr: sheetErr };
+}
+/** 화면: 역요청 대기 줄 [회신 받음] / 되돌리기 — 업체 진행 기록(tl:업체) 안의 그 줄에 waitDone(날짜 · 누가). 번호가 밀렸으면 적은 날 + 내용으로 다시 찾는다 */
+function apiSampleWaitDone(id, meta, vkey, idx, orig, done) {
+  var k = 'tl:' + str_(vkey).slice(0, 60), who = me_().split('@')[0], today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var res = editProgress_(id, meta, 'sample', function (st) {
+    st.notes = st.notes || {};
+    var list = []; try { list = JSON.parse(st.notes[k] || '[]'); } catch (x) { list = []; }
+    var same = function (x) { return x && x.wait && (orig == null || (String(x.at) === String(orig.at) && String(x.text || '') === String(orig.text || ''))); };
+    var o = list[Number(idx)]; if (!same(o)) { o = null; for (var q = 0; q < list.length; q++) if (same(list[q])) { o = list[q]; break; } }
+    if (!o) throw new Error('그 대기 기록이 바뀌었거나 지워졌습니다. 새로고침 후 다시 해 주세요.');
+    if (done) { o.waitDone = today; o.waitBy = who; } else { delete o.waitDone; delete o.waitBy; }
+    st.notes[k] = JSON.stringify(list);
+  });
+  return { notes: res.state.notes };
 }
 function apiSampleStatus(sheetRow, status, projKey, exp) {
   requireEditor_();

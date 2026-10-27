@@ -1737,6 +1737,13 @@
   .mkbar .mkadd { border-style: dashed; color: var(--primary); }
   .spkv.one { grid-template-columns: 1fr; }
   .mkform { padding: 10px; border: 1px dashed var(--line-strong); border-radius: 10px; background: var(--surface-2); margin-bottom: 4px; }
+
+  .waittag { display: inline-block; font-size: 11px; font-weight: 600; color: #8a5a00; background: #fff4d6; border: 1px solid #f1d49a; border-radius: 5px; padding: 0 6px; margin-left: 4px; white-space: nowrap; }
+  .waittag.late { color: #b42318; background: #fdecea; border-color: #f3c7c3; }
+  .waittag.done { color: #1c6b41; background: #e5f4ec; border-color: #bfe3cd; font-weight: 500; }
+  .waitbtn { margin-left: 4px; padding: 1px 8px; font-size: 11.5px; }
+  .waitbadge { font-size: 11px; font-weight: 700; color: #8a5a00; background: #fff4d6; border: 1px solid #f1d49a; border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+  .waitbadge.late { color: #b42318; background: #fdecea; border-color: #f3c7c3; }
 </style>
 </head>
 <body>
@@ -4654,6 +4661,7 @@ function dateSlots_(steps, cfg, mode) {
             esc(raw).replace(/,/g, ",<wbr>") + "</td>";
         }).join("") +
         '<td class="cell-name">' + esc(r.name) + (r.batch && mode === "po" ? " " + esc(r.batch) : "") +
+          (mode === "sample" ? (function () { var W = sampleOpenWaits(r); if (!W.length) return ""; var late = W.some(function (w) { return w.x.due && waitLeft(w.x.due) < 0; }); return ' <span class="waitbadge' + (late ? " late" : "") + '" title="' + esc(W.map(function (w) { return w.x.wait + (w.vendor ? " · " + w.vendor : "") + " — " + (w.x.text || "") + (w.x.due ? " (기한 " + w.x.due + ")" : ""); }).join("\n")) + '">⏳ 대기 ' + W.length + "</span>"; })() : "") +
           (mode === "sample" && sProjMemo(r).length ? (function () { var L = sProjMemo(r), m = L[L.length - 1]; return ' <span class="memohit" title="프로젝트 비고 ' + L.length + "건 — 최근: " + esc((m.at || "") + " " + (m.by || "") + " · " + (m.t || "")) + '">비고 ' + L.length + "</span>"; })() : "") +
           (mode === "sample" && r.links && r.links.length ? '<a class="rowlink" href="' + esc(r.links[0]) + '" target="_blank" rel="noopener" title="' + esc(r.links.join(" ")) + '">🔗' + (r.links.length > 1 ? " " + r.links.length : "") + "</a>" : "") +
           (memoOnlyHit(r) ? ' <span class="memohit" title="검색어가 비고에 있어서 찾았습니다 — 비고: ' + esc(memoOf(r)) + '">비고 일치</span>' : "") +
@@ -5565,11 +5573,23 @@ function dateSlots_(steps, cfg, mode) {
       if (!v) { if (inp) inp.focus(); return; }
       t.disabled = true; if (inp) inp.value = "";
       try { if (typeof RUN_TOUCH !== "undefined" && RUN_TOUCH) Object.keys(RUN_TOUCH).forEach(function (k) { if (/pmemoText/.test(k)) delete RUN_TOUCH[k]; }); } catch (e0) { /* 넘어간다 */ }
-      sProjMemoSave(row, { add: v }, function (er) { var b2 = $("pmemoAdd"); if (b2) b2.disabled = false; if (er) { var i2 = $("pmemoText"); if (i2) i2.value = v; } });
+      var pw = $("pmemoWait"), pd = $("pmemoDue"), opP = { add: v, wait: pw ? pw.value : "", due: pd ? pd.value : "" };
+      if (pw) pw.value = ""; if (pd) pd.value = "";
+      sProjMemoSave(row, opP, function (er) { var b2 = $("pmemoAdd"); if (b2) b2.disabled = false; if (er) { var i2 = $("pmemoText"); if (i2) i2.value = v; } });
       return;
     }
     var d = t.closest("[data-pmdel]");
-    if (d) { if (!confirm("이 프로젝트 비고를 지울까요?")) return; d.disabled = true; sProjMemoSave(row, { del: Number(d.dataset.pmdel), at: d.dataset.pmat }); }
+    if (d) { if (!confirm("이 프로젝트 비고를 지울까요?")) return; d.disabled = true; sProjMemoSave(row, { del: Number(d.dataset.pmdel), at: d.dataset.pmat }); return; }
+    var pw2 = t.closest("[data-pmwait]");
+    if (pw2) { pw2.disabled = true; sProjMemoSave(row, { waitDone: Number(pw2.dataset.pmwait), at: pw2.dataset.wat, undo: pw2.dataset.undo === "1" }); return; }
+    var wd = t.closest("[data-waitdone]");
+    if (wd) {
+      wd.disabled = true;
+      var ridW = row.id, undoW = wd.dataset.undo === "1";
+      gsr().withSuccessHandler(function (r) { var cur = rowById(ridW); if (cur && r && r.notes) cur.notes = r.notes; if (currentId === ridW) renderRun(); renderBoard(); toast(undoW ? "대기로 되돌렸습니다" : "회신 받음으로 정리했습니다"); })
+        .withFailureHandler(function (err) { wd.disabled = false; toast("저장 실패: " + err.message); })
+        .apiSampleWaitDone(ridW, metaOf(row), wd.dataset.vk, Number(wd.dataset.waitdone), { at: wd.dataset.wat, text: wd.dataset.wtx }, !undoW);
+    }
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && e.target && e.target.id === "pmemoText" && !e.isComposing) { e.preventDefault(); var b = $("pmemoAdd"); if (b && !b.disabled) b.click(); }
@@ -6181,7 +6201,7 @@ function dateSlots_(steps, cfg, mode) {
     var vOff = !!SAMPLE_OFF[g.status] || g.status === "채택";
     rounds.forEach(function (R) {
       var q = R.q, md = "", mi = -1, closedBy = false;
-      R.memos.forEach(function (m, j) { if (m.x.due) { md = m.x.due; mi = j; } });
+      R.memos.forEach(function (m, j) { if (m.x.due && !m.x.wait) { md = m.x.due; mi = j; } });          // 역요청 대기 기한은 샘플 기한이 아니다
       R.memos.forEach(function (m, j) { if (j >= mi && mi > -1 && SAMPLE_CLOSE_ST.test(String(m.x.st || ""))) closedBy = true; });
       R.received = sIso(q.doneAt);
       R.closed = !!R.received || q.status === "수신" || !!SAMPLE_OFF[q.status] || q.status === "채택" || vOff || closedBy;   // 상태만 수신(전달일 빈칸 — 시트에서 상태만 바꾼 줄)도 받은 것(서버 업체 상태와 같게)
@@ -6222,9 +6242,10 @@ function dateSlots_(steps, cfg, mode) {
       if (key && key === TLEDIT) return tlEditor({ key: key, kind: "memo", at: x.at, text: x.text, due: x.due, st: x.st, idx: m.i }, vk);
       if (key && VREQ === g.name && VREQ_PRE && VREQ_PRE.vk === vk && VREQ_PRE.idx === m.i) return sampleReqForm(g);   // [요청으로] — 그 메모 자리에서 새 회차를 적는다
       return '<div class="tlrow sub"><span class="tlat">' + md(x.at) + '</span><span class="tltx">' + esc(x.text || "") +
-          (x.st ? ' <span class="tag ' + sstClass(x.st) + '">' + esc(x.st) + "</span>" : "") +
-          (x.due ? ' <span class="' + (isDue && R && R.open ? "tldue2" : "tlwho") + '">· 기한 ' + (isDue ? "" : "(바뀜) ") + esc(x.due.slice(2).replace(/-/g, ".")) + "</span>" : "") +
+          (x.st ? ' <span class="tag ' + sstClass(x.st) + '">' + esc(x.st) + "</span>" : "") + waitTag(x) +
+          (x.due && !x.wait ? ' <span class="' + (isDue && R && R.open ? "tldue2" : "tlwho") + '">· 기한 ' + (isDue ? "" : "(바뀜) ") + esc(x.due.slice(2).replace(/-/g, ".")) + "</span>" : "") +
           (x.who && !x.pend ? ' <span class="tlwho">' + esc(x.who) + "</span>" : "") + (x.pend ? ' <span class="tlwho">저장 중…</span>' : "") + "</span>" +
+        (key && x.wait ? waitBtn({ src: "tl", vk: vk, i: m.i, x: x }) : "") +
         (key ? '<button type="button" class="btn-quiet btn-sm m2req" data-m2req="' + m.i + '" data-vk="' + esc(vk) + '" title="이 기록이 사실 샘플 요청이면 — 새 회차로 바꿉니다(시트에 줄이 붙고 이 기록은 그 회차 비고로)">요청으로</button>' : "") +
         (key ? '<button type="button" class="tldel tlpen" data-tled="' + esc(key) + '" title="이 줄 고치기">✎</button>' : "") + "</div>";
     };
@@ -6840,7 +6861,10 @@ function dateSlots_(steps, cfg, mode) {
         if (Rd.received) add(Rd.received, "", g.name + " · " + Rd.label + " 샘플 수신", "rcv");
         var rv = rvOf(row, Rd.q); if (rv) add(rv._at, rv._by, g.name + " · " + Rd.label + " 검토 " + rv.res + (rv.note ? " — " + rv.note : ""), rv.res === "승인" ? "ok" : "rv");
       });
-      S.list.forEach(function (x) { add(x.at, x.who, g.name + " · " + (x.text || "") + (x.st ? " [" + x.st + "]" : ""), x.st === "채택" ? "ok" : x.st === "드롭" || x.st === "탈락" ? "off" : "memo"); });
+      S.list.forEach(function (x) {
+        add(x.at, x.who, g.name + " · " + (x.text || "") + (x.st ? " [" + x.st + "]" : "") + (x.wait ? " [" + x.wait + " 대기" + (x.due ? " · 기한 " + md2(x.due) : "") + "]" : ""), x.wait ? "rv" : x.st === "채택" ? "ok" : x.st === "드롭" || x.st === "탈락" ? "off" : "memo");
+        if (x.wait && x.waitDone) add(x.waitDone, x.waitBy, g.name + " · " + x.wait + " 받음 — " + (x.text || ""), "ok");
+      });
     });
     var Q = sInfo(row, "qt"); Object.keys(Q).forEach(function (k) { var q = Q[k], i = k.indexOf("::"), vk = i > 0 ? k.slice(i + 2) : k, mk = i > 0 ? k.slice(0, i) : ""; var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0]; add(q._at, q._by, (g ? g.name : (q.name || vk)) + " · " + (mk ? mk + " " : "") + "견적 입력" + (q.price ? " (" + q.price + " " + (q.cur || "KRW") + ")" : ""), "qt"); });
     var RL = spReqLog(row);
@@ -6876,7 +6900,10 @@ function dateSlots_(steps, cfg, mode) {
     });
     var card = function (title, tab, body, wide) { return '<div class="spcard sphc"><div class="spch"><b>' + title + "</b>" + (tab ? '<button type="button" class="btn-quiet btn-sm" data-sptab="' + tab + '">자세히</button>' : "") + '</div><div class="spkv' + (wide ? " one" : "") + '">' + body + "</div></div>"; };
     var rvC = {}; Object.keys(sInfo(row, "rv")).forEach(function (k) { var r = sInfo(row, "rv")[k]; rvC[r.res] = (rvC[r.res] || 0) + 1; });
-    var h = sampleStepper(row) + '<div class="sphome">' +
+    var OW = sampleWaits(row).filter(function (w) { return !w.x.waitDone; });
+    var waitBox = OW.length ? '<div class="spcard waitbox"><div class="spch"><b>⏳ 회신 대기 (' + OW.length + ')</b><span class="nghelp">우리가 요청하고 기다리는 일 — 받으면 [회신 받음]</span></div><ul class="evl">' +
+      OW.map(function (w) { return '<li class="ev-rv"><b>' + esc(w.x.wait) + (w.vendor ? " · " + esc(w.vendor) : "") + " — " + esc(w.x.text || "") + waitTag(w.x) + " " + waitBtn(w) + "</b><small>" + esc((w.x.who ? w.x.who + " · " : "") + (w.x.at || "")) + "</small></li>"; }).join("") + "</ul></div>" : "";
+    var h = sampleStepper(row) + waitBox + '<div class="sphome">' +
       card("요청 기본정보", "req", kv("요청부서", esc(R.dept || "")) + kv("요청일", esc(md2(R.reqAt || "") || "")) + kv("희망 발주일", esc(md2(R.wantPo))) + kv("희망 납품일", esc(md2(R.wantIn))) + kv("출시 예정일", esc(md2(R.launch))) + kv("목표 단가", tps.join("<br>")) + (function () { var B = spBack(R); if (!B.poDue) return ""; var l = dDiff(B.poDue, todayIso()); return kv("발주 마감(역산)", esc(md2(B.poDue)) + ' <em class="' + (l < 0 ? "late" : "") + '">' + (l < 0 ? -l + "일 지남" : "D-" + l) + "</em>"); })()) +
       card("구성별 디자인 · 포장 사양", "req", specs.join("") || '<div><span>구성</span><b>' + esc(MKS.join(" · ")) + "</b></div>", true) +
       card("소싱 · 견적 · 샘플", "qt", kv("견적", Object.keys(Q).length + "건 · 구성 " + MKS.length) + kv("후보 업체", esc(cands.join(" · "))) + kv("최저 단가(구성별)", lows.join("<br>")) + kv("선정(채택)", esc(picks.map(function (g) { return g.name; }).join(" · "))) +
@@ -7321,14 +7348,45 @@ function dateSlots_(steps, cfg, mode) {
   var VOPEN = {};          // 펼친 드롭 · 탈락 업체(건ID|업체키)
   /** 샘플 프로젝트 비고(업체와 상관없는 프로젝트 전체 메모) — 진행 기록 notes.pmemo = [{ t, at, by }] */
   function sProjMemo(row) { try { var a = JSON.parse((row && row.notes && row.notes.pmemo) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  /* 역요청 대기(2026-10-27) — 우리가 요청하고 회신을 기다리는 일. 진행 기록(업체 카드) · 프로젝트 비고에 '대기' 를 고르면 [회신 받음] 전까지 대기 중.
+     대기 기한은 회신 기한 — 업체 샘플 기한(시트 전달예정일)은 바꾸지 않는다 */
+  var WAIT_OPTS = ["요청부서 회신", "디자인팀 회신", "업체 회신", "기타 회신"];
+  function waitSel(attr) { return "<select " + attr + ' title="우리가 요청하고 답을 기다리는 일이면 — 누구 회신을 기다리는지(기한 = 회신 기한 · 샘플 기한은 안 바뀜)"><option value="">대기 없음</option>' + WAIT_OPTS.map(function (o) { return "<option>" + o + "</option>"; }).join("") + "</select>"; }
+  function waitLeft(d) { return Math.round((new Date(d + "T00:00:00") - new Date(todayIso() + "T00:00:00")) / 864e5); }
+  function waitTag(x) {
+    if (!x || !x.wait) return "";
+    if (x.waitDone) return ' <span class="waittag done">✓ ' + esc(x.wait) + " 받음 " + esc(String(x.waitDone).slice(5).replace("-", ".")) + "</span>";
+    var l = x.due ? waitLeft(x.due) : null;
+    return ' <span class="waittag' + (l != null && l < 0 ? " late" : "") + '">⏳ ' + esc(x.wait) + " 대기" + (x.due ? " · 기한 " + esc(x.due.slice(5).replace("-", ".")) + (l < 0 ? " (" + -l + "일 지남)" : l === 0 ? " (오늘)" : " (D-" + l + ")") : "") + "</span>";
+  }
+  /** 이 프로젝트의 역요청 대기 — 업체 진행 기록 + 프로젝트 비고 */
+  function sampleWaits(row) {
+    var out = [], N = row.notes || {};
+    Object.keys(N).forEach(function (k) {
+      if (k.indexOf("tl:") !== 0) return;
+      var L = []; try { L = JSON.parse(N[k] || "[]"); } catch (e) { L = []; }
+      var vk = k.slice(3), g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0];
+      L.forEach(function (x, i) { if (x.wait && !x.pend) out.push({ src: "tl", vk: vk, i: i, x: x, vendor: g ? g.name : vk }); });
+    });
+    sProjMemo(row).forEach(function (m, i) { if (m.wait) out.push({ src: "pm", i: i, x: { at: m.at, text: m.t, wait: m.wait, due: m.due, waitDone: m.waitDone, who: m.by }, vendor: "" }); });
+    return out;
+  }
+  function sampleOpenWaits(row) { return sampleWaits(row).filter(function (w) { return !w.x.waitDone; }); }
+  function waitBtn(w) {
+    var ro = DATA && DATA.canEdit === false; if (ro) return "";
+    return w.src === "tl"
+      ? '<button type="button" class="btn btn-sm waitbtn" data-waitdone="' + w.i + '" data-vk="' + esc(w.vk) + '" data-wat="' + esc(w.x.at || "") + '" data-wtx="' + esc(w.x.text || "") + '" data-undo="' + (w.x.waitDone ? 1 : 0) + '">' + (w.x.waitDone ? "되돌리기" : "회신 받음") + "</button>"
+      : '<button type="button" class="btn btn-sm waitbtn" data-pmwait="' + w.i + '" data-wat="' + esc(w.x.at || "") + '" data-undo="' + (w.x.waitDone ? 1 : 0) + '">' + (w.x.waitDone ? "되돌리기" : "회신 받음") + "</button>";
+  }
   function sProjMemoBlock(row) {
     var L = sProjMemo(row), ro = DATA && DATA.canEdit === false;
     return '<div class="vgroup pmemo"><div class="vhead"><b>프로젝트 비고</b><span class="nghelp">업체와 상관없는 프로젝트 전체 메모 — 일정 · 요청 사항 · 결정 등(업체별 내용은 아래 업체 카드에)</span></div>' +
       (L.length ? '<ul class="pmlist">' + L.map(function (m, i) { return { m: m, i: i }; }).reverse().map(function (x) {
-        return '<li><span class="tlwho">' + esc(x.m.at || "") + " · " + esc(x.m.by || "") + "</span> " + esc(x.m.t || "") +
+        return '<li><span class="tlwho">' + esc(x.m.at || "") + " · " + esc(x.m.by || "") + "</span> " + esc(x.m.t || "") + waitTag({ wait: x.m.wait, due: x.m.due, waitDone: x.m.waitDone }) +
+          (x.m.wait ? " " + waitBtn({ src: "pm", i: x.i, x: { at: x.m.at, waitDone: x.m.waitDone } }) : "") +
           (ro ? "" : ' <button type="button" class="btn-quiet btn-sm" data-pmdel="' + x.i + '" data-pmat="' + esc(x.m.at || "") + '" title="이 메모 지우기">×</button>') + "</li>";
       }).join("") + "</ul>" : "") +
-      (ro ? "" : '<div class="tladd"><input type="text" id="pmemoText" placeholder="프로젝트 메모 한 줄 — Enter 로 남기기" style="flex:1 1 320px;min-width:0"><button type="button" class="btn btn-sm" id="pmemoAdd">남기기</button></div>') + "</div>";
+      (ro ? "" : '<div class="tladd"><input type="text" id="pmemoText" placeholder="프로젝트 메모 한 줄 — Enter 로 남기기 · 요청하고 기다리는 일이면 [대기]도" style="flex:1 1 320px;min-width:0">' + waitSel('id="pmemoWait"') + '<label class="tldue" title="회신 기한(대기일 때)">기한 <input type="date" id="pmemoDue"></label><button type="button" class="btn btn-sm" id="pmemoAdd">남기기</button></div>') + "</div>";
   }
   function sProjMemoSave(row, op, done) {
     gsr().withSuccessHandler(function (list) {
@@ -7371,7 +7429,8 @@ function dateSlots_(steps, cfg, mode) {
         '<div class="tladd">' + (g.reqs.length ? sampleRoundSel(row, g) : "") + '<input type="text" data-tltext="' + esc(vk) + '" placeholder="진행상황 · 견적 메모 한 줄 — 시트 [비고/피드백]에도 덧붙습니다. 예: 견적 개당 600원(MOQ 1만)" maxlength="500">' +
           // 수신은 회차 줄 오른쪽 [수신]으로(어느 회차를 받았는지가 분명하게) — 여기서는 진행중 · 채택 · 탈락 · 드롭만
           '<select data-tlst="' + esc(vk) + '"><option value="">상태 유지</option>' + SST.filter(function (x) { return x !== "수신"; }).map(function (x) { return x === "드롭" ? '<option value="드롭" title="고른 회차만 드롭 — 업체 전체를 드롭하려면 카드의 [업체 드롭]">이 회차만 드롭</option>' : "<option>" + x + "</option>"; }).join("") + "</select>" +
-          '<label class="tldue" title="이 일의 기한(없으면 비워 둠)">기한 <input type="date" data-tldue="' + esc(vk) + '"></label>' +
+          waitSel('data-tlwait="' + esc(vk) + '"') +
+          '<label class="tldue" title="이 일의 기한(없으면 비워 둠) — 대기를 골랐으면 회신 기한">기한 <input type="date" data-tldue="' + esc(vk) + '"></label>' +
           '<button class="btn btn-sm btn-solid" type="button" data-tlsave="' + esc(vk) + '" data-tlrow="' + g.lastRow + '">기록</button></div>' +
 
         "</div>");
@@ -8460,15 +8519,17 @@ function dateSlots_(steps, cfg, mode) {
       var vk = tls.dataset.tlsave, card = tls.closest(".vgroup");
       var tx = card.querySelector("[data-tltext]"), ts = card.querySelector("[data-tlst]"), td = card.querySelector("[data-tldue]");
       var rks = card.querySelector("[data-tlrk]"), rkOpt = rks ? rks.options[rks.selectedIndex] : null;
-      var ent = { text: String(tx.value || "").trim(), st: ts.value, due: td.value, rk: rks ? rks.value : "" };
+      var tw = card.querySelector("[data-tlwait]");
+      var ent = { text: String(tx.value || "").trim(), st: ts.value, due: td.value, rk: rks ? rks.value : "", wait: tw ? tw.value : "" };
+      if (ent.wait && !ent.text) { toast("무엇을 요청하고 기다리는지 적어 주세요"); tx.focus(); return true; }
       var srow = rkOpt ? Number(rkOpt.dataset.row) || Number(tls.dataset.tlrow) : Number(tls.dataset.tlrow);   // 고른 회차 줄(시트 비고 · 전달예정일 · 상태가 그 줄에)
       if (!ent.text && !ent.st && !ent.due) { toast("진행상황을 적어 주세요"); tx.focus(); return true; }
       var rid = row.id, nk = "tl:" + vk, before = (row.notes || {})[nk];
       // 바로 보이게: 기록을 먼저 목록에 붙이고(저장 중…) 입력칸은 비운다. 저장은 뒤에서 이어진다
       var pl = []; try { pl = JSON.parse(before || "[]"); } catch (e0) { pl = []; }
-      pl.push({ at: todayIso(), text: ent.text, due: ent.due, st: ent.st, rk: ent.rk, pend: 1 });
+      pl.push({ at: todayIso(), text: ent.text, due: ent.due, st: ent.st, rk: ent.rk, wait: ent.wait, pend: 1 });
       row.notes = Object.assign({}, row.notes || {}); row.notes[nk] = JSON.stringify(pl);
-      tx.value = ""; ts.value = ""; td.value = "";
+      tx.value = ""; ts.value = ""; td.value = ""; if (tw) tw.value = "";
       renderRun();
       gsr().withSuccessHandler(function (r) {
           var cur = rowById(rid); if (cur && r && r.notes) cur.notes = r.notes;
@@ -10011,6 +10072,7 @@ function dateSlots_(steps, cfg, mode) {
       // 1. 한 주 요약(첫 장) — 숫자 · 주요 업무 · 담당자별
       var S = d.summary || { kpi: [], hl: [], team: [] };
       h += '<h4>1. 요약</h4><div class="wkkpi">' + S.kpi.map(function (k) { return '<div class="wkk' + (k.warn ? " warn" : "") + '"><small>' + esc(k.label) + "</small><b>" + esc(String(k.v)) + "</b><span>" + esc(k.sub || "") + "</span></div>"; }).join("") + "</div>" +
+        (S.tables || []).map(function (it) { return wkTable(it); }).join("") +
         (S.hl && S.hl.length ? '<div class="wkhl"><b>주요 업무</b><ul>' + S.hl.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul></div>" : "") +
         (S.team && S.team.length ? "<table class='svtable'><thead><tr><th>담당</th><th>역할</th><th>이번 주</th><th>주요 건</th></tr></thead><tbody>" +
         S.team.map(function (t) { return "<tr><td>" + esc(t.name) + "</td><td>" + esc(t.role) + "</td><td>" + t.n + "건</td><td>" + esc((t.top || []).join(" / ")) + "</td></tr>"; }).join("") + "</tbody></table>" : "");
@@ -10067,6 +10129,7 @@ function dateSlots_(steps, cfg, mode) {
       line(["항목", "", "건수", "내용", "", "", "", "", ""], { font: bold, fill: fillC });
       S.kpi.forEach(function (k) { line([k.label, "", String(k.v), k.sub || ""]); if (k.warn) ws.getCell(r - 1, 3).font = { name: F, size: 9, bold: true, color: { argb: "FFC00000" } }; });
       r++;
+      (S.tables || []).forEach(function (it) { item(it); });
       if (S.hl && S.hl.length) { band("주요 업무", fillS, { name: F, size: 10, bold: true }); S.hl.forEach(function (t) { line(["•", t]); }); r++; }
       if (S.team && S.team.length) {
         band("담당자별", fillS, { name: F, size: 10, bold: true });
