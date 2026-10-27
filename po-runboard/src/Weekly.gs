@@ -539,14 +539,23 @@ function apiWeeklyReport(from, to, kind) {
   var pjIdOf = function (pj) { var r0 = SMP.filter(function (y) { return pjOf(y) === pj; })[0]; return r0 ? pjId(r0) : ''; };
   var S_WAIT = W_OPEN.map(function (x) { var d = wkDay_(x.due); return { c: [wkMd_(x.at), pjIdOf(x.pj), x.vendor || '', x.proj, x.wait + ' — ' + x.text, x.due ? wkMd_(x.due) + (d < TODAY ? ' (지남)' : '') : ''], wt: wt(x) }; });
   var S_DONE = W_DONE.map(function (x) { return { c: [wkMd_(x.waitDone), pjIdOf(x.pj), x.vendor || '', x.proj, x.wait + ' — ' + x.text, x.waitReply || '(내용 없음)'] }; });
-  var S_UPD = MEMO.filter(function (m) { return inR(m.at, d0, d1) && m.text && !PDONE[m.pj] && !m.wait; }).sort(function (a, b) { return a.at < b.at ? -1 : 1; }).map(function (m) {
+  // 진행 업데이트 = 그날 진행 메모(기한을 정했으면 기한도) + 그날 추가 샘플 요청(2026-10-27 담당자)
+  var S_UPD = MEMO.filter(function (m) { return inR(m.at, d0, d1) && (m.text || m.due) && !PDONE[m.pj] && !m.wait; }).map(function (m) {
     var r0 = SMP.filter(function (x) { return pjOf(x) === m.pj; })[0];
-    return { c: [WK ? dmd(m.at) : (str_(m.at).slice(11, 16) || dmd(m.at)), r0 ? pjId(r0) : '', m.vendor, m.proj, m.text, m.st && m.st !== '메모' ? m.st : '', ownerOfPV(m.pj, m.vk) || m.who] };
+    return { k: str_(m.at), c: [WK ? dmd(m.at) : (str_(m.at).slice(11, 16) || dmd(m.at)), r0 ? pjId(r0) : '', m.vendor, m.proj, (m.text || '') + (m.due ? (m.text ? ' · ' : '') + '기한 ' + wkMd_(m.due) : ''), m.st && m.st !== '메모' ? m.st : '', ownerOfPV(m.pj, m.vk) || m.who] };
+  }).concat(T_REQ.filter(function (x) { return projLive(x); }).map(function (x) {
+    return { k: ymd(wkDay_(x[si['요청일']])) + ' 00', c: [wkMd_(x[si['요청일']]), pjId(x), str_(x[si['업체명']]) || '미정', proj(x), '샘플 요청' + (str_(x[si['수량']]) ? ' ' + wkQty_(x[si['수량']]) + '개' : '') + (str_(x[si['전달예정일']]) ? ' · 기한 ' + wkMd_(x[si['전달예정일']]) : '') + (str_(x[si['구분']]) ? ' · ' + str_(x[si['구분']]) : ''), '요청', wkWho_(x[si['담당자']])] };
+  })).sort(function (a, b) { return a.k < b.k ? -1 : a.k > b.k ? 1 : 0; });
+  // 샘플 접수 = 그날 새로 등록된 프로젝트(그 프로젝트의 가장 이른 요청일이 그날) — 샘플 요청(업체에 회차 요청)과 다르다
+  var S_NEW = NEWPJ.map(function (x) {
+    var r = SMP.filter(function (y) { return str_(y[si['품목명']]) === x.row[2]; })[0];
+    return { c: [x.row[0], r ? pjId(r) : '', x.row[4], (x.row[1] ? '[' + x.row[1] + '] ' : '') + x.row[2], x.row[3], x.row[5]] };
   });
   var nPoIss = P_ISS.length, nSIss = S_ISS.length;
   var KPI = [
     { k: 'po', label: '발주 건수', v: poOpen.length, sub: '진행 중' },
     { k: 'poin', label: '발주 접수건수', v: T_PO.length, sub: WK ? '주간' : '당일 · 금주 ' + cntW.po },
+    { k: 'snew', label: '샘플 접수건', v: S_NEW.length, sub: WK ? '주간 · 신규 프로젝트' : '당일 · 신규 프로젝트' },
     { k: 'sreq', label: '샘플 요청건', v: T_REQ.length, sub: WK ? '주간' : '당일 · 금주 ' + cntW.req },
     { k: 'sopen', label: '샘플 진행건수', v: sOpen.length, sub: '받기 전' },
     { k: 'srcv', label: '샘플 수신건수', v: T_RCV.length, sub: WK ? '주간' : '당일 · 금주 ' + cntW.rcv },
@@ -562,11 +571,12 @@ function apiWeeklyReport(from, to, kind) {
     .concat(byCat('p2', '2-3. 금주 입고예정 (' + wr(w0, w1) + ')', ['입고예정일', '발주번호', '협력업체', '품목명 / 차수', '수량', '상태', '데이터 변경 내용', '비고'], P_IN_W));
   var SM_S = [
     SEC('s1', '3-1. 샘플 이슈', ['구분', '샘플관리ID', '업체', '샘플 품목', '이슈 내용'], S_ISS, { fb: 1, hot: 1 }),
-    SEC('s3', '3-2. ' + PL + ' 샘플 요청', ['요청일', '샘플관리ID', '업체', '샘플 품목', '수량', '전달예정', '구분'], S_REQ2),
-    SEC('s2', '3-3. 수신 샘플 (' + PL + ')', ['수신일', '샘플관리ID', '업체', '샘플 품목', '수량', '검토현황 및 후속조치'], S_RCV2),
-    SEC('s4', '3-4. 회신 대기', ['요청일', '샘플관리ID', '업체', '샘플 품목', '대기 대상 · 요청 내용', '회신 기한'], S_WAIT, { fb: 1 }),
-    SEC('s5', '3-5. 회신 받음 (' + PL + ')', ['회신일', '샘플관리ID', '업체', '샘플 품목', '대기 대상 · 요청 내용', '회신 내용'], S_DONE),
-    SEC('s6', '3-6. ' + PL + ' 진행 업데이트', [WK ? '일자' : '시각', '샘플관리ID', '업체', '샘플 품목', '내용', '상태 변경', '담당'], S_UPD)
+    SEC('s0', '3-2. ' + PL + ' 샘플 접수 (신규 프로젝트)', ['접수일', '샘플관리ID', '요청 업체', '프로젝트', '구분', '담당'], S_NEW),
+    SEC('s3', '3-3. ' + PL + ' 샘플 요청', ['요청일', '샘플관리ID', '업체', '샘플 품목', '수량', '전달예정', '구분'], S_REQ2),
+    SEC('s2', '3-4. 수신 샘플 (' + PL + ')', ['수신일', '샘플관리ID', '업체', '샘플 품목', '수량', '검토현황 및 후속조치'], S_RCV2),
+    SEC('s4', '3-5. 회신 대기', ['요청일', '샘플관리ID', '업체', '샘플 품목', '대기 대상 · 요청 내용', '회신 기한'], S_WAIT, { fb: 1 }),
+    SEC('s5', '3-6. 회신 받음 (' + PL + ')', ['회신일', '샘플관리ID', '업체', '샘플 품목', '대기 대상 · 요청 내용', '회신 내용'], S_DONE),
+    SEC('s6', '3-7. ' + PL + ' 진행 업데이트', [WK ? '일자' : '시각', '샘플관리ID', '업체', '샘플 품목', '내용', '상태 변경', '담당'], S_UPD)
   ];
   return { v: 7, week: WK, from: ymd(d0), to: ymd(d1), nextFrom: ymd(n0), nextTo: ymd(n1), wk: { from: ymd(w0), to: ymd(w1), prevFrom: ymd(p0), prevTo: ymd(p1) },
     kpi: KPI, note: NOTE, poS: PO_S, smS: SM_S,

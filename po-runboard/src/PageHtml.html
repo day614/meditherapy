@@ -1780,7 +1780,7 @@
   .dlyhead .k { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
   .dlyhead .sg { min-height: 36px; color: var(--ink-3); font-size: 11.5px; }
   .dlyband { background: #1f4e78; color: #fff; font-weight: 700; padding: 7px 10px; border-radius: 4px; margin: 14px 0 0; font-size: 13.5px; }
-  .dlykpi { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--line); border-top: 0; }
+  .dlykpi { display: grid; grid-template-columns: repeat(8, 1fr); border: 1px solid var(--line); border-top: 0; }
   .dlykpi > div { padding: 8px 6px; text-align: center; background: #e8eef7; border-right: 1px solid var(--line); }
   .dlykpi > div:last-child { border-right: 0; }
   .dlykpi > div.w { background: #fdecec; }
@@ -10466,7 +10466,7 @@ function dateSlots_(steps, cfg, mode) {
     var band = function (t) { merge(1, W, t, { font: { name: F, size: 11, bold: true, color: { argb: "FFFFFFFF" } }, fill: fill("FF1F4E78") }); ws.getRow(r).height = 22; r++; };
     merge(1, W, (WK ? "구매팀 주간 취합 보고 " + R.from + " ~ " + R.to : "구매팀 일일보고 " + R.to + " (" + dlyWeekday(R.to) + ")"), { font: { name: F, size: 14, bold: true }, border: false }); ws.getRow(r).height = 26; r += 2;
     band("1. " + (WK ? "주간" : "일일") + " 현황 요약");
-    var K = R.kpi || [], cols = [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 7], [8, 9]];
+    var K = R.kpi || [], cols = K.length > 7 ? [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 8], [9, 9]] : [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 7], [8, 9]];
     K.forEach(function (k, i) { var c = cols[i]; merge(c[0], c[1], k.label, { font: bold, al: "center", fill: fill(k.warn ? "FFFDECEC" : "FFE8EEF7") }); }); r++;
     K.forEach(function (k, i) { var c = cols[i]; merge(c[0], c[1], Number(k.v) || 0, { font: { name: F, size: 14, bold: true, color: { argb: k.warn && Number(k.v) > 0 ? "FFC00000" : "FF000000" } }, al: "center", fill: fill(k.warn ? "FFFDECEC" : "FFE8EEF7") }); }); ws.getRow(r).height = 26; r++;
     merge(1, W, R.note || "", { font: { name: F, size: 9, bold: true, color: { argb: "FFC00000" } }, fill: fill("FFFDF0F0") }); r += 2;
