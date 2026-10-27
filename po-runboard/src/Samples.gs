@@ -192,7 +192,11 @@ function apiSampleEditRow(sheetRow, projKey, fields, meta, exp) {
       var dz = function (x) { var dd = toDate_(x instanceof Date ? x : nz(x)); return dd ? fmtDate_(dd) : nz(x); };
       var bad = Object.keys(exp.old).filter(function (f) {
         if (!RB_SAMPLE_F[f] || K[f] < 0 || fields[f] == null) return false;
-        if (RB_SAMPLE_DATEF[f]) { var dn = dz(cur[K[f]]); return dn !== dz(exp.old[f]) && dn !== dz(fields[f]); }
+        if (RB_SAMPLE_DATEF[f]) {
+          // 시트 날짜 칸에 날짜가 아닌 글자('중단' 등)가 있으면 화면엔 빈칸으로 보인다 — 화면이 빈칸을 봤으면 충돌이 아니다
+          var raw = cur[K[f]]; if (!(raw instanceof Date) && nz(raw) && !toDate_(nz(raw)) && !dz(exp.old[f])) return false;
+          var dn = dz(raw); return dn !== dz(exp.old[f]) && dn !== dz(fields[f]);
+        }
         var now = sampleShow_(cur[K[f]]), saw = exp.old[f];
         if (f === 'status' && !nz(now)) return false;
         // 업체: 시트가 빈칸(업체 미정)이면 충돌이 아니다 — [업체 추가]로 막 넣은 업체가 아직 시트에 안 써졌을 때(호출 순서가 뒤바뀜) · '업체 미정' 줄을 채울 때 잘못 막았다
