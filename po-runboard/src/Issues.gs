@@ -79,6 +79,19 @@ function apiIssueReopen(id) {
   } finally { lock.releaseLock(); dailyDirty_(); }
   return { ok: true };
 }
+/** 화면(상세): 등록한 이슈 내용 고치기 — 피드백(확인) 전만 */
+function apiIssueEdit(id, text) {
+  requireEditor_();
+  text = str_(text).slice(0, 1000); if (!text) throw new Error('이슈 내용을 적어 주세요.');
+  var sh = issTab_(), lock = LockService.getScriptLock(); waitLock_(lock);
+  try {
+    var hit = issAll_().filter(function (x) { return x.id === str_(id); })[0];
+    if (!hit) throw new Error('이슈를 찾을 수 없습니다.');
+    if (hit.st === '확인') throw new Error('피드백까지 받은 이슈는 고칠 수 없습니다 — [다시 열기] 뒤에 고쳐 주세요.');
+    sh.getRange(hit.row, 6).setValue(text);
+  } finally { lock.releaseLock(); dailyDirty_(); }
+  return { ok: true };
+}
 function apiIssueDelete(id) {
   requireEditor_();
   var sh = issTab_(), lock = LockService.getScriptLock(); waitLock_(lock);

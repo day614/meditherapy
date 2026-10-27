@@ -102,7 +102,7 @@ function apiCloseList() {
   if (hit) return hit;
   var all = closeReadAll_(), out = { dom: [], imp: [] };
   all.forEach(function (o) { (o.kind === '수입' ? out.imp : out.dom).push(o); });
-  cachePut_(RB_CLOSE_CACHE, out, 600);
+  cachePut_(RB_CLOSE_CACHE, out, 3600);      // 저장 · 지우기 때 버린다 — 1시간(열 때마다 시트를 읽어 느렸다)
   return out;
 }
 

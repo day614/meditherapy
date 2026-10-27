@@ -1813,6 +1813,30 @@
   .dlyt tr.dlywarn td:nth-child(6) { color: #c00000; font-weight: 600; }      /* 지연 · 늦춰짐은 그 칸만 빨갛게 */
   .dlywknotes { margin: 8px 0 0 18px; padding: 0; font-size: 13px; }
   .dlywknotes li { padding: 3px 0; }
+  .shtiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 0 !important; overflow: hidden; }
+  .shtiles .sht { padding: 12px 14px; border-right: 1px solid var(--line); min-width: 0; }
+  .shtiles .sht:last-child { border-right: 0; }
+  .shtiles .sht small { display: block; font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .shtiles .sht b { display: block; font-size: 17px; margin: 3px 0 2px; overflow-wrap: anywhere; }
+  .shtiles .sht span { font-size: 11.5px; color: var(--ink-3); }
+  .shtiles .sht.warn b, .shtiles .sht em.late { color: #c00000; font-style: normal; }
+  .shtiles .sht.ok b { color: #1e7b45; }
+  .sphome2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 760px) { .sphome2 { grid-template-columns: 1fr; } .shtiles { grid-template-columns: repeat(2, 1fr); } }
+  .shdl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 4px 0 0; font-size: 13px; }
+  .shdl dt { color: var(--ink-3); font-size: 12px; }
+  .shdl dd { margin: 0; font-weight: 600; }
+  .shdl dd em.late { color: #c00000; font-style: normal; }
+  .shmiss { margin: 8px 0 0; font-size: 12px; color: var(--ink-3); }
+  .shmk { padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .shmk:last-child { border-bottom: 0; }
+  .shmk.off { color: var(--ink-3); }
+  .shchip { display: inline-block; font-size: 11.5px; font-weight: 700; background: var(--primary-soft, #e8eef7); color: var(--primary, #1f4e78); border-radius: 6px; padding: 1px 8px; margin: 0 6px 2px 0; }
+  .shchip.off { background: var(--surface-2); color: var(--ink-3); }
+  .shchip.v { background: #eef6f0; color: #1e5c37; font-weight: 600; }
+  .shrow { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .shrow:last-child { border-bottom: 0; }
+  .shrow .shk { color: var(--ink-3); font-size: 12px; }
 </style>
 </head>
 <body>
@@ -3000,7 +3024,7 @@ function dateSlots_(steps, cfg, mode) {
       .withFailureHandler(function () { /* 넘어간다 */ }).apiDailyReport(t, false);
   }
   function onBoot(d) {
-    if (!DLY_PRE) { DLY_PRE = 1; setTimeout(function () { issAllLoad(true); }, 2500); setInterval(function () { if (!document.hidden) issAllLoad(); }, 130000); setTimeout(dlyPrefetch, 6000); setInterval(function () { if (!document.hidden) dlyPrefetch(); }, 5 * 60000); }
+    if (!DLY_PRE) { DLY_PRE = 1; setTimeout(function () { issAllLoad(true); }, 2500); setInterval(function () { if (!document.hidden) issAllLoad(); }, 130000); setTimeout(dlyPrefetch, 6000); setTimeout(function () { if (typeof CL !== "undefined" && !CL.data) clLoad(); }, 9000); setInterval(function () { if (!document.hidden) dlyPrefetch(); }, 5 * 60000); }
     setTimeout(bootTail, 0);
     if (!window.__perfBoot) { window.__perfBoot = 1; setTimeout(function () { perfLog("첫 화면 표시(페이지 열고)", performance.now(), true); }, 0); }
     DATA = d;
@@ -7053,13 +7077,32 @@ function dateSlots_(steps, cfg, mode) {
     var OW = sampleWaits(row).filter(function (w) { return !w.x.waitDone; });
     var waitBox = OW.length ? '<div class="spcard waitbox"><div class="spch"><b>⏳ 회신 대기 (' + OW.length + ')</b><span class="nghelp">우리가 요청하고 기다리는 일 — 받으면 [회신 받음]</span></div><ul class="evl">' +
       OW.map(function (w) { return '<li class="ev-rv"><b>' + esc(w.x.wait) + (w.vendor ? " · " + esc(w.vendor) : "") + " — " + esc(w.x.text || "") + waitTag(w.x) + " " + waitBtn(w) + "</b><small>" + esc((w.x.who ? w.x.who + " · " : "") + (w.x.at || "")) + "</small></li>"; }).join("") + "</ul></div>" : "";
-    var h = sampleStepper(row) + waitBox + '<div class="sphome">' +
-      card("요청 기본정보", "req", kv("요청부서", esc(R.dept || "")) + kv("요청일", esc(md2(R.reqAt || "") || "")) + kv("희망 발주일", esc(md2(R.wantPo))) + kv("희망 납품일", esc(md2(R.wantIn))) + kv("출시 예정일", esc(md2(R.launch))) + kv("목표 단가", tps.join("<br>")) + (function () { var B = spBack(R); if (!B.poDue) return ""; var l = dDiff(B.poDue, todayIso()); return kv("발주 마감(역산)", esc(md2(B.poDue)) + ' <em class="' + (l < 0 ? "late" : "") + '">' + (l < 0 ? -l + "일 지남" : "D-" + l) + "</em>"); })()) +
-      card("구성별 디자인 · 포장 사양", "req", specs.join("") || '<div><span>구성</span><b>' + esc(MON.join(" · ") || "—") + (MOFF.length ? ' <em class="nsub">드롭: ' + esc(MOFF.join(" · ")) + "</em>" : "") + "</b></div>", true) +
-      card("소싱 · 견적 · 샘플", "qt", kv("견적", Object.keys(Q).length + "건 · 구성 " + MON.length + (MOFF.length ? ' <span class="nsub">(드롭 ' + MOFF.length + ")</span>" : "")) + kv("후보 업체", esc(cands.join(" · "))) + kv("최저 단가(구성별)", lows.join("<br>")) + kv("선정(채택)", esc(picks.map(function (g) { return g.name; }).join(" · "))) +
-        kv("샘플", "진행 " + ((cnt.open || 0) + (cnt.late || 0)) + " · 수신 " + (cnt.rcv || 0) + (cnt.late ? ' · <em class="late">지남 ' + cnt.late + "</em>" : "")) + kv("검토 결과", esc(RV_OPTS.filter(function (o) { return rvC[o]; }).map(function (o) { return o + " " + rvC[o]; }).join(" · "))) +
-        (pickTxt.length ? kv("선정 업체 단가 · 납기", pickTxt.join("<br>")) : "")) +
-      "</div>" + sProjMemoBlock(row) + '<div class="spsec">업체별 진행</div>' + sampleBlock(row) + spPoCard(row) +
+    // 2026-10-27 다시 구성: 숫자 한 줄(업체 · 견적 · 샘플 · 채택) → [요청 · 일정] [구성 · 사양] 두 칸(적은 것만) → 소싱 현황(후보 업체 · 최저 단가 · 선정)
+    var vN = (row.vendors || []).filter(function (g) { return g.name !== "업체 미정"; }), vLive = vN.filter(function (g) { return !SAMPLE_OFF[g.status]; }).length;
+    var tile = function (k, v, sub, cls) { return '<div class="sht' + (cls ? " " + cls : "") + '"><small>' + esc(k) + "</small><b>" + v + "</b>" + (sub ? "<span>" + sub + "</span>" : "") + "</div>"; };
+    var tiles = '<div class="spcard shtiles">' +
+      tile("업체", vN.length + "곳", vLive !== vN.length ? "진행 " + vLive + " · 드롭/탈락 " + (vN.length - vLive) : "모두 진행") +
+      tile("견적", Object.keys(Q).length + "건", lows.length ? "최저 " + lows.length + "개 구성" : "아직 없음") +
+      tile("샘플", "진행 " + ((cnt.open || 0) + (cnt.late || 0)), "수신 " + (cnt.rcv || 0) + (cnt.late ? ' · <em class="late">지남 ' + cnt.late + "</em>" : ""), cnt.late ? "warn" : "") +
+      tile("검토", RV_OPTS.filter(function (o) { return rvC[o]; }).map(function (o) { return o + " " + rvC[o]; }).join(" · ") || "—", "받은 샘플 검토 결과") +
+      tile("채택", picks.length ? esc(picks.map(function (g) { return g.name; }).join(" · ")) : "미정", picks.length ? "선정 업체" : "업체 고르기 전", picks.length ? "ok" : "") + "</div>";
+    var rq = [["요청부서", esc(R.dept || "")], ["요청일", esc(md2(R.reqAt || "") || "")], ["희망 발주일", esc(md2(R.wantPo) || "")], ["희망 납품일", esc(md2(R.wantIn) || "")], ["출시 예정일", esc(md2(R.launch) || "")], ["목표 단가", tps.join(" · ")]];
+    var Bk = spBack(R); if (Bk.poDue) { var l0 = dDiff(Bk.poDue, todayIso()); rq.push(["발주 마감(역산)", esc(md2(Bk.poDue)) + ' <em class="' + (l0 < 0 ? "late" : "") + '">' + (l0 < 0 ? -l0 + "일 지남" : "D-" + l0) + "</em>"]); }
+    var rqHave = rq.filter(function (x) { return x[1]; }), rqMiss = rq.filter(function (x) { return !x[1]; }).map(function (x) { return x[0]; });
+    var rqBody = (rqHave.length ? '<dl class="shdl">' + rqHave.map(function (x) { return "<dt>" + esc(x[0]) + "</dt><dd>" + x[1] + "</dd>"; }).join("") + "</dl>" : "") +
+      (rqMiss.length ? '<p class="shmiss">' + (rqHave.length ? "안 적은 칸: " : "아직 요청 정보를 안 적었습니다 — ") + esc(rqMiss.join(" · ")) + ' <button type="button" class="btn-quiet btn-sm" data-sptab="req">적기</button></p>' : "");
+    var mkBody = MON.map(function (mk) {
+      var sp = ["size", "material", "color", "pack"].map(function (f) { return spMkVal(row, mk, f); }).filter(Boolean), ds = spMkVal(row, mk, "designSt");
+      return '<div class="shmk"><span class="shchip">' + esc(mk) + "</span>" + (sp.length ? esc(sp.join(" · ")) : '<span class="nsub">사양 미입력</span>') + (ds ? ' <em class="nsub">디자인 ' + esc(ds) + "</em>" : "") + "</div>";
+    }).join("") + (MOFF.length ? '<div class="shmk off"><span class="shchip off">드롭</span>' + esc(MOFF.join(" · ")) + "</div>" : "");
+    var srcBody = '<div class="shrow"><span class="shk">후보 업체</span><span>' + (cands.length ? cands.map(function (n) { return '<span class="shchip v">' + esc(n) + "</span>"; }).join("") : '<span class="nsub">없음</span>') + "</span></div>" +
+      '<div class="shrow"><span class="shk">최저 단가</span><span>' + (lows.length ? lows.join("<br>") : '<span class="nsub">견적을 넣으면 구성별로</span>') + "</span></div>" +
+      (pickTxt.length ? '<div class="shrow"><span class="shk">선정 단가 · 납기</span><span>' + pickTxt.join("<br>") + "</span></div>" : "");
+    var card2 = function (title, tab, body, cls) { return '<div class="spcard sphc' + (cls ? " " + cls : "") + '"><div class="spch"><b>' + title + "</b>" + (tab ? '<button type="button" class="btn-quiet btn-sm" data-sptab="' + tab + '">자세히</button>' : "") + "</div>" + body + "</div>"; };
+    var h = sampleStepper(row) + waitBox + tiles + '<div class="sphome2">' +
+      card2("요청 · 일정", "req", rqBody) + card2("구성 · 사양", "req", mkBody || '<p class="shmiss">구성이 없습니다</p>') + "</div>" +
+      card2("소싱 현황", "qt", srcBody, "shsrc") +
+      sProjMemoBlock(row) + '<div class="spsec">업체별 진행</div>' + sampleBlock(row) + spPoCard(row) +
       '<div class="spcard"><div class="spch"><b>최근 진행 이력</b><button type="button" class="btn-quiet btn-sm" data-sptab="hist">전체 보기</button></div>' + (function () { var ev = spEvents(row).slice(0, 8); return ev.length ? spEvList(ev) : '<p class="nghelp">기록이 없습니다.</p>'; })() + "</div>";
     return h;
   }
@@ -7215,7 +7258,10 @@ function dateSlots_(steps, cfg, mode) {
   function spPoLinks(row) { return sInfo(row, "po"); }
   function spPoRowsNow() { var d = mode === "po" ? DATA : MODEDATA.po; return d && d.rows ? d.rows : null; }
   function spPoCard(row) {
-    var L = spPoLinks(row), ks = Object.keys(L), ro = DATA && DATA.canEdit === false, PR = spPoRowsNow() || [];
+    // 프로젝트 완료 뒤에도 발주를 연결할 수 있다(완료하고 나서 발주가 나오므로). 드롭한 프로젝트는 연결하지 않는다
+    var dropped = sampleEnd(row) === "drop";
+    var L = spPoLinks(row), ks = Object.keys(L), ro = DATA && DATA.canEdit === false || (dropped && !ks.length), PR = spPoRowsNow() || [];
+    if (dropped && !ks.length) return '<div class="spcard"><div class="spch"><b>연결된 발주 (0)</b><span class="nghelp">드롭한 프로젝트라 발주를 연결하지 않습니다</span></div></div>';
     var byId = {}; PR.forEach(function (r) { byId[r.id] = r; });
     return '<div class="spcard"><div class="spch"><b>연결된 발주 (' + ks.length + ')</b><span class="nghelp">채택 · 완료 뒤 실제 발주건과 연결 — 일정 탭의 발주 · 입고 실제일이 여기서 채워집니다</span>' +
       (ro ? "" : '<span class="spbtns"><button type="button" class="btn btn-sm" data-polink="1">' + (ks.length ? "발주 연결 고치기" : "+ 발주 연결") + "</button></span>") + "</div>" +
@@ -8047,7 +8093,7 @@ function dateSlots_(steps, cfg, mode) {
       return '<li class="' + (x.st === "확인" ? "issdone" : "issopen") + '"><div><b>' + (x.st === "확인" ? "✓ 확인" : "⚠ 이슈") + "</b> " + (x.vendor ? '<em class="isv">' + esc(x.vendor) + "</em> " : "") + esc(x.text) +
         ' <small>' + esc(x.at + " · " + x.by) + "</small>" +
         (x.st === "확인" ? '<div class="issfb">↳ 피드백' + (x.fb ? ": " + esc(x.fb) : "") + " <small>" + esc(x.fbAt + " · " + x.fbBy) + "</small>" + (ro ? "" : ' <button type="button" class="btn-quiet btn-sm" data-issreopen="' + esc(x.id) + '">다시 열기</button>') + "</div>" : "") + "</div>" +
-        (ro || x.st === "확인" ? "" : '<span class="issact"><button type="button" class="btn-quiet btn-sm" data-issfbopen="' + esc(x.id) + '" title="피드백을 쓰면 확인 처리 — 일일보고 이슈에서 빠집니다">피드백 · 확인</button><button type="button" class="btn-quiet btn-sm" data-issdel="' + esc(x.id) + '">지우기</button></span>') + "</li>";
+        (ro || x.st === "확인" ? "" : '<span class="issact"><button type="button" class="btn-quiet btn-sm" data-issedit="' + esc(x.id) + '" title="이슈 내용 고치기">✎ 고치기</button><button type="button" class="btn-quiet btn-sm" data-issfbopen="' + esc(x.id) + '" title="피드백을 쓰면 확인 처리 — 일일보고 이슈에서 빠집니다">피드백 · 확인</button><button type="button" class="btn-quiet btn-sm" data-issdel="' + esc(x.id) + '">지우기</button></span>') + "</li>";
     };
     box.innerHTML = '<div class="issh"><button type="button" class="isstog" data-isstog="1">' + (show ? "▾" : "▸") + " 이슈 " + (open.length ? '<em class="late">' + open.length + "</em>" : "0") + (done.length ? ' <span class="nsub">· 확인 ' + done.length + "</span>" : "") + "</button>" +
       '<span class="nghelp">발주 · 샘플 진행 중 문제를 남기면 일일보고 이슈로 올라가고, 팀장 피드백을 받으면 확인 처리됩니다</span></div>' +
@@ -8075,6 +8121,13 @@ function dateSlots_(steps, cfg, mode) {
     }
     var ro2 = t.closest("[data-issreopen]");
     if (ro2) { gsr().withSuccessHandler(function () { issLoad(row, true); }).withFailureHandler(function (err) { toast("실패: " + err.message); }).apiIssueReopen(ro2.dataset.issreopen); return true; }
+    var ed = t.closest("[data-issedit]");
+    if (ed) {
+      var cur = ((ISS[base] || {}).list || []).filter(function (x) { return x.id === ed.dataset.issedit; })[0];
+      var nt = prompt("이슈 내용 고치기", cur ? cur.text : ""); if (nt === null || !String(nt).trim() || (cur && String(nt).trim() === cur.text)) return true;
+      gsr().withSuccessHandler(function () { toast("이슈를 고쳤습니다"); issLoad(row, true); }).withFailureHandler(function (err) { toast("실패: " + err.message); }).apiIssueEdit(ed.dataset.issedit, String(nt).trim());
+      return true;
+    }
     var dl = t.closest("[data-issdel]");
     if (dl) { if (!confirm("이 이슈를 지울까요?")) return true; gsr().withSuccessHandler(function () { issLoad(row, true); }).withFailureHandler(function (err) { toast("실패: " + err.message); }).apiIssueDelete(dl.dataset.issdel); return true; }
     return false;
@@ -9661,7 +9714,7 @@ function dateSlots_(steps, cfg, mode) {
   /* ---------- 네고 실적 — BOM 차수가 바뀔 때 원가 차이 × 연간 발주량(예전 '구매팀 네고실적' 시트 네고 탭) ---------- */
   var NEGO = { qty: null, list: null, pick: {}, fixes: [] };
   function negoOpen() {
-    if (mode !== "po") { toast("발주 화면에서만 쓸 수 있습니다"); return; }
+    if (mode !== "po") { navMode("po", negoOpen); return; }        // 샘플 화면에서 눌러도 발주 자료로 바꿔서 연다(발주 차수 · 수량을 쓴다)
     $("nego").hidden = false;
     var ys = $("nego-y"), y0 = new Date().getFullYear();
     if (!ys.options.length) ys.innerHTML = '<option value="">전체 기간</option>' + [y0, y0 - 1, y0 - 2].map(function (y) { return '<option value="' + y + '"' + (y === y0 ? " selected" : "") + ">" + y + "년 적용</option>"; }).join("");
@@ -10065,7 +10118,7 @@ function dateSlots_(steps, cfg, mode) {
   function clLoad(done) {
     if (CL.busy) return;
     CL.busy = true;
-    gsr().withSuccessHandler(function (d) { CL.busy = false; CL.data = d || { dom: [], imp: [] }; if (done) done(); })
+    gsr().withSuccessHandler(function (d) { CL.busy = false; CL.data = d || { dom: [], imp: [] }; try { localStorage.setItem("rb.close", JSON.stringify(CL.data)); } catch (eS) { /* 넘어간다 */ } if (done) done(); })
       .withFailureHandler(function (e) { CL.busy = false; $("cl-body").innerHTML = '<div class="aperr">마감 내역을 불러오지 못했습니다: ' + esc(e.message) + "</div>"; })
       .apiCloseList();
   }
@@ -10095,6 +10148,9 @@ function dateSlots_(steps, cfg, mode) {
   }
   function clOpen() {
     if (!CL.month) CL.month = clThisMonth(-1);
+    // 미리 받아 둔 것(앱이 켜질 때 · 브라우저 기억)이 있으면 바로 그리고, 뒤에서 최신으로 받아 바꾼다(고치는 줄이 없을 때만)
+    if (!CL.data) { try { var c0 = JSON.parse(localStorage.getItem("rb.close") || "null"); if (c0 && c0.dom) { CL.data = c0; CL.stale = 1; } } catch (eL) { /* 넘어간다 */ } }
+    if (CL.data && CL.stale) { CL.stale = 0; clLoad(function () { if (view === "close" && !clDirty()) { clBuildRows(); clRender(); } }); }
     if (!CL.data) { $("cl-body").innerHTML = '<div class="nghelp" style="padding:16px">마감 내역 불러오는 중…</div>'; clLoad(function () { if (!CL.data.dom.length && !CL.data.imp.length) CL.month = clThisMonth(-1); else { var ms = clMonths(); if (clSums(CL.month).domN + clSums(CL.month).impN === 0 && ms.length) CL.month = ms.filter(function (m) { return clSums(m).domN + clSums(m).impN; })[0] || CL.month; } clBuildRows(); clRender(); }); return; }
     clBuildRows(); clRender();
   }
