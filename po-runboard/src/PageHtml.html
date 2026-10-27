@@ -1701,6 +1701,10 @@
   .nsreqbox .spform .dtxtwrap input, .spform .dtxtwrap input { flex: 1 1 auto; width: 100% !important; max-width: none !important; }
   @media (min-width: 1100px) { #rem { left: var(--sbw); } }
 
+  .spsheet { display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: center; padding: 4px 0 2px; }
+  .spsheet span { display: flex; flex-direction: column; } .spsheet small { font-size: 11px; color: var(--ink-3); } .spsheet b { font-size: 13.5px; }
+  .spsheet .btn { margin-left: auto; }
+  .schg { display: inline-block; font-size: 10.5px; color: #b26a00; background: #fff6e0; border-radius: 4px; padding: 0 5px; margin-left: 2px; cursor: help; }
   .gk { font-style: normal; font-size: 10.5px; font-weight: 700; border-radius: 4px; padding: 0 5px; margin-right: 5px; vertical-align: 1px; }
   .gk.po { background: var(--primary-soft); color: var(--primary); } .gk.sample { background: #f2ecfb; color: #6a3fb0; }
   .gbar.gsam { background: #e3d9f5; } .gbar.gsam.late { background: #f6cfcc; }
@@ -1724,6 +1728,15 @@
   .plrow:hover { background: var(--surface-2); }
   .plrow b { display: block; font-size: 13px; } .plrow small { color: var(--ink-3); font-size: 11.5px; }
   .svtable td.wkblank { background: #fffbe6; height: 26px; }
+
+  .mkbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 2px 0 10px; }
+  .mkbar .mkl { font-size: 11.5px; color: var(--ink-3); margin-right: 2px; }
+  .mkbar button { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 3px 12px; font-size: 12.5px; cursor: pointer; color: var(--ink-2); }
+  .mkbar button[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+  .mkbar button em { font-style: normal; font-size: 10.5px; opacity: .8; margin-left: 2px; }
+  .mkbar .mkadd { border-style: dashed; color: var(--primary); }
+  .spkv.one { grid-template-columns: 1fr; }
+  .mkform { padding: 10px; border: 1px dashed var(--line-strong); border-radius: 10px; background: var(--surface-2); margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -4158,6 +4171,7 @@ function dateSlots_(steps, cfg, mode) {
     (DATA.rows || []).forEach(function (r) {
       var c = String(r.code || "").toUpperCase();
       if (!c || !P.plan[c] || r.cancelled || r.state === "취소") return;
+      if (isClosed(r)) return;            // 마감(입고 완료 처리 · 종결)한 발주에 남은 예정 줄은 더 안 들어온다 — 합에서 뺀다(같은 코드의 다른 발주가 잘못 빨갛게 됐다)
       var ls = (LN_CACHE[r.id] && LN_CACHE[r.id].lines) || [];
       ls.forEach(function (L) {
         if (L.kind !== "예정") return;
@@ -5841,9 +5855,10 @@ function dateSlots_(steps, cfg, mode) {
     var sec = function (t, sub, body) { return '<div class="nssec"><div class="spgrp">' + esc(t) + (sub ? ' <span class="nghelp" style="font-weight:400">' + esc(sub) + "</span>" : "") + '</div><div class="spform">' + body + "</div></div>"; };
     ov.innerHTML = '<div class="nsbox nsreqbox" role="dialog" aria-label="신규 제작 요청"><h3>신규 제작 요청</h3>' +
       '<p class="nghelp" style="margin:-4px 0 10px">제작 요청서 — 기본정보 · 수량 · 일정 · 납품을 먼저 적습니다. 업체가 정해졌으면 아래 [첫 샘플 요청]도. [임시 저장]은 이 브라우저에 남겨 두고 이어서 씁니다.' + (nsDraft && !pre ? ' <b>임시 저장한 내용을 불러왔습니다(' + esc(nsDraft.at || "") + ").</b>" : "") + "</p>" +
-      sec("기본 정보", "", nsF("brand") + nsF("name").replace('<label class="full">', '<label class="w2">') + rqF("dept", "요청부서", "", 1) + rqF("reqBy", "요청 담당자") + nsF("reqAt") + nsF("code") + nsF("owner") + rqF("target", "대상 고객") + rqF("purpose", "제작 목적 · 행사 (용도 · 행사명 · 프로모션 · 증정 조건)", "area")) +
-      sec("수량 · 단가 · 사양", "", rqF("tqty", "목표(예상) 수량") + rqF("tprice", "목표 단가(원)") + rqF("budget", "예산(원)") + rqF("size", "규격") + rqF("material", "소재") + rqF("color", "색상 · 인쇄") + rqF("pack", "포장 방식")) +
-      sec("출시 · 리드타임", "출시 예정일에서 거꾸로 — 언제까지 발주 · 샘플 요청해야 하는지 아래에 바로 계산", rqF("launch", "출시 예정일", "date") + rqF("sampleLead", "샘플 리드타임(일)") + rqF("massLead", "양산 리드타임(일) — 발주 → 입고") + rqF("prepDays", "입고 → 출시 준비(일)") + '<div class="full" id="nsBack"></div>') +
+      sec("기본 정보", "", nsF("brand") + nsF("name").replace('<label class="full">', '<label class="w2">') + rqF("dept", "요청부서", "", 1) + rqF("reqBy", "요청 담당자") + nsF("reqAt") + nsF("code") + nsF("owner") + rqF("purpose", "제작 목적 · 행사 (용도 · 행사명 · 프로모션 · 증정 조건)", "area")) +
+      sec("수량 · 예산", "", rqF("tqty", "목표(예상) 수량") + rqF("budget", "예산(원)")) +
+      sec("사양 · 목표 단가 (첫 구성)", "아래 [첫 샘플 요청]의 구성(용기 등) 사양으로 들어갑니다 — 단상자 등 다른 구성은 등록 뒤 요청 정보 탭에서 [+ 구성 추가]", rqF("tprice", "목표 단가(원)") + rqF("size", "규격") + rqF("material", "소재") + rqF("color", "색상 · 인쇄") + rqF("pack", "포장 방식")) +
+      sec("출시 · 리드타임", "출시 예정일에서 거꾸로 — 언제까지 입고 · 발주해야 하는지 아래에 바로 계산", rqF("launch", "출시 예정일", "date") + rqF("massLead", "양산 리드타임(일) — 발주 → 입고") + rqF("prepDays", "입고 → 출시 준비(일)") + '<div class="full" id="nsBack"></div>') +
       sec("일정 · 납품", "예정일 — 일정 탭에서 실제와 비교", rqF("wantPo", "희망 발주일", "date") + rqF("wantMass", "양산 완료 희망일", "date") + rqF("wantIn", "희망 납품(입고)일", "date") + rqF("pickBy", "업체 선정 목표일", "date") + rqF("designAt", "디자인 확정 예정일", "date")) +
       sec("첫 샘플 요청 (선택)", "업체가 정해졌으면 — 비우면 업체 없이 프로젝트만 등록, 업체는 나중에 [업체 추가]", nsF("vendor") + nsF("qty") + nsF("planAt") + nsF("make") + nsF("spec") + nsF("kind") + nsF("note")) +
       sec("기타", "", rqF("etc", "기타 요청사항", "area") + nsF("link")) +
@@ -5889,6 +5904,10 @@ function dateSlots_(steps, cfg, mode) {
       }
       if (!p.vendor && !confirm("업체 없이 프로젝트만 등록합니다. 업체는 나중에 건 상세의 [업체 추가]로 넣으면 이 줄에 채워집니다. 등록할까요?")) return;
       if (rq.reqBy || rq.dept) rq.reqAt = p.reqAt || todayIso();
+      // 사양 · 목표 단가는 구성별 칸으로(첫 샘플의 구성 — 없으면 '기본')
+      var mk0 = spNorm(p.make) || "기본";
+      ["size", "material", "color", "pack", "tprice"].forEach(function (f) { if (rq[f]) { rq[f + "@" + mk0] = rq[f]; delete rq[f]; } });
+      if (!spNorm(p.make)) rq._makes = "기본";
       p.req = rq;
       // 창은 바로 닫고 목록에 먼저 보인다(예전: 시트에 쓸 때까지 창에서 5~7초 + 다시 읽을 때까지 더 기다렸다).
       // 저장이 안 되면 그 줄을 빼고, 넣은 값 그대로 창을 다시 연다.
@@ -6513,7 +6532,9 @@ function dateSlots_(steps, cfg, mode) {
   function spInfoSave(row, key, sets, done) {
     if (!row.projKey) { alert("시트에 저장되는 중인 프로젝트입니다 — 잠시 뒤 다시 해 주세요."); return; }
     gsr().withSuccessHandler(function (obj) {
-      row.notes = Object.assign({}, row.notes || {}); row.notes["i:" + key] = JSON.stringify(obj || {});
+      row.notes = Object.assign({}, row.notes || {});
+      if (obj && obj.__log) { row.notes["i:reqlog"] = JSON.stringify(obj.__log); delete obj.__log; }
+      row.notes["i:" + key] = JSON.stringify(obj || {});
       if (done) done(obj);
       if (currentId === row.id && !$("view-run").hidden) renderRun();
       renderBoard(); if (view === "qt") qtPageRender();
@@ -6527,55 +6548,102 @@ function dateSlots_(steps, cfg, mode) {
 
   /* ---------- 요청 정보 ---------- */
   var REQ_F = [
-    ["기본 정보", [["dept", "요청부서"], ["reqBy", "요청 담당자"], ["reqAt", "요청일", "date"], ["target", "대상 고객"], ["purpose", "제작 목적 · 행사 (용도 · 행사명 · 증정 조건)", "area"]]],
-    ["수량 · 목표 단가", [["tqty", "목표(예상) 수량"], ["tprice", "목표 단가(원)"], ["budget", "예산(원)"]]],
-    ["리드타임 (출시일에서 거꾸로 계산)", [["sampleLead", "샘플 리드타임(일) — 요청 → 수신 · 확정"], ["massLead", "양산 리드타임(일) — 발주 → 입고"], ["prepDays", "입고 → 출시 준비(일)"]]],
-    ["일정 (예정)", [["designAt", "디자인 확정 예정일", "date"], ["pickBy", "업체 선정 목표일", "date"], ["wantPo", "희망 발주일", "date"], ["wantMass", "양산 완료 희망일", "date"], ["wantIn", "희망 납품(입고)일", "date"], ["launch", "출시 예정일", "date"]]],
-    ["디자인 · 포장 사양", [["size", "규격"], ["material", "소재"], ["color", "색상 · 인쇄"], ["pack", "포장 방식"], ["designSt", "디자인 확정 상태", "sel", ["", "미확정", "개발중", "확정"]], ["spec", "사양 메모", "area"]]],
+    ["기본 정보", [["dept", "요청부서"], ["reqBy", "요청 담당자"], ["reqAt", "요청일", "date"], ["purpose", "제작 목적 · 행사 (용도 · 행사명 · 증정 조건)", "area"]]],
+    ["수량 · 예산", [["tqty", "목표(예상) 수량"], ["budget", "예산(원)"]]],
+    ["리드타임 (출시일에서 거꾸로 계산)", [["massLead", "양산 리드타임(일) — 발주 → 입고"], ["prepDays", "입고 → 출시 준비(일)"]]],
+    ["일정 (예정)", [["pickBy", "업체 선정 목표일", "date"], ["wantPo", "희망 발주일", "date"], ["wantMass", "양산 완료 희망일", "date"], ["wantIn", "희망 납품(입고)일", "date"], ["launch", "출시 예정일", "date"]]],
     ["기타", [["etc", "기타 요청사항", "area"]]]
   ];
+  /** 구성(용기 · 단상자 …)마다 따로 — 칸 이름은 '칸@구성'(예: size@용기). 예전 값(구성 없이 적은 것)은 첫 구성에 보인다 */
+  var MK_F = [["size", "규격"], ["material", "소재"], ["color", "색상 · 인쇄"], ["pack", "포장 방식"], ["tprice", "목표 단가(원)"],
+    ["designSt", "디자인 확정 상태", "sel", ["", "미확정", "개발중", "확정"]], ["designAt", "디자인 확정 예정일", "date"], ["spec", "사양 메모(요청 사양 · 후가공 · 인쇄 도수 등)", "area"]];
+  var SPMK = {};            // 건ID → 보고 있는 구성
+  function spNorm(m) { return String(m == null ? "" : m).trim(); }
+  /** 이 프로젝트의 구성 — 샘플 회차의 구성 + [+ 구성 추가]로 넣은 것 + 견적 · 사양을 적은 구성. 하나도 없으면 '기본' */
+  function spMakes(row) {
+    var out = [], add = function (m) { m = spNorm(m); if (m && out.indexOf(m) < 0) out.push(m); };
+    (row.vendors || []).forEach(function (g) { (g.reqs || []).forEach(function (q) { add(q.make); }); });
+    var R = sInfo(row, "req");
+    String(R._makes || "").split(",").forEach(add);
+    Object.keys(R).forEach(function (k) { var i = k.indexOf("@"); if (i > 0) add(k.slice(i + 1)); });
+    Object.keys(sInfo(row, "qt")).forEach(function (k) { var i = k.indexOf("::"); if (i > 0) add(k.slice(0, i)); });
+    Object.keys(spDraft(row).qt).forEach(function (k) { var i = k.indexOf("::"); if (i > 0) add(k.slice(0, i)); });
+    if (!out.length) out.push("기본");
+    return out;
+  }
+  function spMk(row) { var L = spMakes(row), m = SPMK[row.id]; return L.indexOf(m) > -1 ? m : L[0]; }
+  function spMkVal(row, mk, f) {
+    var k = f + "@" + mk, d = spDraft(row).req, R = sInfo(row, "req");
+    if (k in d) return d[k];
+    if (R[k] != null && R[k] !== "") return R[k];
+    return mk === spMakes(row)[0] ? (R[f] || "") : "";
+  }
+  function spMkBar(row, kind) {
+    var cur = spMk(row), ro = DATA && DATA.canEdit === false;
+    return '<div class="mkbar"><span class="mkl">구성</span>' + spMakes(row).map(function (m) {
+      var n = kind === "qt" ? qtVendors(row, m).length : MK_F.filter(function (F) { return spMkVal(row, m, F[0]); }).length;
+      return '<button type="button" data-spmk="' + esc(m) + '" aria-pressed="' + (m === cur) + '">' + esc(m) + (n ? " <em>" + n + "</em>" : "") + "</button>";
+    }).join("") + (ro ? "" : '<button type="button" class="mkadd" data-spmkadd="1" title="단상자 · 리드 · 라벨 등 구성을 더합니다">+ 구성 추가</button>') + "</div>";
+  }
   function spReqVal(row, f) { var d = spDraft(row).req; return f in d ? d[f] : (sInfo(row, "req")[f] || ""); }
+  function spFieldHtml(F, key, v, ro) {
+    var id = 'data-spf="req|' + esc(key) + '"', dis = ro ? " disabled" : "";
+    var inp = F[2] === "area" ? '<textarea ' + id + ' rows="2"' + dis + ">" + esc(v) + "</textarea>"
+      : F[2] === "date" ? '<input type="date" ' + id + ' value="' + esc(v) + '"' + dis + ">"
+      : F[2] === "sel" ? "<select " + id + dis + ">" + F[3].map(function (o) { return "<option" + (o === v ? " selected" : "") + ' value="' + esc(o) + '">' + esc(o || "—") + "</option>"; }).join("") + "</select>"
+      : '<input type="text" ' + id + ' value="' + esc(v) + '"' + dis + ">";
+    return '<label class="' + (F[2] === "area" ? "wide" : "") + '"><span>' + esc(F[1]) + "</span>" + inp + "</label>";
+  }
   function spReqTab(row) {
     var ro = DATA && DATA.canEdit === false, R = sInfo(row, "req"), dirty = Object.keys(spDraft(row).req).length;
-    var h = '<div class="spcard"><div class="spch"><b>요청 정보</b><span class="nghelp">GWP 제작 요청서 — 요청부서 · 목적 · 희망 일정 · 목표 단가 · 사양. 일정 탭의 예정일과 견적 비교의 목표 단가 대비에 쓰입니다.</span>' +
+    var h = '<div class="spcard"><div class="spch"><b>요청 정보</b><span class="nghelp">GWP 제작 요청서 — 요청부서 · 목적 · 희망 일정 · 구성별 사양 · 목표 단가. 일정 탭의 예정일과 견적 비교의 목표 단가 대비에 쓰입니다.</span>' +
       (R._at ? '<span class="tlwho" style="margin-left:auto">' + esc(R._at + " · " + (R._by || "")) + "</span>" : "") + "</div>";
-    REQ_F.forEach(function (G) {
-      h += '<div class="spgrp">' + esc(G[0]) + '</div><div class="spform">';
-      G[1].forEach(function (F) {
-        var v = spReqVal(row, F[0]), id = 'data-spf="req|' + F[0] + '"', dis = ro ? " disabled" : "";
-        var inp = F[2] === "area" ? '<textarea ' + id + ' rows="2"' + dis + ">" + esc(v) + "</textarea>"
-          : F[2] === "date" ? '<input type="date" ' + id + ' value="' + esc(v) + '"' + dis + ">"
-          : F[2] === "sel" ? "<select " + id + dis + ">" + F[3].map(function (o) { return "<option" + (o === v ? " selected" : "") + ' value="' + esc(o) + '">' + esc(o || "—") + "</option>"; }).join("") + "</select>"
-          : '<input type="text" ' + id + ' value="' + esc(v) + '"' + dis + ">";
-        h += '<label class="' + (F[2] === "area" ? "wide" : "") + '"><span>' + esc(F[1]) + "</span>" + inp + "</label>";
-      });
-      h += "</div>";
+    // 시트에 쓰는 프로젝트 기본(제품명 · 품목코드 · 브랜드 · 링크) — 예전 머리의 [프로젝트 수정 ✎]을 여기로
+    h += '<div class="spgrp">프로젝트 (시트)</div><div class="spsheet"><span><small>제품명</small><b>' + esc(row.name || "") + '</b></span><span><small>품목코드</small><b>' + esc(row.code || "—") + '</b></span><span><small>브랜드</small><b>' + esc(row.brand || "—") + '</b></span><span><small>링크</small><b>' + ((row.links || []).length ? (row.links || []).length + "개" : "—") + "</b></span>" +
+      (ro ? "" : '<button type="button" class="btn btn-sm" data-spedit="1" title="제품명을 바꾸면 이 프로젝트의 시트 줄 이름이 모두 바뀝니다">제품명 · 코드 · 브랜드 · 링크 고치기</button>') + "</div>";
+    REQ_F.forEach(function (G, gi) {
+      h += '<div class="spgrp">' + esc(G[0]) + '</div><div class="spform">' + G[1].map(function (F) { return spFieldHtml(F, F[0], spReqVal(row, F[0]), ro); }).join("") + "</div>";
+      if (gi === 1) {          // 수량 · 예산 다음에 구성별 사양
+        var mk = spMk(row);
+        h += '<div class="spgrp">구성별 디자인 · 포장 사양 · 목표 단가 <span class="nghelp" style="font-weight:400">용기 · 단상자처럼 구성마다 요청 사양이 다르면 구성을 골라 따로 적습니다</span></div>' + spMkBar(row, "req") +
+          '<div class="spform mkform">' + MK_F.map(function (F) { return spFieldHtml(F, F[0] + "@" + mk, spMkVal(row, mk, F[0]), ro); }).join("") + "</div>";
+      }
     });
     h += spBackHtml(Object.assign({}, R, spDraft(row).req));
     if (!ro) h += '<div class="spfoot"><span class="nghelp">' + (dirty ? "저장하지 않은 칸 " + dirty + "개" : "") + '</span><button type="button" class="btn btn-sm" data-spreset="req"' + (dirty ? "" : " disabled") + '>되돌리기</button><button type="button" class="btn btn-sm btn-solid" data-spsave="req"' + (dirty ? "" : " disabled") + ">요청 정보 저장</button></div>";
     return h + "</div>";
   }
 
-
-  /** 출시일 역산: 입고 마감 = 출시 − 준비, 발주 마감 = 입고 마감 − 양산 리드타임, 샘플 요청 마감 = 발주 마감 − 샘플 리드타임 */
+  /** 출시일 역산: 입고 마감 = 출시 − 입고→출시 준비, 발주 마감 = 입고 마감 − 양산 리드타임(샘플 리드타임은 샘플마다 달라 뺌) */
   function spBack(R, massLead) {
     var addD = function (d, n) { var t = new Date(d + "T00:00:00"); t.setDate(t.getDate() - n); return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0"); };
     var L = /^\d{4}-\d{2}-\d{2}$/.test(R.launch || "") ? R.launch : "";
-    var ml = massLead != null ? massLead : spNum(R.massLead), sl = spNum(R.sampleLead), pd = spNum(R.prepDays) || 0;
+    var ml = massLead != null ? massLead : spNum(R.massLead), pd = spNum(R.prepDays) || 0;
     var o = { ok: !!L };
     if (!L) return o;
     o.inDue = addD(L, pd);
-    if (ml != null) { o.poDue = addD(o.inDue, ml); if (sl != null) o.sreqDue = addD(o.poDue, sl); }
+    if (ml != null) o.poDue = addD(o.inDue, ml);
     return o;
   }
   function spBackHtml(R) {
     var B = spBack(R), today = todayIso();
     if (!B.ok) return '<div class="spback nghelp">출시 예정일 · 양산 리드타임을 넣으면 <b>언제까지 발주해야 하는지</b> 거꾸로 계산해 보여 줍니다.</div>';
     var it = function (t, d) { if (!d) return ""; var l = dDiff(d, today); return '<span class="bk' + (l < 0 ? " late" : l <= 14 ? " soon" : "") + '"><small>' + t + "</small><b>" + md2(d) + "</b><em>" + (l < 0 ? -l + "일 지남" : l === 0 ? "오늘" : "D-" + l) + "</em></span>"; };
-    return '<div class="spback"><span class="bkt">출시일 역산</span>' + it("샘플 요청 마감", B.sreqDue) + it("발주 마감", B.poDue) + it("입고 마감", B.inDue) + it("출시", R.launch) +
+    return '<div class="spback"><span class="bkt">출시일 역산</span>' + it("발주 마감", B.poDue) + it("입고 마감", B.inDue) + it("출시", R.launch) +
       (B.poDue ? "" : '<span class="nghelp">양산 리드타임을 넣으면 발주 마감이 나옵니다</span>') + "</div>";
   }
-  /* ---------- 견적 비교 ---------- */
+
+  /** 요청 정보 변경 이력(서버가 바뀐 칸만 남김) */
+  function spReqLog(row) { try { var a = JSON.parse(((row && row.notes) || {})["i:reqlog"] || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function spReqLabel(f) {
+    var base = String(f).split("@")[0], mk = String(f).indexOf("@") > 0 ? String(f).split("@").slice(1).join("@") : "", L = base;
+    REQ_F.concat([["", MK_F]]).forEach(function (G) { G[1].forEach(function (F) { if (F[0] === base) L = F[1].split(" — ")[0].split("(")[0].trim(); }); });
+    return L + (mk ? "(" + mk + ")" : "");
+  }
+  function spLogVal(v) { v = String(v == null ? "" : v); if (!v) return "(빈칸)"; return /^\d{4}-\d{2}-\d{2}$/.test(v) ? md2(v) : (v.length > 30 ? v.slice(0, 30) + "…" : v); }
+  /** 그 칸의 바뀐 횟수 · 처음 값 — 일정 탭에 '변경 n회' */
+  function spReqHist(row, f) { var L = spReqLog(row).filter(function (x) { return x.f === f; }); return L.length ? { n: L.length, first: L[0].a, list: L } : null; }
+  /* ---------- 견적 비교(구성별) — 견적 칸 이름 '구성::업체키'. 예전 것(업체키만)은 그 업체의 첫 구성으로 본다 ---------- */
   var QT_ROWS = [
     ["업체 정보", [["st", "상태", "sel", ["검토중", "후보", "제외"]], ["country", "국가 · 생산지"], ["contact", "업체 담당자"], ["file", "견적서 링크", "url"]]],
     ["수량 · 단가", [["round", "견적 차수"], ["moq", "MOQ"], ["qty", "견적 수량"], ["price", "단가"], ["cur", "통화", "sel", ["KRW", "CNY", "USD", "EUR", "JPY"]], ["rate", "적용 환율(원)"], ["_krw", "단가(원화)", "calc"], ["vat", "VAT", "sel", ["", "별도", "포함"]], ["shipIn", "운송비 포함 여부", "sel", ["", "별도", "포함"]]]],
@@ -6584,28 +6652,47 @@ function dateSlots_(steps, cfg, mode) {
     ["일정", [["dSample", "샘플 제작기간(일)"], ["dLead", "양산 소요기간(일)"], ["avail", "납품 가능일", "date"], ["_want", "희망 납품일 대비", "calc"], ["_poBy", "발주 마감(출시 역산)", "calc"]]],
     ["조건 · 의견", [["pay", "결제조건"], ["inco", "인코텀즈 · 납품조건"], ["mat", "주요 소재 · 제작방식"], ["qual", "품질 · 기술 특이사항"], ["opin", "구매팀 검토의견"]]]
   ];
-  /** 비교 열: 샘플 업체(시트) + 견적만 받은 업체(견적 비교에서 [+ 업체 추가] — notes 에만, 샘플 요청 줄은 없음) */
-  function qtVendors(row) {
-    var V = (row.vendors || []).filter(function (g) { return g.name !== "업체 미정"; }).slice().sort(function (a, b) { return (SAMPLE_OFF[a.status] ? 1 : 0) - (SAMPLE_OFF[b.status] ? 1 : 0); });
+  function qtKey(mk, vk) { return mk + "::" + vk; }
+  /** 예전 견적(업체키만)이 어느 구성인지 — 그 업체 샘플 회차의 첫 구성, 없으면 프로젝트 첫 구성 */
+  function qtLegacyMk(row, vk) {
+    var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0], m = "";
+    if (g) (g.reqs || []).forEach(function (q) { if (!m && spNorm(q.make)) m = spNorm(q.make); });
+    return m || spMakes(row)[0];
+  }
+  /** 그 구성의 비교 열: 그 구성 샘플을 받은 업체 + 그 구성으로 견적을 적은 업체 + 견적만 받은 업체 */
+  function qtVendors(row, mk) {
+    mk = mk || spMk(row);
+    var first = spMakes(row)[0];
+    var V = (row.vendors || []).filter(function (g) {
+      return g.name !== "업체 미정" && (g.reqs || []).some(function (q) { var m = spNorm(q.make); return m ? m === mk : mk === first; });
+    }).slice().sort(function (a, b) { return (SAMPLE_OFF[a.status] ? 1 : 0) - (SAMPLE_OFF[b.status] ? 1 : 0); });
     var have = {}; V.forEach(function (g) { have[sampleVKey(g.name)] = 1; });
     var Q = sInfo(row, "qt"), D = spDraft(row).qt, ex = [];
-    Object.keys(Q).concat(Object.keys(D)).forEach(function (vk) {
-      if (have[vk]) return; have[vk] = 1;
-      var nm = (D[vk] && D[vk].name) || (Q[vk] && Q[vk].name);
-      if (nm) ex.push({ name: nm, status: "견적만", extra: true, reqs: [] });
+    var look = function (k) { return (D[k] && D[k].name) || (Q[k] && Q[k].name) || ""; };
+    Object.keys(Q).concat(Object.keys(D)).forEach(function (k) {
+      var i = k.indexOf("::"), m = i > 0 ? k.slice(0, i) : qtLegacyMk(row, k), vk = i > 0 ? k.slice(i + 2) : k;
+      if (m !== mk || have[vk]) return; have[vk] = 1;
+      var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0];
+      if (g) ex.push({ name: g.name, status: g.status, reqs: g.reqs, other: true });
+      else { var nm = look(k); if (nm) ex.push({ name: nm, status: "견적만", extra: true, reqs: [] }); }
     });
     return V.concat(ex);
   }
-  function qtVal(row, vk) { var d = spDraft(row).qt[vk] || {}, s = sInfo(row, "qt")[vk] || {}; return Object.assign({}, s, d); }
-  function qtCalc(row) {
-    var R = sInfo(row, "req"), out = {}, tgt = spNum(R.tprice), want = R.wantIn || "";
-    qtVendors(row).forEach(function (g) {
-      var vk = sampleVKey(g.name), q = qtVal(row, vk), p = spNum(q.price), cur = q.cur || "KRW", rate = cur === "KRW" ? 1 : spNum(q.rate);
+  function qtVal(row, mk, vk) {
+    var Q = sInfo(row, "qt"), k = qtKey(mk, vk), d = spDraft(row).qt[k] || {};
+    var s = Q[k] || (qtLegacyMk(row, vk) === mk ? Q[vk] : null) || {};
+    return Object.assign({}, s, d);
+  }
+  function qtCalc(row, mk) {
+    mk = mk || spMk(row);
+    var R = sInfo(row, "req"), out = {}, tgt = spNum(spMkVal(row, mk, "tprice")), want = R.wantIn || "";
+    qtVendors(row, mk).forEach(function (g) {
+      var vk = sampleVKey(g.name), q = qtVal(row, mk, vk), p = spNum(q.price), cur = q.cur || "KRW", rate = cur === "KRW" ? 1 : spNum(q.rate);
       var krw = p != null && rate != null ? p * rate : null, qty = spNum(q.qty);
       var fees = ["fSample", "fMold", "fPlate", "fShip"].reduce(function (a, f) { var n = spNum(q[f]); return a + (n || 0); }, 0);
       var total = krw != null && qty != null ? krw * qty + fees * (rate || 1) : null;
       var lead = spNum(q.dLead), avail = q.avail || (lead != null ? new Date(Date.now() + lead * 864e5).toISOString().slice(0, 10) : "");
-      out[vk] = { q: q, krw: krw, total: total, avail: avail, availAuto: !q.avail && !!avail, off: q.st === "제외" || !!SAMPLE_OFF[g.status], want: want && avail ? dDiff(avail, want) : null, tgt: tgt != null && krw != null ? krw - tgt : null, tgtP: tgt ? (krw - tgt) / tgt : null, lead: lead };
+      out[vk] = { q: q, name: g.name, krw: krw, total: total, avail: avail, availAuto: !q.avail && !!avail, off: q.st === "제외" || !!SAMPLE_OFF[g.status], want: want && avail ? dDiff(avail, want) : null, tgt: tgt != null && krw != null ? krw - tgt : null, tgtP: tgt ? (krw - tgt) / tgt : null, lead: lead };
     });
     var live = Object.keys(out).filter(function (k) { return !out[k].off && out[k].krw != null; });
     var low = live.reduce(function (m, k) { return m == null || out[k].krw < m ? out[k].krw : m; }, null);
@@ -6614,16 +6701,16 @@ function dateSlots_(steps, cfg, mode) {
     return out;
   }
   function spQtTab(row) {
-    var V = qtVendors(row), ro = DATA && DATA.canEdit === false, ed = QTEDIT === row.id && !ro, C = qtCalc(row), R = sInfo(row, "req");
-    if (!V.length) return '<div class="spcard" data-sprow="' + esc(row.id) + '"><div class="spch"><b>업체 견적 비교</b>' + (ro ? "" : '<span class="spbtns"><button type="button" class="btn btn-sm btn-solid" data-qtadd="1">+ 업체 추가</button></span>') + '</div><p class="nghelp">아직 업체가 없습니다 — [+ 업체 추가]로 견적 받은 업체를 넣거나, 진행 현황의 [업체 추가]로 샘플을 요청하면 여기서 나란히 비교합니다.</p></div>';
+    var mk = spMk(row), V = qtVendors(row, mk), ro = DATA && DATA.canEdit === false, ed = QTEDIT === row.id && !ro, C = qtCalc(row, mk), R = sInfo(row, "req"), tp = spMkVal(row, mk, "tprice");
+    var head = '<div class="spcard" data-sprow="' + esc(row.id) + '"><div class="spch"><b>업체 견적 비교</b><span class="nghelp">구성마다 따로 — 단가 · 원화 환산 · 총액 · 최저/목표 대비 · 납기. 희망 납품일 ' + esc(md2(R.wantIn) || "미입력") + " · " + esc(mk) + " 목표 단가 " + esc(tp ? Number(spNum(tp)).toLocaleString() + "원" : "미입력") + " (요청 정보 탭)</span>" +
+      '<span class="spbtns">' + (ro ? "" : '<button type="button" class="btn btn-sm" data-qtadd="1" title="이 구성에 견적 받은 업체를 비교에 더합니다(시트 샘플 줄은 안 생김)">+ 업체 추가</button>') + (V.length ? (ro ? "" : ed ? '<button type="button" class="btn btn-sm" data-qtcancel="1">취소</button><button type="button" class="btn btn-sm btn-solid" data-qtsave="1">견적 저장</button>' : '<button type="button" class="btn btn-sm btn-solid" data-qtedit="1">견적 입력 · 수정</button>') +
+      '<button type="button" class="btn btn-sm" data-qtxls="1">엑셀</button>' : "") + "</span></div>" + spMkBar(row, "qt");
+    if (!V.length) return head + '<p class="nghelp">' + esc(mk) + " 구성에 아직 업체가 없습니다 — [+ 업체 추가]로 견적 받은 업체를 넣거나, 진행 현황에서 이 구성으로 샘플을 요청하면 여기서 나란히 비교합니다.</p></div>";
     var pct = function (x) { return (x > 0 ? "+" : "") + (x * 100).toFixed(1) + "%"; };
-    var h = '<div class="spcard" data-sprow="' + esc(row.id) + '"><div class="spch"><b>업체 견적 비교</b><span class="nghelp">업체별 단가 · 원화 환산 · 총액 · 최저/목표 대비 · 납기를 나란히. 희망 납품일 ' + esc(md2(R.wantIn) || "미입력") + " · 목표 단가 " + esc(R.tprice ? Number(spNum(R.tprice)).toLocaleString() + "원" : "미입력") + " (요청 정보 탭)</span>" +
-      '<span class="spbtns">' + (ro ? "" : '<button type="button" class="btn btn-sm" data-qtadd="1" title="샘플 요청 없이 견적만 받은 업체를 비교에 더합니다(시트 샘플 줄은 안 생김)">+ 업체 추가</button>') + (ro ? "" : ed ? '<button type="button" class="btn btn-sm" data-qtcancel="1">취소</button><button type="button" class="btn btn-sm btn-solid" data-qtsave="1">견적 저장</button>' : '<button type="button" class="btn btn-sm btn-solid" data-qtedit="1">견적 입력 · 수정</button>') +
-      '<button type="button" class="btn btn-sm" data-qtxls="1">엑셀</button></span></div>';
-    h += '<div class="qtwrap"><table class="qtab"><thead><tr><th class="qtl">구분</th>' + V.map(function (g, i) {
-      var c = C[sampleVKey(g.name)];
-      return '<th class="' + (c.off ? "qoff" : "") + '"><small>업체 ' + (i + 1) + "</small> " + esc(g.name) + ' <span class="tag ' + (g.extra ? "" : sstClass(g.status)) + '"' + (g.extra ? ' title="샘플 요청 없이 견적만 받은 업체 — 샘플을 요청하려면 진행 현황의 [업체 추가]"' : "") + ">" + esc(g.status) + "</span>" +
-        (g.extra && !ro ? ' <button type="button" class="btn-quiet btn-sm" data-qtdel="' + esc(sampleVKey(g.name)) + '" title="이 업체를 견적 비교에서 뺍니다">✕</button>' : "") + "</th>";
+    var h = head + '<div class="qtwrap"><table class="qtab"><thead><tr><th class="qtl">구분</th>' + V.map(function (g, i) {
+      var c = C[sampleVKey(g.name)], k = qtKey(mk, sampleVKey(g.name));
+      return '<th class="' + (c.off ? "qoff" : "") + '"><small>업체 ' + (i + 1) + "</small> " + esc(g.name) + ' <span class="tag ' + (g.extra ? "" : sstClass(g.status)) + '"' + (g.extra ? ' title="샘플 요청 없이 견적만 받은 업체"' : g.other ? ' title="다른 구성으로 샘플을 받은 업체 — 이 구성은 견적만"' : "") + ">" + esc(g.status) + "</span>" +
+        ((g.extra || g.other) && !ro ? ' <button type="button" class="btn-quiet btn-sm" data-qtdel="' + esc(k) + '" title="이 업체를 이 구성 견적 비교에서 뺍니다">✕</button>' : "") + "</th>";
     }).join("") + "</tr></thead><tbody>";
     QT_ROWS.forEach(function (G) {
       h += '<tr class="qtg"><td colspan="' + (V.length + 1) + '">' + esc(G[0]) + "</td></tr>";
@@ -6641,7 +6728,7 @@ function dateSlots_(steps, cfg, mode) {
             return '<td class="' + cls + '">' + t + "</td>";
           }
           if (ed) {
-            var a = 'data-spf="qt|' + esc(vk) + "|" + F[0] + '"';
+            var a = 'data-spf="qt|' + esc(qtKey(mk, vk)) + "|" + F[0] + '"';
             if (F[2] === "sel") return "<td><select " + a + ">" + F[3].map(function (o) { return "<option" + (o === (v || F[3][0]) ? " selected" : "") + ' value="' + esc(o) + '">' + esc(o || "—") + "</option>"; }).join("") + "</select></td>";
             return '<td><input type="' + (F[2] === "date" ? "date" : "text") + '" ' + a + ' value="' + esc(v) + '"' + (F[0] === "avail" && !v && c.avail ? ' title="비우면 오늘 + 양산 소요기간(' + esc(c.avail) + ')"' : "") + "></td>";
           }
@@ -6657,11 +6744,17 @@ function dateSlots_(steps, cfg, mode) {
     });
     return h + "</tbody></table></div></div>";
   }
+  /** 엑셀(CSV): 구성마다 표를 위아래로 */
   function qtXlsx(row) {
-    var V = qtVendors(row), C = qtCalc(row), lines = [["구분"].concat(V.map(function (g) { return g.name; }))];
-    QT_ROWS.forEach(function (G) { G[1].forEach(function (F) {
-      lines.push([F[1]].concat(V.map(function (g) { var c = C[sampleVKey(g.name)]; if (F[0] === "_krw") return c.krw == null ? "" : Math.round(c.krw); if (F[0] === "_total") return c.total == null ? "" : Math.round(c.total); if (F[0] === "_low") return c.low == null ? "" : Math.round(c.low); if (F[0] === "_tgt") return c.tgt == null ? "" : Math.round(c.tgt); if (F[0] === "_want") return c.want == null ? "" : c.want; if (F[0] === "avail") return c.avail || ""; return c.q[F[0]] || ""; })));
-    }); });
+    var lines = [];
+    spMakes(row).forEach(function (mk) {
+      var V = qtVendors(row, mk), C = qtCalc(row, mk); if (!V.length) return;
+      if (lines.length) lines.push([]);
+      lines.push(["[" + mk + "]"].concat(V.map(function (g) { return g.name; })));
+      QT_ROWS.forEach(function (G) { G[1].forEach(function (F) {
+        lines.push([F[1]].concat(V.map(function (g) { var c = C[sampleVKey(g.name)]; if (F[0] === "_krw") return c.krw == null ? "" : Math.round(c.krw); if (F[0] === "_total") return c.total == null ? "" : Math.round(c.total); if (F[0] === "_low") return c.low == null ? "" : Math.round(c.low); if (F[0] === "_tgt") return c.tgt == null ? "" : Math.round(c.tgt); if (F[0] === "_want") return c.want == null ? "" : c.want; if (F[0] === "avail") return c.avail || ""; if (F[0].charAt(0) === "_") return ""; return c.q[F[0]] || ""; })));
+      }); });
+    });
     var csv = "﻿" + lines.map(function (r) { return r.map(function (x) { x = String(x == null ? "" : x); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }).join(","); }).join("\n");
     var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     a.download = "견적비교_" + String(row.name || "").replace(/[\\\/:*?"<>|]/g, "_").slice(0, 40) + "_" + todayIso() + ".csv"; document.body.appendChild(a); a.click(); a.remove();
@@ -6699,15 +6792,15 @@ function dateSlots_(steps, cfg, mode) {
     });
     if (Object.keys(LK).length && !PRn.length) schData("po");
     return [
-      { t: "요청일", plan: R.reqAt || "", act: minD(reqs) },
-      { t: "디자인 사양 확정", plan: R.designAt || "", act: R.designSt === "확정" ? (R.designAt || "") : "", noAct: R.designSt !== "확정" },
-      { t: "업체 샘플 요청", plan: B.sreqDue || "", act: minD(firstV), back: !!B.sreqDue },
+      { t: "요청일", plan: R.reqAt || "", act: minD(reqs), f: "reqAt" },
+      { t: "디자인 사양 확정", plan: (function () { var ds = spMakes(row).map(function (m) { return spMkVal(row, m, "designAt"); }).filter(Boolean).sort(); return ds[0] || ""; })(), act: "", noAct: 1 },
+      { t: "업체 샘플 요청", plan: "", act: minD(firstV) },
       { t: "샘플 수신", plan: minD(dues), act: minD(rcv) },
-      { t: "최종 업체 선정(채택)", plan: R.pickBy || "", act: minD(picks) },
-      { t: "발주", plan: R.wantPo || B.poDue || "", act: poAct.po, noAct: !poAct.po, back: !R.wantPo && !!B.poDue },
-      { t: "양산 완료", plan: R.wantMass || "", act: "", noAct: 1 },
-      { t: "납품(입고)", plan: R.wantIn || B.inDue || "", act: poAct.arr, noAct: !poAct.arr, back: !R.wantIn && !!B.inDue },
-      { t: "출시", plan: R.launch || "", act: "", noAct: 1 }
+      { t: "최종 업체 선정(채택)", f: "pickBy", plan: R.pickBy || "", act: minD(picks) },
+      { t: "발주", f: R.wantPo ? "wantPo" : "", plan: R.wantPo || B.poDue || "", act: poAct.po, noAct: !poAct.po, back: !R.wantPo && !!B.poDue },
+      { t: "양산 완료", f: "wantMass", plan: R.wantMass || "", act: "", noAct: 1 },
+      { t: "납품(입고)", f: R.wantIn ? "wantIn" : "", plan: R.wantIn || B.inDue || "", act: poAct.arr, noAct: !poAct.arr, back: !R.wantIn && !!B.inDue },
+      { t: "출시", f: "launch", plan: R.launch || "", act: "", noAct: 1 }
     ];
   }
   function spSchedTab(row) {
@@ -6727,7 +6820,9 @@ function dateSlots_(steps, cfg, mode) {
       else if (m.act) st = '<span class="qgood">완료 ' + md2(m.act) + "</span>";
       else if (m.plan) { var l = dDiff(m.plan, today); st = l < 0 ? (m.noAct ? '<span class="nsub">예정 ' + md2(m.plan) + "</span>" : '<span class="qbad">' + -l + "일 지남</span>") : '<span class="nsub">D-' + l + " · " + md2(m.plan) + "</span>"; }
       else st = '<span class="nsub">예정일 없음</span>';
-      h += '<div class="grow"><span class="gl">' + esc(m.t) + (m.back ? ' <small class="nsub">출시일 역산</small>' : "") + "</span><span class=\"gt\">" + '<i class="gtoday" style="left:' + pos(today) + '"></i>' +
+      var hx = m.f ? spReqHist(row, m.f) : null;
+      h += '<div class="grow"><span class="gl">' + esc(m.t) + (m.back ? ' <small class="nsub">출시일 역산</small>' : "") +
+        (hx ? ' <small class="schg" title="' + esc(hx.list.map(function (x) { return x.at + " " + x.by + " · " + spLogVal(x.a) + " → " + spLogVal(x.b); }).join("\n")) + '">변경 ' + hx.n + "회 · 처음 " + esc(spLogVal(hx.first)) + "</small>" : "") + "</span><span class=\"gt\">" + '<i class="gtoday" style="left:' + pos(today) + '"></i>' +
         (m.plan ? '<i class="gd plan' + (late ? " late" : "") + '" style="left:' + pos(m.plan) + '" title="예정 ' + esc(m.plan) + '"></i>' : "") +
         (m.act ? '<i class="gd act" style="left:' + pos(m.act) + '" title="실제 ' + esc(m.act) + '"></i>' : "") + '</span><span class="gs">' + st + "</span></div>";
     });
@@ -6747,9 +6842,12 @@ function dateSlots_(steps, cfg, mode) {
       });
       S.list.forEach(function (x) { add(x.at, x.who, g.name + " · " + (x.text || "") + (x.st ? " [" + x.st + "]" : ""), x.st === "채택" ? "ok" : x.st === "드롭" || x.st === "탈락" ? "off" : "memo"); });
     });
-    var Q = sInfo(row, "qt"); Object.keys(Q).forEach(function (vk) { var q = Q[vk]; var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0]; add(q._at, q._by, (g ? g.name : (q.name || vk)) + " · 견적 입력" + (q.price ? " (" + q.price + " " + (q.cur || "KRW") + ")" : ""), "qt"); });
-    var R = sInfo(row, "req"); if (R._at) add(R._at, R._by, "요청 정보 수정", "memo");
-    ev.sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; });
+    var Q = sInfo(row, "qt"); Object.keys(Q).forEach(function (k) { var q = Q[k], i = k.indexOf("::"), vk = i > 0 ? k.slice(i + 2) : k, mk = i > 0 ? k.slice(0, i) : ""; var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0]; add(q._at, q._by, (g ? g.name : (q.name || vk)) + " · " + (mk ? mk + " " : "") + "견적 입력" + (q.price ? " (" + q.price + " " + (q.cur || "KRW") + ")" : ""), "qt"); });
+    var RL = spReqLog(row);
+    if (RL.length) RL.forEach(function (x) { add(x.at, x.by, "요청 정보 · " + spReqLabel(x.f) + " " + spLogVal(x.a) + " → " + spLogVal(x.b), "rv"); });
+    else { var R = sInfo(row, "req"); if (R._at) add(R._at, R._by, "요청 정보 수정", "memo"); }
+    ev.forEach(function (e, i) { e.i = i; });
+    ev.sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : b.i - a.i; });
     return ev;
   }
   function spEvList(ev) {
@@ -6762,21 +6860,28 @@ function dateSlots_(steps, cfg, mode) {
 
   /* ---------- 진행 현황(첫 탭) ---------- */
   function spHomeTab(row) {
-    var R = sInfo(row, "req"), C = qtCalc(row), Q = sInfo(row, "qt"), items = svItems([row]), cnt = {};
+    var R = sInfo(row, "req"), Q = sInfo(row, "qt"), items = svItems([row]), cnt = {}, MKS = spMakes(row);
     items.forEach(function (x) { cnt[x.b] = (cnt[x.b] || 0) + 1; });
     var kv = function (k, v) { return "<div><span>" + esc(k) + "</span><b>" + (v === "" || v == null ? "—" : v) + "</b></div>"; };
-    var lowK = Object.keys(C).filter(function (k) { return C[k].isLow; })[0], gOf = function (vk) { var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0]; return g ? g.name : ((Q[vk] && Q[vk].name) || vk); };
     var picks = (row.vendors || []).filter(function (g) { return g.status === "채택"; });
-    var pickC = picks.length ? C[sampleVKey(picks[0].name)] : null;
-    var cand = Object.keys(C).filter(function (k) { return C[k].q.st === "후보"; }).map(gOf);
+    var lows = [], cands = [], tps = [], specs = [], pickTxt = [];
+    MKS.forEach(function (mk) {
+      var C = qtCalc(row, mk), lk = Object.keys(C).filter(function (k) { return C[k].isLow; })[0];
+      if (lk) lows.push(esc(mk) + " " + won(C[lk].krw) + ' <span class="nsub">' + esc(C[lk].name) + "</span>");
+      Object.keys(C).forEach(function (k) { if (C[k].q.st === "후보" && cands.indexOf(C[k].name) < 0) cands.push(C[k].name); });
+      var tp = spMkVal(row, mk, "tprice"); if (tp) tps.push(esc(mk) + " " + esc(Number(spNum(tp) || 0).toLocaleString()) + "원");
+      var sp = ["size", "material", "color", "pack"].map(function (f) { return spMkVal(row, mk, f); }).filter(Boolean), ds = spMkVal(row, mk, "designSt"), da = spMkVal(row, mk, "designAt");
+      if (sp.length || ds || da) specs.push("<div><span>" + esc(mk) + "</span><b>" + esc(sp.join(" · ") || "—") + (ds || da ? ' <em class="nsub">디자인 ' + esc([ds, md2(da)].filter(Boolean).join(" ")) + "</em>" : "") + "</b></div>");
+      picks.forEach(function (g) { var c = C[sampleVKey(g.name)]; if (c && c.krw != null) pickTxt.push(esc(mk) + " " + won(c.krw) + " · " + esc(md2(c.avail) || "—")); });
+    });
+    var card = function (title, tab, body, wide) { return '<div class="spcard sphc"><div class="spch"><b>' + title + "</b>" + (tab ? '<button type="button" class="btn-quiet btn-sm" data-sptab="' + tab + '">자세히</button>' : "") + '</div><div class="spkv' + (wide ? " one" : "") + '">' + body + "</div></div>"; };
     var rvC = {}; Object.keys(sInfo(row, "rv")).forEach(function (k) { var r = sInfo(row, "rv")[k]; rvC[r.res] = (rvC[r.res] || 0) + 1; });
-    var card = function (title, tab, body) { return '<div class="spcard sphc"><div class="spch"><b>' + title + "</b>" + (tab ? '<button type="button" class="btn-quiet btn-sm" data-sptab="' + tab + '">자세히</button>' : "") + '</div><div class="spkv">' + body + "</div></div>"; };
     var h = sampleStepper(row) + '<div class="sphome">' +
-      card("요청 기본정보", "req", kv("요청부서", esc(R.dept || "")) + kv("요청일", esc(md2(R.reqAt || "") || "")) + kv("희망 발주일", esc(md2(R.wantPo))) + kv("희망 납품일", esc(md2(R.wantIn))) + kv("출시 예정일", esc(md2(R.launch))) + kv("목표 단가", R.tprice ? esc(Number(spNum(R.tprice)).toLocaleString()) + "원" : "") + (function () { var B = spBack(R); if (!B.poDue) return ""; var l = dDiff(B.poDue, todayIso()); return kv("발주 마감(역산)", esc(md2(B.poDue)) + ' <em class="' + (l < 0 ? "late" : "") + '">' + (l < 0 ? -l + "일 지남" : "D-" + l) + "</em>"); })()) +
-      card("디자인 · 포장 사양", "req", kv("규격", esc(R.size || "")) + kv("소재", esc(R.material || "")) + kv("색상 · 인쇄", esc(R.color || "")) + kv("포장 방식", esc(R.pack || "")) + kv("디자인 확정", esc(R.designSt || "")) + kv("확정 예정일", esc(md2(R.designAt)))) +
-      card("소싱 · 견적 · 샘플", "qt", kv("견적 업체", Object.keys(Q).length + "곳") + kv("후보 업체", esc(cand.join(" · "))) + kv("최저 단가", lowK ? esc(gOf(lowK)) + " " + won(C[lowK].krw) : "") + kv("선정(채택)", esc(picks.map(function (g) { return g.name; }).join(" · "))) +
+      card("요청 기본정보", "req", kv("요청부서", esc(R.dept || "")) + kv("요청일", esc(md2(R.reqAt || "") || "")) + kv("희망 발주일", esc(md2(R.wantPo))) + kv("희망 납품일", esc(md2(R.wantIn))) + kv("출시 예정일", esc(md2(R.launch))) + kv("목표 단가", tps.join("<br>")) + (function () { var B = spBack(R); if (!B.poDue) return ""; var l = dDiff(B.poDue, todayIso()); return kv("발주 마감(역산)", esc(md2(B.poDue)) + ' <em class="' + (l < 0 ? "late" : "") + '">' + (l < 0 ? -l + "일 지남" : "D-" + l) + "</em>"); })()) +
+      card("구성별 디자인 · 포장 사양", "req", specs.join("") || '<div><span>구성</span><b>' + esc(MKS.join(" · ")) + "</b></div>", true) +
+      card("소싱 · 견적 · 샘플", "qt", kv("견적", Object.keys(Q).length + "건 · 구성 " + MKS.length) + kv("후보 업체", esc(cands.join(" · "))) + kv("최저 단가(구성별)", lows.join("<br>")) + kv("선정(채택)", esc(picks.map(function (g) { return g.name; }).join(" · "))) +
         kv("샘플", "진행 " + ((cnt.open || 0) + (cnt.late || 0)) + " · 수신 " + (cnt.rcv || 0) + (cnt.late ? ' · <em class="late">지남 ' + cnt.late + "</em>" : "")) + kv("검토 결과", esc(RV_OPTS.filter(function (o) { return rvC[o]; }).map(function (o) { return o + " " + rvC[o]; }).join(" · "))) +
-        (pickC ? kv("선정 업체 단가 · 납기", (pickC.krw != null ? won(pickC.krw) : "—") + " · " + esc(md2(pickC.avail) || "—")) : "")) +
+        (pickTxt.length ? kv("선정 업체 단가 · 납기", pickTxt.join("<br>")) : "")) +
       "</div>" + sProjMemoBlock(row) + '<div class="spsec">업체별 진행</div>' + sampleBlock(row) + spPoCard(row) +
       '<div class="spcard"><div class="spch"><b>최근 진행 이력</b><button type="button" class="btn-quiet btn-sm" data-sptab="hist">전체 보기</button></div>' + (function () { var ev = spEvents(row).slice(0, 8); return ev.length ? spEvList(ev) : '<p class="nghelp">기록이 없습니다.</p>'; })() + "</div>";
     return h;
@@ -7006,6 +7111,7 @@ function dateSlots_(steps, cfg, mode) {
     var spr = t.closest("[data-sprow]"), row = rowById(spr ? spr.dataset.sprow : currentId); if (!row) return;
     var tb = t.closest("[data-sptab]");
     if (tb && tb.closest("#view-run")) { SPTAB = tb.dataset.sptab; try { localStorage.setItem("rb.sptab", SPTAB); } catch (e1) { /* 넘어간다 */ } renderRun(); var vr = $("view-run"); var st = vr.querySelector(".sptabs"); if (st && st.getBoundingClientRect().top < 0) st.scrollIntoView({ block: "start" }); return; }
+    if (t.closest("[data-spedit]")) { spOpen(row); return; }
     if (t.closest("[data-spreset]")) { spDraft(row).req = {}; renderRun(); return; }
     if (t.closest("[data-spsave]")) {
       var d = spDraft(row).req, sets = Object.keys(d).map(function (k) { return { sub: k, val: d[k] }; });
@@ -7017,26 +7123,46 @@ function dateSlots_(steps, cfg, mode) {
     if (t.closest("[data-qtedit]")) { QTEDIT = row.id; spDraft(row).qt = {}; spRe(); return; }
     if (t.closest("[data-qtcancel]")) { QTEDIT = ""; spDraft(row).qt = {}; spRe(); return; }
     if (t.closest("[data-qtxls]")) { qtXlsx(row); return; }
+    var mkb = t.closest("[data-spmk]");
+    if (mkb) { SPMK[row.id] = mkb.dataset.spmk; spRe(); return; }
+    if (t.closest("[data-spmkadd]")) {
+      var have = spMakes(row), sug = sampleOptList("make").filter(function (x) { return have.indexOf(x) < 0; }).slice(0, 12);
+      var nmk = prompt("더할 구성 이름" + (sug.length ? " (예: " + sug.join(", ") + ")" : ""), sug[0] || ""); nmk = spNorm(nmk).replace(/[,@:]/g, " ").trim(); if (!nmk) return;
+      if (have.indexOf(nmk) > -1) { SPMK[row.id] = nmk; spRe(); return; }
+      var cur0 = String(sInfo(row, "req")._makes || "").split(",").map(spNorm).filter(Boolean);
+      SPMK[row.id] = nmk;
+      spInfoSave(row, "req", [{ sub: "_makes", val: cur0.concat([nmk]).join(",") }], function (o, er) { if (!er) toast("구성 [" + nmk + "] 를 더했습니다"); });
+      return;
+    }
     if (t.closest("[data-qtadd]")) {
-      var nm = prompt("견적 비교에 더할 업체명", ""); nm = String(nm || "").trim(); if (!nm) return;
+      var mkA = spMk(row), nm = prompt("[" + mkA + "] 견적 비교에 더할 업체명", ""); nm = String(nm || "").trim(); if (!nm) return;
       var vk0 = sampleVKey(nm);
-      if (qtVendors(row).some(function (g) { return sampleVKey(g.name) === vk0; })) { alert("이미 있는 업체입니다: " + nm); return; }
+      if (qtVendors(row, mkA).some(function (g) { return sampleVKey(g.name) === vk0; })) { alert("이 구성에 이미 있는 업체입니다: " + nm); return; }
       if (QTEDIT !== row.id) { QTEDIT = row.id; spDraft(row).qt = {}; }
-      spDraft(row).qt[vk0] = { name: nm, st: "검토중" };
+      spDraft(row).qt[qtKey(mkA, vk0)] = { name: nm, st: "검토중" };
       spRe(); return;
     }
     var qd = t.closest("[data-qtdel]");
     if (qd) {
-      var vkd = qd.dataset.qtdel, D0 = spDraft(row).qt;
-      if (!sInfo(row, "qt")[vkd]) { delete D0[vkd]; spRe(); return; }      // 아직 저장 안 한 업체
-      if (!confirm("이 업체를 견적 비교에서 뺄까요? 입력한 견적도 지워집니다.")) return;
+      var vkd = qd.dataset.qtdel, D0 = spDraft(row).qt, Qs = sInfo(row, "qt"), mkD = vkd.split("::")[0], vkOnly = vkd.split("::").slice(1).join("::");
+      var legacy = Qs[vkOnly] && qtLegacyMk(row, vkOnly) === mkD;
+      if (!Qs[vkd] && !legacy) { delete D0[vkd]; spRe(); return; }      // 아직 저장 안 한 업체
+      if (!confirm("이 업체를 [" + mkD + "] 견적 비교에서 뺄까요? 입력한 견적도 지워집니다.")) return;
       delete D0[vkd];
-      spInfoSave(row, "qt", [{ sub: vkd, val: null }], function (o, er) { if (!er) toast("견적 비교에서 뺐습니다"); });
+      var delSets = []; if (Qs[vkd]) delSets.push({ sub: vkd, val: null }); if (legacy) delSets.push({ sub: vkOnly, val: null });
+      spInfoSave(row, "qt", delSets, function (o, er) { if (!er) toast("견적 비교에서 뺐습니다"); });
       return;
     }
     if (t.closest("[data-qtsave]")) {
-      var dq = spDraft(row).qt, saved = sInfo(row, "qt");
-      var setsQ = Object.keys(dq).map(function (vk) { var o = Object.assign({}, saved[vk] || {}, dq[vk]); delete o._at; delete o._by; return { sub: vk, val: o }; });
+      var dq = spDraft(row).qt, saved = sInfo(row, "qt"), setsQ = [];
+      Object.keys(dq).forEach(function (k) {
+        var mkS = k.split("::")[0], vkS = k.split("::").slice(1).join("::"), legacy = !saved[k] && saved[vkS] && qtLegacyMk(row, vkS) === mkS;
+        var o = Object.assign({}, saved[k] || (legacy ? saved[vkS] : {}) || {}, dq[k]); delete o._at; delete o._by;
+        if (!o.name) { var g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vkS; })[0]; if (g) o.name = g.name; }
+        o.make = mkS;
+        setsQ.push({ sub: k, val: o });
+        if (legacy) setsQ.push({ sub: vkS, val: null });            // 예전 칸(구성 없이)은 새 칸으로 옮김
+      });
       if (!setsQ.length) { QTEDIT = ""; spRe(); return; }
       t.closest("[data-qtsave]").disabled = true;
       spInfoSave(row, "qt", setsQ, function (o, er) { if (!er) { QTEDIT = ""; spDraft(row).qt = {}; toast("견적을 저장했습니다"); } });
@@ -7046,7 +7172,7 @@ function dateSlots_(steps, cfg, mode) {
     var el = e.target; if (!el || !el.dataset || !el.dataset.spf || mode !== "sample") return;
     var spr = el.closest("[data-sprow]"), row = rowById(spr ? spr.dataset.sprow : currentId); if (!row) return;
     var p = el.dataset.spf.split("|"), D = spDraft(row);
-    if (p[0] === "req") { D.req[p[1]] = el.value; if (/^(launch|massLead|sampleLead|prepDays)$/.test(p[1])) { var bx = el.closest(".spcard").querySelector(".spback"); if (bx) bx.outerHTML = spBackHtml(Object.assign({}, sInfo(row, "req"), D.req)); } var foot = el.closest(".spcard").querySelector(".spfoot"); if (foot) { foot.querySelectorAll("button").forEach(function (b) { b.disabled = false; }); foot.querySelector(".nghelp").textContent = "저장하지 않은 칸 " + Object.keys(D.req).length + "개"; } }
+    if (p[0] === "req") { D.req[p[1]] = el.value; if (/^(launch|massLead|prepDays)$/.test(p[1])) { var bx = el.closest(".spcard").querySelector(".spback"); if (bx) bx.outerHTML = spBackHtml(Object.assign({}, sInfo(row, "req"), D.req)); } var foot = el.closest(".spcard").querySelector(".spfoot"); if (foot) { foot.querySelectorAll("button").forEach(function (b) { b.disabled = false; }); foot.querySelector(".nghelp").textContent = "저장하지 않은 칸 " + Object.keys(D.req).length + "개"; } }
     if (p[0] === "qt") { (D.qt[p[1]] = D.qt[p[1]] || {})[p[2]] = el.value; }
   });
   document.addEventListener("change", function (e) {
@@ -7794,7 +7920,7 @@ function dateSlots_(steps, cfg, mode) {
             "발주 수정 ✎ · 수량 " + Number(row.qty || 0).toLocaleString() + " · 단가 " + Number(row.price || 0).toLocaleString() + "</button>"
           : "") +
         (mode === "po" && row.code && !row.pending ? poBomBadge(row, 1) + oldCodeBadge(row, 1) : "") +          // BOM 단가와 다르면 표시 — 누르면 BOM(1단계를 건너뛴 발주도 열 수 있게)
-        (mode === "sample" && !(DATA && DATA.canEdit === false) ? '<button type="button" class="tag qptag" id="spEditBtn" title="프로젝트명 · 품목코드 · 브랜드 · 프로젝트 링크를 한 곳에서 고치기">프로젝트 수정 ✎</button>' : "") +
+
         (mode === "sample" ? '<span class="tag">' + esc(sampleSummary(row)) + "</span>"
           : '<span class="tag' + (u >= total ? " done" : "") + '">' + doneCount(row) + "/" + total + " 단계</span>") +
         (mode === "po" && row.statusRow

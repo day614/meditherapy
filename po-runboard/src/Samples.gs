@@ -542,17 +542,24 @@ function apiSampleProjMemo(projKey, meta, op) {
 function apiSampleProjInfo(projKey, meta, key, sets) {
   requireEditor_();
   if (['req', 'qt', 'rv', 'po'].indexOf(String(key)) < 0) throw new Error('알 수 없는 칸입니다: ' + key);
-  var id = 'p:' + str_(projKey), m = meta || {}, obj = {}, who = me_().split('@')[0], notesNow = {};
+  var id = 'p:' + str_(projKey), m = meta || {}, obj = {}, who = me_().split('@')[0], notesNow = {}, logNow = null;
   var at = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
   m.id = id;
   editProgress_(id, m, 'sample', function (st) {
     st.notes = st.notes || {};
     try { obj = JSON.parse(st.notes['i:' + key] || '{}'); } catch (e) { obj = {}; }
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) obj = {};
+    // 요청 정보 변경 이력(2026-10-27) — 이미 있던 값을 바꾸거나 지운 것만(처음 적는 건 이력 아님). notes['i:reqlog'] = [{ at, by, f, a(이전), b(새) }]
+    var logL = [];
+    if (key === 'req') { try { logL = JSON.parse(st.notes['i:reqlog'] || '[]'); } catch (eL) { logL = []; } if (!Array.isArray(logL)) logL = []; }
     (sets || []).forEach(function (s) {
       var k = str_(s && s.sub).slice(0, 80);
       if (!k) return;
       var v = s.val;
+      if (key === 'req' && k.charAt(0) !== '_') {
+        var before = obj[k] == null ? '' : str_(obj[k]), after = (v == null || v === '') ? '' : str_(v).slice(0, 2000);
+        if (before !== '' && before !== after) logL.push({ at: at, by: who, f: k, a: before.slice(0, 200), b: after.slice(0, 200) });
+      }
       if (v == null || v === '') { delete obj[k]; return; }
       if (typeof v === 'object') {
         var o = {};
@@ -561,7 +568,7 @@ function apiSampleProjInfo(projKey, meta, key, sets) {
         obj[k] = o;
       } else obj[k] = str_(v).slice(0, 2000);
     });
-    if (key === 'req') { obj._at = at; obj._by = who; }
+    if (key === 'req') { obj._at = at; obj._by = who; logL = logL.slice(-300); st.notes['i:reqlog'] = JSON.stringify(logL); logNow = logL; }
     var j = JSON.stringify(obj);
     if (j.length > 40000) throw new Error('내용이 너무 깁니다 — 줄여 주세요.');
     st.notes['i:' + key] = j;
@@ -569,6 +576,7 @@ function apiSampleProjInfo(projKey, meta, key, sets) {
   });
   // 시트에서도 바로 보이게 — 요청서 · 견적 보기 탭을 맞춘다(실패해도 저장은 된 것)
   if (key !== 'rv') { try { sampleViewsSync_([{ projKey: str_(projKey), name: str_(m.name), brand: str_(m.brand), notes: notesNow }]); } catch (eV) { /* 넘어간다 */ } }
+  if (logNow) { var out = JSON.parse(JSON.stringify(obj)); out.__log = logNow; return out; }       // 화면이 이력도 바로 그리게(저장 값에는 안 들어감)
   return obj;
 }
 
@@ -577,10 +585,10 @@ function apiSampleProjInfo(projKey, meta, key, sets) {
    원본은 _실행판_샘플진행 의 메모JSON(i:req · i:qt · i:po). 이 탭은 저장할 때마다 다시 쓰는 사본이라 여기서 고쳐도 실행판에 안 들어간다.
    ------------------------------------------------------------------ */
 var RB_SREQ_TAB = '_실행판_샘플요청서', RB_SQT_TAB = '_실행판_샘플견적';
-var RB_SREQ_F = [['dept', '요청부서'], ['reqBy', '요청 담당자'], ['reqAt', '요청일'], ['target', '대상 고객'], ['purpose', '제작 목적 · 행사'],
-  ['tqty', '목표 수량'], ['tprice', '목표 단가(원)'], ['budget', '예산(원)'], ['size', '규격'], ['material', '소재'], ['color', '색상 · 인쇄'], ['pack', '포장 방식'], ['designSt', '디자인 확정 상태'],
-  ['launch', '출시 예정일'], ['sampleLead', '샘플 리드타임(일)'], ['massLead', '양산 리드타임(일)'], ['prepDays', '입고→출시 준비(일)'], ['_sreqDue', '샘플 요청 마감(역산)'], ['_poDue', '발주 마감(역산)'], ['_inDue', '입고 마감(역산)'],
-  ['wantPo', '희망 발주일'], ['wantMass', '양산 완료 희망일'], ['wantIn', '희망 납품일'], ['pickBy', '업체 선정 목표일'], ['designAt', '디자인 확정 예정일'], ['spec', '사양 메모'], ['etc', '기타 요청사항']];
+var RB_SREQ_F = [['dept', '요청부서'], ['reqBy', '요청 담당자'], ['reqAt', '요청일'], ['purpose', '제작 목적 · 행사'],
+  ['tqty', '목표 수량'], ['budget', '예산(원)'], ['_mk', '구성별 사양 · 목표 단가'],
+  ['launch', '출시 예정일'], ['massLead', '양산 리드타임(일)'], ['prepDays', '입고→출시 준비(일)'], ['_poDue', '발주 마감(역산)'], ['_inDue', '입고 마감(역산)'],
+  ['wantPo', '희망 발주일'], ['wantMass', '양산 완료 희망일'], ['wantIn', '희망 납품일'], ['pickBy', '업체 선정 목표일'], ['etc', '기타 요청사항']];
 var RB_SQT_F = [['st', '상태'], ['country', '국가 · 생산지'], ['contact', '업체 담당자'], ['round', '견적 차수'], ['moq', 'MOQ'], ['qty', '견적 수량'], ['price', '단가'], ['cur', '통화'], ['rate', '환율(원)'],
   ['_krw', '단가(원화)'], ['vat', 'VAT'], ['shipIn', '운송비 포함'], ['fSample', '샘플비'], ['fMold', '금형비'], ['fPlate', '판비'], ['fShip', '운송비'], ['_total', '총액(원화)'],
   ['dSample', '샘플 제작기간(일)'], ['dLead', '양산 소요기간(일)'], ['avail', '납품 가능일'], ['pay', '결제조건'], ['inco', '인코텀즈'], ['mat', '주요 소재'], ['qual', '품질 · 기술 특이사항'], ['opin', '구매팀 검토의견'], ['file', '견적서 링크']];
@@ -591,13 +599,13 @@ function sampleBack_(R) {
   var sub = function (dt, k) { var t = new Date(dt.getTime()); t.setDate(t.getDate() - k); return t; };
   var f = function (dt) { return Utilities.formatDate(dt, Session.getScriptTimeZone(), 'yyyy-MM-dd'); };
   var inD = sub(d, n(R.prepDays) || 0); out._inDue = f(inD);
-  if (n(R.massLead) != null) { var po = sub(inD, n(R.massLead)); out._poDue = f(po); if (n(R.sampleLead) != null) out._sreqDue = f(sub(po, n(R.sampleLead))); }
+  if (n(R.massLead) != null) out._poDue = f(sub(inD, n(R.massLead)));
   return out;
 }
 /** list = [{ projKey, name, brand, notes }] — 그 프로젝트 줄만 바꿔 쓴다(요청서: 1줄, 견적: 업체마다 1줄) */
 function sampleViewsSync_(list) {
   var hR = ['프로젝트키', '브랜드', '제품명'].concat(RB_SREQ_F.map(function (x) { return x[1]; })).concat(['연결 발주', '수정 시각', '수정자']);
-  var hQ = ['프로젝트키', '브랜드', '제품명', '업체'].concat(RB_SQT_F.map(function (x) { return x[1]; })).concat(['수정 시각', '수정자']);
+  var hQ = ['프로젝트키', '브랜드', '제품명', '구성', '업체'].concat(RB_SQT_F.map(function (x) { return x[1]; })).concat(['수정 시각', '수정자']);
   var shR = sampleViewTab_(RB_SREQ_TAB, hR), shQ = sampleViewTab_(RB_SQT_TAB, hQ);
   var P = function (o, k) { try { var v = JSON.parse((o || {})[k] || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } };
   var keys = {}; list.forEach(function (x) { keys[str_(x.projKey)] = 1; });
@@ -611,7 +619,15 @@ function sampleViewsSync_(list) {
   list.forEach(function (x) {
     var R = P(x.notes, 'i:req'), Q = P(x.notes, 'i:qt'), PO = P(x.notes, 'i:po'), B = sampleBack_(R);
     if (Object.keys(R).length || Object.keys(PO).length) {
-      outR.push([asText_(x.projKey), x.brand || '', x.name || ''].concat(RB_SREQ_F.map(function (f) { return f[0].charAt(0) === '_' ? (B[f[0]] || '') : str_(R[f[0]]); }))
+      // 구성별 사양: 'size@용기' 같은 칸을 구성마다 한 줄로(예전 구성 없는 칸은 '기본')
+      var MKL = [['size', '규격'], ['material', '소재'], ['color', '색상'], ['pack', '포장'], ['tprice', '목표 단가'], ['designSt', '디자인'], ['designAt', '디자인 확정 예정'], ['spec', '사양']], byMk = {}, mkOrder = [];
+      Object.keys(R).forEach(function (k) {
+        var i = k.indexOf('@'), base = i > 0 ? k.slice(0, i) : k, mk = i > 0 ? k.slice(i + 1) : '기본';
+        if (!MKL.some(function (m) { return m[0] === base; }) || !str_(R[k])) return;
+        if (!byMk[mk]) { byMk[mk] = {}; mkOrder.push(mk); } byMk[mk][base] = str_(R[k]);
+      });
+      R._mk = mkOrder.map(function (mk) { return '[' + mk + '] ' + MKL.filter(function (m) { return byMk[mk][m[0]]; }).map(function (m) { return m[1] + ' ' + byMk[mk][m[0]]; }).join(' · '); }).join('\n');
+      outR.push([asText_(x.projKey), x.brand || '', x.name || ''].concat(RB_SREQ_F.map(function (f) { return f[0] === '_mk' ? R._mk : f[0].charAt(0) === '_' ? (B[f[0]] || '') : str_(R[f[0]]); }))
         .concat([Object.keys(PO).map(function (k) { var o = PO[k] || {}; return [o.doc, o.name, o.batch].filter(String).join(' '); }).join(' / '), str_(R._at), str_(R._by)]));
     }
     Object.keys(Q).forEach(function (vk) {
@@ -619,7 +635,8 @@ function sampleViewsSync_(list) {
       var cur = q.cur || 'KRW', rate = cur === 'KRW' ? 1 : num(q.rate), krw = num(q.price) != null && rate != null ? num(q.price) * rate : null;
       var fees = ['fSample', 'fMold', 'fPlate', 'fShip'].reduce(function (a, f) { return a + (num(q[f]) || 0); }, 0);
       var total = krw != null && num(q.qty) != null ? krw * num(q.qty) + fees * (rate || 1) : null;
-      outQ.push([asText_(x.projKey), x.brand || '', x.name || '', q.name || vk].concat(RB_SQT_F.map(function (f) {
+      var ci = vk.indexOf('::');
+      outQ.push([asText_(x.projKey), x.brand || '', x.name || '', ci > 0 ? vk.slice(0, ci) : str_(q.make), q.name || (ci > 0 ? vk.slice(ci + 2) : vk)].concat(RB_SQT_F.map(function (f) {
         if (f[0] === '_krw') return krw == null ? '' : Math.round(krw);
         if (f[0] === '_total') return total == null ? '' : Math.round(total);
         return str_(q[f[0]]);
@@ -638,7 +655,7 @@ function sampleViewTab_(name, head) {
     RB_SHEETS[name] = sh;
   } else {
     var cur = sh.getRange(1, 1, 1, head.length).getValues()[0];
-    if (cur.join('|') !== head.join('|')) sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
+    if (cur.join('|') !== head.join('|')) { sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), head.length)).clearContent(); sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); }
   }
   return sh;
 }
