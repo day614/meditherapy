@@ -1763,7 +1763,7 @@
       <button type="button" data-nav="po">발주 및 입고 관리</button>
       <button type="button" data-nav="sched">전체 일정 관리</button>
       <div class="sblabel">샘플</div>
-      <button type="button" data-nav="snew">신규 제작 요청</button>
+      <button type="button" data-nav="snew">신규 프로젝트 등록</button>
       <button type="button" data-nav="sample">구매 소싱 관리</button>
       <div class="sblabel">관리</div>
       <button type="button" data-nav="bom">BOM 관리</button>
@@ -5875,7 +5875,7 @@ function dateSlots_(steps, cfg, mode) {
       return "<label>" + lb + '<input type="' + (type || "text") + '" data-nsreq="' + f + '" value="' + esc(v) + '"></label>';
     };
     var sec = function (t, sub, body) { return '<div class="nssec"><div class="spgrp">' + esc(t) + (sub ? ' <span class="nghelp" style="font-weight:400">' + esc(sub) + "</span>" : "") + '</div><div class="spform">' + body + "</div></div>"; };
-    ov.innerHTML = '<div class="nsbox nsreqbox" role="dialog" aria-label="신규 제작 요청"><h3>신규 제작 요청</h3>' +
+    ov.innerHTML = '<div class="nsbox nsreqbox" role="dialog" aria-label="신규 프로젝트 등록"><h3>신규 프로젝트 등록</h3>' +
       '<p class="nghelp" style="margin:-4px 0 10px">제작 요청서 — 기본정보 · 수량 · 일정 · 납품을 먼저 적습니다. 업체가 정해졌으면 아래 [첫 샘플 요청]도. [임시 저장]은 이 브라우저에 남겨 두고 이어서 씁니다.' + (nsDraft && !pre ? ' <b>임시 저장한 내용을 불러왔습니다(' + esc(nsDraft.at || "") + ").</b>" : "") + "</p>" +
       sec("기본 정보", "", nsF("brand") + nsF("name").replace('<label class="full">', '<label class="w2">') + rqF("dept", "요청부서", "", 1) + rqF("reqBy", "요청 담당자") + nsF("reqAt") + nsF("code") + nsF("owner") + rqF("purpose", "제작 목적 · 행사 (용도 · 행사명 · 프로모션 · 증정 조건)", "area")) +
       sec("수량 · 예산", "", rqF("tqty", "목표(예상) 수량") + rqF("budget", "예산(원)")) +
@@ -5914,7 +5914,7 @@ function dateSlots_(steps, cfg, mode) {
       ["brand", "owner"].forEach(function (k) { if (p[k] === "__other") p[k] = ""; });
       var rq = nsReq();
       if (e.target.id === "nsTemp") {
-        try { localStorage.setItem("rb.nsdraft", JSON.stringify({ p: p, req: rq, at: new Date().toLocaleString() })); toast("임시 저장했습니다 — [신규 제작 요청]을 다시 열면 이어서 씁니다"); ns0 = nsSnap(); }
+        try { localStorage.setItem("rb.nsdraft", JSON.stringify({ p: p, req: rq, at: new Date().toLocaleString() })); toast("임시 저장했습니다 — [신규 프로젝트 등록]을 다시 열면 이어서 씁니다"); ns0 = nsSnap(); }
         catch (eT) { toast("임시 저장 실패: " + eT.message); }
         return;
       }
