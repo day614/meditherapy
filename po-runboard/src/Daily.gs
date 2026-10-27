@@ -52,6 +52,7 @@ function dailyWrite_(date, rep, issues, who) {
     if (!rep) { var old = dailyFind_(sh, date) ? sh.getRange(at, 5, 1, 8).getValues()[0] : parts; row = row.slice(0, 4).concat(old); }
     ensureRows_(sh, at);
     sh.getRange(at, 1, 1, RB_DAILY_HEAD.length).setValues([row]);
+    cachePut_('dly:head:' + date, { savedAt: row[1], savedBy: row[2], issues: issues || [] }, 21600);      // 오늘 보고서 열 때 시트 대신
   } finally { lock.releaseLock(); }
 }
 
@@ -59,13 +60,16 @@ function dailyWrite_(date, rep, issues, who) {
 function apiDailyReport(date, refresh) {
   var today = dailyToday_(); date = dailyOkDate_(date) || today;
   if (date > today) throw new Error('앞으로의 날짜는 볼 수 없습니다.');
-  var sh = dailyTab_(), at = dailyFind_(sh, date);
   if (date === today && !refresh) {
     // 오늘: 1분 작업이 미리 계산해 둔 캐시 → 없으면 계산해 캐시에(열 때는 시트에 저장하지 않는다 — 저장은 18시 · [새로고침] · 특이사항 저장)
-    var c = dailyWarmGet_(today), head = at ? dailyHead_(sh, at) : null;
+    // 저장 줄 머리(특이사항)도 캐시에서 — 시트를 안 열면 1초 남짓 빨라진다
+    var c = dailyWarmGet_(today), hc = cacheGet_('dly:head:' + today), head = null;
+    if (hc) head = hc.none ? null : hc;
+    else { var sh0 = dailyTab_(), at0 = dailyFind_(sh0, today); head = at0 ? dailyHead_(sh0, at0) : null; cachePut_('dly:head:' + today, head || { none: 1 }, 21600); }
     if (!c) c = dailyWarmPut_(today);
     return { date: date, saved: !!head, savedAt: head ? head.savedAt : '', savedBy: head ? head.savedBy : '', rep: c.rep, issues: head ? head.issues : [], live: true, cached: true, calcAt: c.at };
   }
+  var sh = dailyTab_(), at = dailyFind_(sh, date);
   var old = at ? dailyRead_(sh, at) : null;
   if (old && old.rep && !refresh) return { date: date, saved: true, savedAt: old.savedAt, savedBy: old.savedBy, rep: old.rep, issues: old.issues };
   var rep = dailyCompute_(date), issues = old ? old.issues : (at ? dailyHead_(sh, at).issues : []);

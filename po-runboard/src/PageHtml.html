@@ -2991,7 +2991,15 @@ function dateSlots_(steps, cfg, mode) {
       }
     } catch (e3) { reportErr("updPopup", e3); }
   }
+  /** 일일보고 미리 받기 — 앱이 떠 있는 동안 5분마다 오늘 보고서를 받아 브라우저에 둔다(열면 바로 뜨게) */
+  var DLY_PRE = 0;
+  function dlyPrefetch() {
+    var t = todayIso();
+    gsr().withSuccessHandler(function (d) { try { if (d && d.rep) localStorage.setItem("rb.dly." + t, JSON.stringify(d)); } catch (e) { /* 넘어간다 */ } })
+      .withFailureHandler(function () { /* 넘어간다 */ }).apiDailyReport(t, false);
+  }
   function onBoot(d) {
+    if (!DLY_PRE) { DLY_PRE = 1; setTimeout(dlyPrefetch, 6000); setInterval(function () { if (!document.hidden) dlyPrefetch(); }, 5 * 60000); }
     setTimeout(bootTail, 0);
     if (!window.__perfBoot) { window.__perfBoot = 1; setTimeout(function () { perfLog("첫 화면 표시(페이지 열고)", performance.now(), true); }, 0); }
     DATA = d;
@@ -10258,7 +10266,7 @@ function dateSlots_(steps, cfg, mode) {
     var h = '<div class="dlyhead"><span class="k">작성일자</span><span>' + esc(d.to) + " (" + dlyWeekday(d.to) + ')</span><span class="k">작성자</span><span>' + esc(who || "—") + '</span><span class="k">결재</span><span class="sg">담당</span><span class="sg">팀장 / 본부장</span></div>';
     h += '<div class="dlyband">1. 일일 현황 요약 (Daily Summary)</div><div class="dlykpi">' + (d.kpi || []).map(function (k) {
       var on = k.warn && Number(k.v) > 0; return '<div class="' + (k.warn ? "w" : "") + (on ? " on" : "") + '"><small>' + esc(k.label) + "</small><b>" + esc(String(k.v)) + "</b><span>" + esc(k.sub || "") + "</span></div>";
-    }).join("") + '</div><div class="dlynote">' + esc(d.note || "") + "</div>";
+    }).join("") + "</div>";
     var tbl = function (key, T, title) {
       var out = '<div class="dlyband">' + esc(title) + '</div><div style="overflow-x:auto"><table class="svtable dlyt"><thead><tr>' + T.cols.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "<th>팀장 피드백</th></tr></thead><tbody>";
       if (!T.rows.length) out += '<tr><td colspan="' + (T.cols.length + 1) + '" class="nghelp">없음</td></tr>';
@@ -10299,7 +10307,7 @@ function dateSlots_(steps, cfg, mode) {
   function dlyV7Html(d, ro, wk) {
     var h = '<div class="dlyband">1. ' + (wk ? "주간" : "일일") + ' 현황 요약 (' + (wk ? "Weekly" : "Daily") + ' Summary)</div><div class="dlykpi">' + (d.kpi || []).map(function (k) {
       var on = k.warn && Number(k.v) > 0; return '<div class="' + (k.warn ? "w" : "") + (on ? " on" : "") + '"><small>' + esc(k.label) + "</small><b>" + esc(String(k.v)) + "</b><span>" + esc(k.sub || "") + "</span></div>";
-    }).join("") + '</div><div class="dlynote">' + esc(d.note || "") + "</div>";
+    }).join("") + "</div>";
     var sec = function (key, si, S) {
       var out = '<h5 class="dlysec">' + esc(S.t) + ' <small>' + (S.rows.length ? S.rows.length + "건" : "없음") + "</small></h5>";
       if (!S.rows.length) return out;
@@ -10477,7 +10485,7 @@ function dateSlots_(steps, cfg, mode) {
     var K = R.kpi || [], cols = K.length > 7 ? [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 8], [9, 9]] : [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 7], [8, 9]];
     K.forEach(function (k, i) { var c = cols[i]; merge(c[0], c[1], k.label, { font: bold, al: "center", fill: fill(k.warn ? "FFFDECEC" : "FFE8EEF7") }); }); r++;
     K.forEach(function (k, i) { var c = cols[i]; merge(c[0], c[1], Number(k.v) || 0, { font: { name: F, size: 14, bold: true, color: { argb: k.warn && Number(k.v) > 0 ? "FFC00000" : "FF000000" } }, al: "center", fill: fill(k.warn ? "FFFDECEC" : "FFE8EEF7") }); }); ws.getRow(r).height = 26; r++;
-    merge(1, W, R.note || "", { font: { name: F, size: 9, bold: true, color: { argb: "FFC00000" } }, fill: fill("FFFDF0F0") }); r += 2;
+    r++;
     var sec = function (S) {
       merge(1, W, S.t + "  (" + (S.rows.length ? S.rows.length + "건" : "없음") + ")", { font: { name: F, size: 10, bold: true, color: { argb: "FF1F4E78" } }, border: false }); r++;
       if (!S.rows.length) { r++; return; }
@@ -10519,7 +10527,7 @@ function dateSlots_(steps, cfg, mode) {
     var K = R.kpi || [], cols = [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 8]];
     K.forEach(function (k, i) { var c = cols[i] || [i + 1, i + 1]; merge(c[0], c[1], k.label, { font: bold, al: "center", fill: fill(k.warn ? "FFFDECEC" : "FFE8EEF7") }); }); r++;
     K.forEach(function (k, i) { var c = cols[i] || [i + 1, i + 1]; merge(c[0], c[1], Number(k.v) || 0, { font: { name: F, size: 14, bold: true, color: { argb: k.warn && Number(k.v) > 0 ? "FFC00000" : "FF000000" } }, al: "center", fill: fill(k.warn ? "FFFDECEC" : "FFE8EEF7") }); }); ws.getRow(r).height = 26; r++;
-    merge(1, W, R.note || "", { font: red, fill: fill("FFFDF0F0") }); r += 2;
+    r++;
     var tbl = function (title, T) {
       band(title);
       T.cols.concat(["팀장 피드백"]).forEach(function (c, i) { cell(i + 1, c, { font: white, fill: fill("FF2F5F8F"), al: "center" }); }); r++;
