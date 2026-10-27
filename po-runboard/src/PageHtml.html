@@ -1749,6 +1749,7 @@
   .waitbadge { font-size: 11px; font-weight: 700; color: #8a5a00; background: #fff4d6; border: 1px solid #f1d49a; border-radius: 4px; padding: 0 5px; white-space: nowrap; }
   .waitbadge.late { color: #b42318; background: #fdecea; border-color: #f3c7c3; }
   .dlyiss td { padding: 2px 4px; } .dlyiss input { width: 100%; min-width: 90px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-size: 12.5px; background: #fffbe6; }
+  .wksum tr.wkgrp td { background: var(--surface-2); font-weight: 700; font-size: 12px; color: var(--ink-2); cursor: default; }
   .wksum td { vertical-align: top; } .wksum tr { cursor: pointer; } .wksum tr:hover td { background: var(--surface-2); } .wksum td:first-child { white-space: nowrap; width: 170px; } .wksum td:nth-child(2) { white-space: nowrap; width: 70px; font-weight: 700; } .wksum tr.wkwarn td:nth-child(2) { color: #c00000; }
   .mkbar button.mkoff { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 1px; opacity: .75; }
   .mkbar button.mkoff[aria-pressed="true"] { opacity: 1; }
@@ -10110,7 +10111,7 @@ function dateSlots_(steps, cfg, mode) {
       var d = R, today = todayIso(), ro = DATA && DATA.canEdit === false;
       var state = D.saved ? (D.live ? "오늘 보고서 — 지금 기록으로 만들고 저장했습니다(" + esc(D.savedAt || "") + ")" : "저장된 보고서 — " + esc(D.savedAt || "") + " · " + esc(D.savedBy || "") + " 기준 그대로")
         : "이 날짜는 저장된 기록이 없어 지금 기록으로 다시 계산했습니다(지연 · 대기 같은 그때 상태는 다를 수 있음)";
-      var h = '<h3>구매팀 일일보고 <span class="nghelp" style="font-weight:400">' + esc(date) + " (" + dlyWeekday(date) + ") · 향후 7일 " + esc(d.nextFrom.slice(5)) + " ~ " + esc(d.nextTo.slice(5)) + "</span></h3>" +
+      var h = '<h3>구매팀 일일보고 <span class="nghelp" style="font-weight:400">' + esc(date) + " (" + dlyWeekday(date) + ") · " + (d.week ? "금주 " + esc(d.week.from.slice(5)) + " ~ " + esc(d.week.to.slice(5)) + " · 전주 " + esc(d.week.prevFrom.slice(5)) + " ~ " + esc(d.week.prevTo.slice(5)) : "향후 7일 " + esc(d.nextFrom.slice(5)) + " ~ " + esc(d.nextTo.slice(5))) + "</span></h3>" +
         '<div class="svbar" style="margin-bottom:6px"><button type="button" class="btn btn-sm" id="wk-prev">← 전날</button><label>날짜 <input type="date" id="wk-to" value="' + esc(date) + '" max="' + today + '"></label>' +
         '<button type="button" class="btn btn-sm" id="wk-next"' + (date >= today ? " disabled" : "") + '>다음 날 →</button>' + histSel() +
         '<span style="flex:1"></span>' + (ro ? "" : '<button type="button" class="btn btn-sm" id="dly-refresh" title="지금 기록으로 다시 계산해 이 날짜 보고서로 저장">' + (D.saved && !D.live ? "다시 계산 · 저장" : D.saved ? "새로고침" : "이 날짜로 저장") + "</button>") +
@@ -10119,9 +10120,9 @@ function dateSlots_(steps, cfg, mode) {
       var S = d.summary || { kpi: [], hl: [], team: [] };
       if (S.rows && S.rows.length) {         // 요약 = 항목마다 한 줄(건수 · 핵심) — 누르면 아래 같은 번호 상세로
         h += '<h4>1. 요약</h4><table class="svtable wksum"><colgroup><col style="width:190px"><col style="width:80px"><col></colgroup><thead><tr><th>항목</th><th>건수</th><th>핵심 내용</th></tr></thead><tbody>' + S.rows.map(function (x) {
-          var txt = x.manual ? ((R.issues || []).length ? (R.issues || []).length + "건 — " + R.issues.slice(0, 3).map(function (r) { return [r[0], r[1]].filter(Boolean).join(" "); }).join(" / ") : "아래 ⑦에 직접 작성") : x.text;
+          var txt = x.manual ? ((R.issues || []).length ? (R.issues || []).length + "건 — " + R.issues.slice(0, 3).map(function (r) { return [r[0], r[1]].filter(Boolean).join(" "); }).join(" / ") : x.text) : x.text;
           var v = x.manual ? ((R.issues || []).length ? R.issues.length + "건" : "작성 전") : x.v;
-          return '<tr data-wkgo="' + esc(x.id) + '" class="' + (x.warn ? "wkwarn" : "") + '"><td><b>' + esc(x.no + " " + x.label) + "</b></td><td>" + esc(v) + "</td><td>" + esc(txt) + "</td></tr>";
+          return (x.grp ? '<tr class="wkgrp"><td colspan="3">' + esc(x.grp) + "</td></tr>" : "") + '<tr data-wkgo="' + esc(x.id) + '" class="' + (x.warn ? "wkwarn" : "") + '"><td><b>' + esc(((x.no || "") + " " + x.label).trim()) + "</b></td><td>" + esc(v) + "</td><td>" + esc(txt) + "</td></tr>";
         }).join("") + "</tbody></table>";
       } else {
         h += '<h4>1. 요약</h4><div class="wkkpi">' + S.kpi.map(function (k) { return '<div class="wkk' + (k.warn ? " warn" : "") + '"><small>' + esc(k.label) + "</small><b>" + esc(String(k.v)) + "</b><span>" + esc(k.sub || "") + "</span></div>"; }).join("") + "</div>" +
@@ -10200,16 +10201,17 @@ function dateSlots_(steps, cfg, mode) {
         r++;
       };
       var t = ws.getCell(r, 1); t.value = DL ? "구매팀 일일보고 " + R.to + " (" + dlyWeekday(R.to) + ")" : "구매팀 주간보고"; t.font = { name: F, size: 14, bold: true }; r++;
-      ws.getCell(r, 1).value = (DL ? "날짜 " + R.to + "  ·  향후 7일 " : "기간 " + R.from + " ~ " + R.to + "  ·  다음 주 ") + R.nextFrom.slice(5) + " ~ " + R.nextTo.slice(5) + "  ·  출처: 실행판(발주 DB · 지급 줄 · 샘플 · 샘플 진행 메모 · 변경이력)"; ws.getCell(r, 1).font = gray; r++;
-      ws.getCell(r, 1).value = "1. 요약 → 2. 항목별 리스트(흰 줄 = 실행판 기록) → 3. 병목 · 이슈(노란 줄 = 담당자가 직접)"; ws.getCell(r, 1).font = gray; r += 2;
+      ws.getCell(r, 1).value = (DL && R.week ? "날짜 " + R.to + "  ·  금주 " + R.week.from.slice(5) + " ~ " + R.week.to.slice(5) + "  ·  전주 " + R.week.prevFrom.slice(5) + " ~ " + R.week.prevTo.slice(5) : (DL ? "날짜 " + R.to + "  ·  향후 7일 " : "기간 " + R.from + " ~ " + R.to + "  ·  다음 주 ") + R.nextFrom.slice(5) + " ~ " + R.nextTo.slice(5)) + "  ·  출처: 실행판(발주 DB · 지급 줄 · 샘플 · 샘플 진행 메모 · 변경이력)"; ws.getCell(r, 1).font = gray; r++;
+      ws.getCell(r, 1).value = (R.v >= 5 ? "1. 요약 → 2. 발주건 → 3. 샘플건(흰 줄 = 실행판 기록) → 4. 기타 특이사항(노란 줄 = 담당자가 직접)" : "1. 요약 → 2. 항목별 리스트(흰 줄 = 실행판 기록) → 3. 병목 · 이슈(노란 줄 = 담당자가 직접)"); ws.getCell(r, 1).font = gray; r += 2;
       // 1. 한 주 요약(첫 장)
       var S = R.summary || { kpi: [], hl: [], team: [] }, hb = { name: F, size: 11, bold: true, color: { argb: "FFFFFFFF" } };
       band("1. 요약", fillH, hb);
       if (S.rows && S.rows.length) {
         line(["항목", "", "건수", "핵심 내용", "", "", "", "", ""], { font: bold, fill: fillC });
         S.rows.forEach(function (x) {
-          var iss = R.issues || [], txt = x.manual ? (iss.length ? iss.length + "건 — " + iss.slice(0, 3).map(function (q) { return [q[0], q[1]].filter(Boolean).join(" "); }).join(" / ") : "아래 ⑦에 직접 작성") : x.text;
-          line([x.no + " " + x.label, "", x.manual ? (iss.length ? iss.length + "건" : "작성 전") : x.v, txt]);
+          var iss = R.issues || [], txt = x.manual ? (iss.length ? iss.length + "건 — " + iss.slice(0, 3).map(function (q) { return [q[0], q[1]].filter(Boolean).join(" "); }).join(" / ") : x.text) : x.text;
+          if (x.grp) { line([x.grp], { font: bold }); }
+          line([((x.no || "") + " " + x.label).trim(), "", x.manual ? (iss.length ? iss.length + "건" : "작성 전") : x.v, txt]);
           try { ws.mergeCells(r - 1, 4, r - 1, W); } catch (eM) { /* 넘어간다 */ }
           if (x.warn) ws.getCell(r - 1, 3).font = { name: F, size: 9, bold: true, color: { argb: "FFC00000" } };
         });
