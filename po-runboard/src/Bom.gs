@@ -30,6 +30,21 @@ var RB_BOM_SEND = ['row', 'start', 'end', 'code', 'type', 'name', 'vendor', 'buy
 /** 화면이 보낸 줄ID 가 있고 시트 줄ID 와 다르면 다른 줄 — 줄ID 가 비었으면(옛 화면 · 옛 줄) 예전처럼 코드 · 초도만 본다 */
 function bomIdDiff_(C, x, id) { return !!(str_(id) && C.id >= 0 && x && str_(x[C.id]) && str_(x[C.id]) !== str_(id)); }
 
+/**
+ * 화면이 본 줄을 지금 시트에서 다시 찾는다(2026-10-27) — 다른 품목 저장 · 10분 작업(줄ID 채우기)으로 줄 번호가 밀리거나 줄ID 가 바뀌어도
+ * 같은 품목 · 자재코드 · 초도(· 종료) 줄이 하나뿐이면 그 줄로 잇는다(it.row 를 고친다). 못 찾거나 둘 이상이면 false(정말 바뀐 것).
+ */
+function bomReRow_(all, C, product, it, noEnd) {
+  var up = function (v) { return str_(v).toUpperCase(); };
+  var same = function (x) { return x && up(x[C.product]) === product && up(x[C.code]) === up(it.code) && str_(x[C.start]) === str_(it.start) && (noEnd || it.end === undefined || str_(x[C.end]) === str_(it.end)); };
+  var r = Number(it.row), x0 = all[r - 3];
+  if (same(x0) && !bomIdDiff_(C, x0, it.id)) return true;
+  var byId = [], loose = [];
+  all.forEach(function (x, i) { if (!same(x)) return; loose.push(i + 3); if (str_(it.id) && C.id >= 0 && str_(x[C.id]) === str_(it.id)) byId.push(i + 3); });
+  if (byId.length === 1) { it.row = byId[0]; return true; }
+  if (loose.length === 1) { it.row = loose[0]; return true; }                // 줄ID 만 새로 붙었거나 줄이 밀림
+  return false;
+}
 function bomSheet_() {
   // 운영 양식(BOM3)이 있으면 그것, 아직이면 BOM2. 옮기기는 1분 작업(journalDrain → bomMigrateV3Run_)만 한다 — 사용자 요청 안에서 하면 그 사람이 1~2분 기다렸다
   var ss = bomSS_(), sh = ss.getSheetByName(RB_BOM_TAB) || ss.getSheetByName(RB_BOM_V2_TAB);
@@ -621,8 +636,7 @@ function apiBomSaveNewVersion(product, items, meta) {
     // 시트가 그사이 바뀌었는지는 줄을 넣기 전에 모두 본다
     items.forEach(function (it) {
       if (it.kind === 'add') return;
-      var x0 = all[Number(it.row) - 3];
-      if (!x0 || str_(x0[C.product]).toUpperCase() !== product || str_(x0[C.code]).toUpperCase() !== str_(it.code).toUpperCase() || str_(x0[C.start]) !== str_(it.start) || bomIdDiff_(C, x0, it.id)) {
+      if (!bomReRow_(all, C, product, it, true)) {
         throw new Error('BOM 시트가 그사이 바뀌었습니다(' + it.code + '). BOM 보기를 다시 열어 주세요.');
       }
     });
@@ -669,8 +683,8 @@ function apiBomSaveNewVersion(product, items, meta) {
         put();
         bomFixCost_(sh, C, nr, null);
       } else {
-        var r = Number(it.row), x = all[r - 3];
-        if (!x || str_(x[C.product]).toUpperCase() !== product || str_(x[C.code]).toUpperCase() !== str_(it.code).toUpperCase() || str_(x[C.start]) !== str_(it.start)) {
+        var okR = bomReRow_(all, C, product, it, true), r = Number(it.row), x = all[r - 3];
+        if (!okR) {
           throw new Error('BOM 시트가 그사이 바뀌었습니다(' + it.code + '). BOM 보기를 다시 열어 주세요.');
         }
         sh.getRange(r, 1, 1, C.lc).copyTo(sh.getRange(nr, 1, 1, C.lc));
@@ -789,7 +803,9 @@ function apiBomSemiShare(product, semi, items, why, noGet) {
     var srcs = items.map(function (it) {
       var r = Number(it.row), x = sh.getRange(r, 1, 1, C.lc).getValues()[0];
       if (str_(x[C.product]).toUpperCase() !== product || str_(x[C.code]).toUpperCase() !== str_(it.code).toUpperCase() || str_(x[C.start]) !== str_(it.start)) {
-        throw new Error('BOM 탭이 그사이 바뀌었습니다(' + it.code + '). BOM 보기를 다시 열어 주세요.');
+        var allR = bomReadProduct_(sh, C, product);                  // 줄이 밀렸으면 다시 찾는다
+        if (bomReRow_(allR, C, product, it, true)) { r = Number(it.row); x = allR[r - 3]; }
+        else throw new Error('BOM 탭이 그사이 바뀌었습니다(' + it.code + '). BOM 보기를 다시 열어 주세요.');
       }
       if (/^(제품|세트|반제품)$/.test(str_(x[C.type]))) throw new Error(it.code + ' 는 자재 줄이 아닙니다.');
       return { r: r, x: x };
@@ -880,7 +896,9 @@ function apiBomSetPlaces(product, items, why) {
     var xs = items.map(function (it) {
       var r = Number(it.row), x = sh.getRange(r, 1, 1, C.lc).getValues()[0];
       if (str_(x[C.product]).toUpperCase() !== product || str_(x[C.code]).toUpperCase() !== str_(it.code).toUpperCase() || str_(x[C.start]) !== str_(it.start)) {
-        throw new Error('BOM 탭이 그사이 바뀌었습니다(' + it.code + '). BOM 보기를 다시 열어 주세요.');
+        var allR = bomReadProduct_(sh, C, product);                  // 줄이 밀렸으면 다시 찾는다
+        if (bomReRow_(allR, C, product, it, true)) { r = Number(it.row); x = allR[r - 3]; }
+        else throw new Error('BOM 탭이 그사이 바뀌었습니다(' + it.code + '). BOM 보기를 다시 열어 주세요.');
       }
       var sv = it.semi !== undefined ? str_(it.semi).toUpperCase() : (/반제품 공용/.test(str_(it.place)) ? '*' : bomSemiTagOf_(it.place));   // 예전 화면은 입고지 표시로 보냈다
       return { r: r, x: x, semi: sv };
@@ -921,7 +939,9 @@ function apiBomCostSetMany(product, list, why) {
     var got = list.map(function (j) {
       var r = Number(j.row), x = sh.getRange(r, 1, 1, C.lc).getValues()[0];
       if (str_(x[C.product]).toUpperCase() !== product || str_(x[C.code]).toUpperCase() !== str_(j.code).toUpperCase() || str_(x[C.start]) !== str_(j.start) || bomIdDiff_(C, x, j.id)) {
-        throw new Error('BOM 탭이 그사이 바뀌었습니다(' + j.code + '). BOM 보기를 다시 열어 주세요.');
+        var allJ = bomReadProduct_(sh, C, product);                  // 줄이 밀렸거나 줄ID 가 새로 붙었으면 다시 찾는다
+        if (bomReRow_(allJ, C, product, j, true)) { r = Number(j.row); x = allJ[r - 3]; }
+        else throw new Error('BOM 탭이 그사이 바뀌었습니다(' + j.code + '). BOM 보기를 다시 열어 주세요.');
       }
       return { r: r, x: x, want: j.on ? product : '' };
     });
@@ -1361,10 +1381,9 @@ function apiBomSaveCore_(product, round, changes, meta) {
 
     changes.forEach(function (c) {
       if (c.kind === 'add') return;
-      var r = Number(c.row), x = all[r - 3];
       // end: 화면에서 본 종료와 다르면(그사이 다른 사람이 이 줄을 바꿔 닫았으면) 막는다 — 안 막으면 같은 변경이 두 번 들어가 새 줄이 둘(원가 두 번)
-      if (!x || str_(x[C.product]).toUpperCase() !== product || str_(x[C.code]).toUpperCase() !== str_(c.code).toUpperCase() || str_(x[C.start]) !== str_(c.start) ||
-          (c.end !== undefined && str_(x[C.end]) !== str_(c.end)) || bomIdDiff_(C, x, c.id)) {      // 줄ID 도 — 줄 번호가 밀려 같은 코드 · 초도의 다른 줄(반제품마다 한 줄)을 잡지 않게
+      var okC = bomReRow_(all, C, product, c), r = Number(c.row), x = all[r - 3];
+      if (!okC) {
         throw new Error('BOM 시트가 그사이 바뀌었습니다(' + c.code + '). BOM 보기를 다시 열어 주세요.');
       }
     });
@@ -1679,8 +1698,8 @@ function apiBomFixOnly(product, round, items, why) {
   all.forEach(function (y) { if (!y || str_(y[C.product]).toUpperCase() !== product) return; var a = bomRnum_(y[C.start]) || 0, b = bomRnum_(y[C.end]) || 0; maxR = Math.max(maxR, a, b); });
   var ch1 = [], back = [];
   items.forEach(function (it) {
-    var r = Number(it.row), x = all[r - 3];
-    if (!x || str_(x[C.product]).toUpperCase() !== product || str_(x[C.code]).toUpperCase() !== str_(it.code).toUpperCase() || str_(x[C.start]) !== str_(it.start) || bomIdDiff_(C, x, it.id))
+    var okF = bomReRow_(all, C, product, it, true), r = Number(it.row), x = all[r - 3];
+    if (!okF)
       throw new Error('BOM 시트가 그사이 바뀌었습니다(' + it.code + '). BOM 보기를 다시 열어 주세요.');
     var s0 = bomRnum_(x[C.start]), e0 = bomRnum_(x[C.end]);
     if (s0 > N || (e0 && e0 < N)) throw new Error(it.code + ' 줄은 ' + N + '차에 쓰지 않습니다(' + str_(x[C.start]) + '~' + str_(x[C.end]) + ').');
@@ -1865,9 +1884,8 @@ function apiBomFixManyCore_(product, items, why, dry) {
     // 줄 삭제(잘못 들어간 줄): 그 줄은 시트에서 지운다 — 같은 줄의 칸 고치기는 무시
     var delRows = {};
     var delPlan = items.filter(function (it) { return it.del; }).map(function (it) {
-      var r = Number(it.row), x = all[r - 3];
-      if (!x || str_(x[C.product]).toUpperCase() !== product || str_(x[C.code]).toUpperCase() !== str_(it.code).toUpperCase() || str_(x[C.start]) !== str_(it.start) ||
-          (it.end !== undefined && str_(x[C.end]) !== str_(it.end)) || bomIdDiff_(C, x, it.id)) {      // 종료도 — 그사이 다른 사람이 새 차수로 나눴으면 막는다 · 줄ID 가 오면 그것도
+      var okM = bomReRow_(all, C, product, it), r = Number(it.row), x = all[r - 3];      // 종료도 — 그사이 다른 사람이 새 차수로 나눴으면 막는다 · 줄 번호가 밀렸으면 다시 찾는다
+      if (!okM) {
         throw new Error('BOM 시트가 그사이 바뀌었습니다(' + it.code + '). BOM 보기를 다시 열어 주세요.');
       }
       delRows[r] = 1;
@@ -1876,9 +1894,8 @@ function apiBomFixManyCore_(product, items, why, dry) {
     items = items.filter(function (it) { return !it.del && !delRows[Number(it.row)]; });
     var knownFx = null, newCodes = {};
     items.forEach(function (it) {
-      var r = Number(it.row), x = all[r - 3];
-      if (!x || str_(x[C.product]).toUpperCase() !== product || str_(x[C.code]).toUpperCase() !== str_(it.code).toUpperCase() || str_(x[C.start]) !== str_(it.start) ||
-          (it.end !== undefined && str_(x[C.end]) !== str_(it.end)) || bomIdDiff_(C, x, it.id)) {      // 종료도 — 그사이 다른 사람이 새 차수로 나눴으면 막는다 · 줄ID 가 오면 그것도
+      var okM = bomReRow_(all, C, product, it), r = Number(it.row), x = all[r - 3];      // 종료도 — 그사이 다른 사람이 새 차수로 나눴으면 막는다 · 줄 번호가 밀렸으면 다시 찾는다
+      if (!okM) {
         throw new Error('BOM 시트가 그사이 바뀌었습니다(' + it.code + '). BOM 보기를 다시 열어 주세요.');
       }
       var f = it.fields || {}, set = {}, pv = it.prev || {};
