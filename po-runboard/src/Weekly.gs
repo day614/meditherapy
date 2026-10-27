@@ -25,6 +25,13 @@ function wkWho_(x) {
   return RB_WK_NAME[k] || RB_WK_NAME[s] || (s ? s.split('@')[0] : '-');
 }
 function wkQty_(x) { var n = Number(String(x == null ? '' : x).replace(/,/g, '')); return String(x).trim() !== '' && isFinite(n) ? Math.round(n).toLocaleString('en-US') : str_(x); }
+/** 탭 끝 n줄만(머리글 포함) — 변경이력처럼 아래로만 쌓이는 큰 탭에서 최근 것만 볼 때 */
+function wkTabTail_(name, n) {
+  var sh = sheet_(name); if (!sh || sh.getLastRow() < 2) return { i: {}, rows: [] };
+  var last = sh.getLastRow(), lc = sh.getLastColumn(), from = Math.max(2, last - n + 1), i = {};
+  sh.getRange(1, 1, 1, lc).getValues()[0].forEach(function (h, k) { h = str_(h); if (h && !(h in i)) i[h] = k; });
+  return { i: i, rows: sh.getRange(from, 1, last - from + 1, lc).getValues() };
+}
 function wkTab_(name) {
   var sh = sheet_(name); if (!sh || sh.getLastRow() < 2) return { i: {}, rows: [] };
   var v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues(), i = {};
@@ -46,7 +53,7 @@ function apiWeeklyReport(from, to, kind) {
 
   var P = wkTab_(RB.STATUS_TAB), pi = P.i, PO = P.rows.filter(function (r) { return str_(r[pi['품목명']]); });
   var poById = {}; PO.forEach(function (r) { var k = str_(r[pi['실행판ID']]).toLowerCase(); if (k) poById[k] = r; });
-  var H = kind === 'day' ? { i: {}, rows: [] } : wkTab_(RB.T_AUDIT), hi = H.i;       // 일일보고는 변경이력(수천 줄)을 안 읽는다 — 전주 일정변경 표를 뺀 뒤 쓰는 곳이 없다(여는 속도)
+  var H = kind === 'day' ? wkTabTail_(RB.T_AUDIT, d0 < d1 ? 4000 : 1500) : wkTab_(RB.T_AUDIT), hi = H.i;       // 일일보고는 변경이력 끝 1500줄만(전일 입고예정 변경용 · 여는 속도)       // 일일보고는 변경이력(수천 줄)을 안 읽는다 — 전주 일정변경 표를 뺀 뒤 쓰는 곳이 없다(여는 속도)
   var SM = wkTab_(RB.SAMPLE_TAB), si = SM.i, SMP = SM.rows.filter(function (r) { return str_(r[si['품목명']]); });
   var Y = wkTab_(RB_LINE.TAB), yi = Y.i, PAY = Y.rows;
   var G = wkTab_(RB.T_SPROGRESS), gi = G.i;
@@ -511,6 +518,14 @@ function apiWeeklyReport(from, to, kind) {
     var p = poOfHist(r), a0 = first(str_(r[hi['이전값']])), b0 = first(str_(r[hi['새값']])), push = a0 && b0 && b0 > a0;
     return { cat: catOf(p), warn: push ? 1 : 0, c: [wkMd_(r[hi['시각']]), p ? poNo(p) : str_(r[hi['품의번호']]), p ? str_(p[pi['업체명']]) : '', p ? nm(p) : str_(r[hi['품목명']]), dts(r[hi['이전값']]), dts(r[hi['새값']]) + (push ? ' (늦춰짐)' : ''), str_(r[hi['사유']]), wkWho_(r[hi['바꾼사람']])] };
   });
+  // 전일 입고예정 변경 — 보고일 전날(월요일이면 금~일) 바꾼 입고일정. 주간 취합이면 그 주에 바꾼 것
+  var c0 = new Date(d0), c1 = new Date(d1); c0.setDate(c0.getDate() - 1); c1.setDate(c1.getDate() - 1);
+  if (!WK && d1.getDay() === 1) c0.setDate(c0.getDate() - 2);
+  if (WK) { c0 = new Date(d0); c1 = new Date(d1); }
+  var P_PREV = H.rows.filter(function (r) { return inR(r[hi['시각']], c0, c1) && str_(r[hi['종류']]) === '입고일정'; }).sort(function (a, b) { return wkDay_(a[hi['시각']]) - wkDay_(b[hi['시각']]); }).map(function (r) {
+    var p = poOfHist(r), a0 = first(str_(r[hi['이전값']])), b0 = first(str_(r[hi['새값']])), push = a0 && b0 && b0 > a0;
+    return { cat: catOf(p), warn: push ? 1 : 0, c: [wkMd_(r[hi['시각']]), p ? poNo(p) : str_(r[hi['품의번호']]), p ? str_(p[pi['업체명']]) : '', p ? nm(p) : str_(r[hi['품목명']]), dts(r[hi['이전값']]), dts(r[hi['새값']]) + (push ? ' (늦춰짐)' : ''), str_(r[hi['사유']]), wkWho_(r[hi['바꾼사람']])] };
+  });
   // 남은 잔량 — 진행상태 대신(2026-10-27 담당자): 잔량 N개 · 전량 입고 · 잔량 마감
   var remTxt = function (p) {
     if (pi['종결'] != null && str_(p[pi['종결']])) return '잔량 마감';
@@ -568,7 +583,8 @@ function apiWeeklyReport(from, to, kind) {
   var PO_S = [
     SEC('p1', '2-1. 발주 이슈', ['구분', '발주번호', '협력업체', '품목명 / 차수', '입고예정', '이슈 내용'], P_ISS, { fb: 1, hot: 1 })
   ].concat(byCat('p5', '2-2. ' + PL + ' 발주 접수', ['작성일', '발주번호', '협력업체', '품목명 / 차수', '발주수량', '입고목표', '구분 · 상태'], P_NEW))
-    .concat(byCat('p2', '2-3. 금주 입고예정 (' + wr(w0, w1) + ')', ['입고예정일', '발주번호', '협력업체', '품목명 / 차수', '수량', '상태', '데이터 변경 내용', '비고'], P_IN_W));
+    .concat(byCat('p2', '2-3. 금주 입고예정 (' + wr(w0, w1) + ')', ['입고예정일', '발주번호', '협력업체', '품목명 / 차수', '수량', '상태', '데이터 변경 내용', '비고'], P_IN_W))
+    .concat(byCat('p3', '2-4. ' + (WK ? '주간' : '전일') + ' 입고예정 변경 (' + (md(c0) === md(c1) ? md(c1) : wr(c0, c1)) + ')', ['변경일', '발주번호', '협력업체', '품목명 / 차수', '이전 일정', '새 일정', '사유', '변경자'], P_PREV));
   var SM_S = [
     SEC('s1', '3-1. 샘플 이슈', ['구분', '샘플관리ID', '업체', '샘플 품목', '이슈 내용'], S_ISS, { fb: 1, hot: 1 }),
     SEC('s0', '3-2. ' + PL + ' 샘플 접수 (신규 프로젝트)', ['접수일', '샘플관리ID', '요청 업체', '프로젝트', '구분', '담당'], S_NEW),
@@ -578,6 +594,8 @@ function apiWeeklyReport(from, to, kind) {
     SEC('s5', '3-6. 회신 받음 (' + PL + ')', ['회신일', '샘플관리ID', '업체', '샘플 품목', '대기 대상 · 요청 내용', '회신 내용'], S_DONE),
     SEC('s6', '3-7. ' + PL + ' 진행 업데이트', [WK ? '일자' : '시각', '샘플관리ID', '업체', '샘플 품목', '내용', '상태 변경', '담당'], S_UPD)
   ];
+  // 샘플 표에는 샘플관리ID 칸을 안 보인다(2026-10-27 담당자)
+  SM_S.forEach(function (S) { var j = S.cols.indexOf('샘플관리ID'); if (j < 0) return; S.cols.splice(j, 1); S.rows.forEach(function (x) { x.c.splice(j, 1); }); });
   return { v: 7, week: WK, from: ymd(d0), to: ymd(d1), nextFrom: ymd(n0), nextTo: ymd(n1), wk: { from: ymd(w0), to: ymd(w1), prevFrom: ymd(p0), prevTo: ymd(p1) },
     kpi: KPI, note: NOTE, poS: PO_S, smS: SM_S,
     summary: { rows: [], kpi: [], hl: [], team: [], tables: [] }, parts: [] };
