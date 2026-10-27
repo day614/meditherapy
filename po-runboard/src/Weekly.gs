@@ -99,6 +99,13 @@ function apiWeeklyReport(from, to, kind) {
   var PRICE = /([\d,.]+\s*(원|위안|元|USD|\$|CNY|RMB))|((원|위안|\$|USD)\s*[\d,.]+)/;
   var dmd = function (s) { return s ? s.slice(5).replace('-', '/') : ''; };
   var byAt = function (k, i) { return function (a, b) { var x = wkKey_(a[i[k]]), y = wkKey_(b[i[k]]); return x < y ? -1 : x > y ? 1 : 0; }; };
+  // 끝난 발주 — 취소 · 종결 · 종결 칸(잔량 마감) · 발주잔량 0(전량 입고). 목록의 '마감'과 같은 기준(2026-10-27: 잔량 마감한 건이 보고서 입고 지연에 남았다)
+  var poShut = function (p) {
+    if (['취소', '종결'].indexOf(str_(p[pi['진행상태']])) > -1) return true;
+    if (pi['종결'] != null && str_(p[pi['종결']])) return true;
+    var rm = pi['발주잔량'] == null ? '' : str_(p[pi['발주잔량']]).replace(/,/g, '');
+    return rm !== '' && isFinite(Number(rm)) && Number(rm) <= 0 && Number(String(p[pi['발주수량']]).replace(/,/g, '')) > 0;
+  };
   var poDesc = function (x) { return str_(x[pi['발주차수']]) + ' · ' + wkQty_(x[pi['발주수량']]) + '개 · ' + str_(x[pi['진행상태']]); };
 
   // ----- 1. 이번 주 -----
@@ -199,7 +206,7 @@ function apiWeeklyReport(from, to, kind) {
   PAY.forEach(function (r) {
     if (str_(r[yi['종류']]) !== '예정' || !innx(r[yi['입고일']])) return;
     var p = poById[str_(r[yi['실행판ID']]).toLowerCase()];
-    if (p && ['취소', '종결'].indexOf(str_(p[pi['진행상태']])) < 0) NX_IN.push([r, p]);
+    if (p && !poShut(p)) NX_IN.push([r, p]);
   });
   NX_IN.sort(function (a, b) { return wkDay_(a[0][yi['입고일']]) - wkDay_(b[0][yi['입고일']]); });
   var LATE = {}, lateK = [];
@@ -207,7 +214,7 @@ function apiWeeklyReport(from, to, kind) {
     if (str_(r[yi['종류']]) !== '예정') return;
     var t = wkDay_(r[yi['입고일']]); if (!t || t >= TODAY) return;
     var k = str_(r[yi['실행판ID']]).toLowerCase(), p = poById[k];
-    if (!p || ['취소', '종결'].indexOf(str_(p[pi['진행상태']])) > -1) return;
+    if (!p || poShut(p)) return;
     if (!LATE[k]) { LATE[k] = { p: p, t: t, q: 0 }; lateK.push(k); }
     if (t < LATE[k].t) LATE[k].t = t;
     LATE[k].q += Number(String(r[yi['수량']]).replace(/,/g, '')) || 0;
@@ -405,7 +412,7 @@ function apiWeeklyReport(from, to, kind) {
   };
   var idle = function (r) { var d = lastAct(r); return d ? days(d) : null; };
   // ── 1-1 건수
-  var poOpen = PO.filter(function (r) { return ['취소', '계획', '상신', '종결'].indexOf(str_(r[pi['진행상태']])) < 0; });
+  var poOpen = PO.filter(function (r) { return ['계획', '상신'].indexOf(str_(r[pi['진행상태']])) < 0 && !poShut(r); });
   var sOpen = SMP.filter(function (r) { return str_(r[si['상태']]) === '진행중' && !str_(r[si['전달일']]) && projLive(r) && isLastQ(r); });
   var T_RCV = S_RCV, T_REQ = S_REQ, T_PO = NEW_PO.concat(OLD_PO).sort(byAt('작성일', pi));       // 당일(보고일) 기준
   var cntW = { rcv: SMP.filter(function (r) { return inR(r[si['전달일']], w0, d1); }).length, req: SMP.filter(function (r) { return inR(r[si['요청일']], w0, d1); }).length,
@@ -415,7 +422,7 @@ function apiWeeklyReport(from, to, kind) {
   PAY.forEach(function (r) {
     if (str_(r[yi['종류']]) !== '예정' || !inR(r[yi['입고일']], w0, w1)) return;
     var p = poById[str_(r[yi['실행판ID']]).toLowerCase()];
-    if (p && ['취소', '종결'].indexOf(str_(p[pi['진행상태']])) < 0) IN_W.push([r, p]);
+    if (p && !poShut(p)) IN_W.push([r, p]);
   });
   IN_W.sort(function (a, b) { return wkDay_(a[0][yi['입고일']]) - wkDay_(b[0][yi['입고일']]); });
   var L21 = IN_W.map(function (a) { var r = a[0], p = a[1], t = wkDay_(r[yi['입고일']]); return [md(t), nm(p), wkQty_(r[yi['수량']]) + '개', str_(p[pi['업체명']]), t < TODAY ? '지연 ' + days(t) + '일' : (t - TODAY === 0 ? '오늘' : '예정'), memoOfPo(p), wkWho_(p[pi['구매담당자']])]; });
