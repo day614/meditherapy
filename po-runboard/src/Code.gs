@@ -1218,7 +1218,7 @@ function apiSampleLog(id, meta, vkey, entry, del, sheetRow, projKey, editIdx, ed
   return { notes: res.state.notes, sheetErr: sheetErr };
 }
 /** 화면: 역요청 대기 줄 [회신 받음] / 되돌리기 — 업체 진행 기록(tl:업체) 안의 그 줄에 waitDone(날짜 · 누가). 번호가 밀렸으면 적은 날 + 내용으로 다시 찾는다 */
-function apiSampleWaitDone(id, meta, vkey, idx, orig, done) {
+function apiSampleWaitDone(id, meta, vkey, idx, orig, done, reply) {
   var k = 'tl:' + str_(vkey).slice(0, 60), who = me_().split('@')[0], today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
   var res = editProgress_(id, meta, 'sample', function (st) {
     st.notes = st.notes || {};
@@ -1226,7 +1226,7 @@ function apiSampleWaitDone(id, meta, vkey, idx, orig, done) {
     var same = function (x) { return x && x.wait && (orig == null || (String(x.at) === String(orig.at) && String(x.text || '') === String(orig.text || ''))); };
     var o = list[Number(idx)]; if (!same(o)) { o = null; for (var q = 0; q < list.length; q++) if (same(list[q])) { o = list[q]; break; } }
     if (!o) throw new Error('그 대기 기록이 바뀌었거나 지워졌습니다. 새로고침 후 다시 해 주세요.');
-    if (done) { o.waitDone = today; o.waitBy = who; } else { delete o.waitDone; delete o.waitBy; }
+    if (done) { o.waitDone = today; o.waitBy = who; if (str_(reply)) o.waitReply = str_(reply).slice(0, 500); } else { delete o.waitDone; delete o.waitBy; delete o.waitReply; }     // 회신 내용(2026-10-27)
     st.notes[k] = JSON.stringify(list);
   });
   return { notes: res.state.notes };
@@ -1964,7 +1964,7 @@ function flushVer_() {
 }
 /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
 /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
-var RB_BUILD = '2026-10-27h';
+var RB_BUILD = '2026-10-27i';
 /** 브라우저 탭 아이콘 — 공개 PNG 주소(바꾸려면 이 주소만) */
 var RB_FAVICON = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f44d.png';
 function apiVer() {

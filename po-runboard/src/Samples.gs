@@ -532,8 +532,8 @@ function apiSampleProjMemo(projKey, meta, op) {
     } else if (op.waitDone != null) {                                                 // [회신 받음] / 되돌리기
       var wi = Number(op.waitDone);
       if (!(wi >= 0 && wi < list.length) || (op.at && list[wi].at !== op.at)) throw new Error('그사이 메모가 바뀌었습니다 — 새로고침해 주세요.');
-      if (op.undo) { delete list[wi].waitDone; delete list[wi].waitBy; }
-      else { list[wi].waitDone = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'); list[wi].waitBy = me_().split('@')[0]; }
+      if (op.undo) { delete list[wi].waitDone; delete list[wi].waitBy; delete list[wi].waitReply; }
+      else { list[wi].waitDone = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'); list[wi].waitBy = me_().split('@')[0]; if (str_(op.reply)) list[wi].waitReply = str_(op.reply).slice(0, 500); }
     } else if (op.del != null) {
       var i = Number(op.del);
       if (!(i >= 0 && i < list.length) || (op.at && list[i].at !== op.at)) throw new Error('그사이 메모가 바뀌었습니다 — 새로고침해 주세요.');
@@ -598,7 +598,7 @@ function apiSampleProjInfo(projKey, meta, key, sets) {
    ------------------------------------------------------------------ */
 var RB_SREQ_TAB = '_실행판_샘플요청서', RB_SQT_TAB = '_실행판_샘플견적';
 var RB_SREQ_F = [['dept', '요청부서'], ['reqBy', '요청 담당자'], ['reqAt', '요청일'], ['purpose', '제작 목적 · 행사'],
-  ['tqty', '목표 수량'], ['budget', '예산(원)'], ['_mk', '구성별 사양 · 목표 단가'],
+  ['tqty', '목표 수량'], ['_mk', '구성별 사양 · 목표 단가'],
   ['launch', '출시 예정일'], ['massLead', '양산 리드타임(일)'], ['prepDays', '입고→출시 준비(일)'], ['_poDue', '발주 마감(역산)'], ['_inDue', '입고 마감(역산)'],
   ['wantPo', '희망 발주일'], ['wantMass', '양산 완료 희망일'], ['wantIn', '희망 납품일'], ['pickBy', '업체 선정 목표일'], ['etc', '기타 요청사항']];
 var RB_SQT_F = [['st', '상태'], ['country', '국가 · 생산지'], ['contact', '업체 담당자'], ['round', '견적 차수'], ['moq', 'MOQ'], ['qty', '견적 수량'], ['price', '단가'], ['cur', '통화'], ['rate', '환율(원)'],
@@ -685,4 +685,24 @@ function apiSampleViewsRebuild() {
   [RB_SREQ_TAB, RB_SQT_TAB].forEach(function (n) { var t = sheet_(n); if (t && t.getLastRow() > 1) t.deleteRows(2, t.getLastRow() - 1); });
   if (list.length) sampleViewsSync_(list);
   return { n: list.length };
+}
+
+/**
+ * 일일보고: 회신 대기 → 회신 받음(회신 내용과 함께). w = { pj, vk(업체키 · 빈칸이면 프로젝트 비고), at, text, name, brand }
+ * 화면 상세의 [회신 받음]과 같은 기록을 남긴다 — 대기 기록은 시각 · 내용으로 찾는다
+ */
+function apiWaitReply(w, reply) {
+  w = w || {};
+  var pj = str_(w.pj); if (!pj) throw new Error('회신 대기 건을 찾을 수 없습니다.');
+  var id = /^n:/.test(pj) ? 'p:' + pj : pj, today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'), who = me_().split('@')[0];
+  editProgress_(id, { id: id, name: str_(w.name), brand: str_(w.brand) }, 'sample', function (st) {
+    st.notes = st.notes || {};
+    var k = w.vk ? 'tl:' + str_(w.vk).slice(0, 60) : 'pmemo', list = [];
+    try { list = JSON.parse(st.notes[k] || '[]'); } catch (e) { list = []; }
+    var o = list.filter(function (x) { return x && x.wait && String(x.at) === String(w.at) && String(w.vk ? x.text || '' : x.t || '') === String(w.text || ''); })[0];
+    if (!o) throw new Error('그 대기 기록이 바뀌었거나 지워졌습니다. 보고서를 새로고침해 주세요.');
+    o.waitDone = today; o.waitBy = who; if (str_(reply)) o.waitReply = str_(reply).slice(0, 500);
+    st.notes[k] = JSON.stringify(list);
+  });
+  return { ok: true, waitDone: today, waitBy: who };
 }

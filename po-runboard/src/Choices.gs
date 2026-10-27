@@ -51,7 +51,8 @@ function choicesOf_(cfg) {
 var RB_SCHOICE = {
   smake: { key: 'list.sample.make', label: '샘플 구성' },
   sspec: { key: 'list.sample.spec', label: '샘플 사양' },
-  skind: { key: 'list.sample.kind', label: '샘플 구분' }
+  skind: { key: 'list.sample.kind', label: '샘플 구분' },
+  sdept: { key: 'list.sample.dept', label: '요청부서' }        // 신규 프로젝트 요청 정보 — 요청부서 고르기(2026-10-27)
 };
 function apiSetSampleChoices(lists) {
   requireEditor_();

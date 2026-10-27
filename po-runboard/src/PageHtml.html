@@ -1753,13 +1753,58 @@
   .wksum td { vertical-align: top; } .wksum tr { cursor: pointer; } .wksum tr:hover td { background: var(--surface-2); } .wksum td:first-child { white-space: nowrap; width: 170px; } .wksum td:nth-child(2) { white-space: nowrap; width: 70px; font-weight: 700; } .wksum tr.wkwarn td:nth-child(2) { color: #c00000; }
   .mkbar button.mkoff { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 1px; opacity: .75; }
   .mkbar button.mkoff[aria-pressed="true"] { opacity: 1; }
+  .issbox:empty { display: none; }
+  .issbox { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; margin: -6px 0 14px; }
+  .issh { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .isstog { border: 0; background: none; font: inherit; font-weight: 700; cursor: pointer; padding: 2px 0; color: var(--ink); }
+  .isstog em.late { font-style: normal; color: #c00000; }
+  .issl { list-style: none; margin: 6px 0; padding: 0; }
+  .issl li { display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; padding: 6px 8px; border-radius: 6px; margin-bottom: 4px; font-size: 13px; }
+  .issl li.issopen { background: #fdecec; }
+  .issl li.issopen b { color: #c00000; }
+  .issl li.issdone { background: var(--surface-2); color: var(--ink-2); }
+  .issl li.issdone b { color: #1e7b45; }
+  .issl small { color: var(--ink-3); margin-left: 4px; }
+  .issl .isv { font-style: normal; font-weight: 600; }
+  .issfb { margin-top: 3px; color: var(--ink-2); }
+  .issact { display: flex; gap: 4px; flex-shrink: 0; }
+  .issadd { display: flex; gap: 6px; margin: 6px 0 4px; }
+  .issadd input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 6px; font: inherit; }
+  .issadd select { padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 6px; font: inherit; max-width: 180px; }
+  .dlyhead { display: grid; grid-template-columns: auto 1fr auto 1fr auto 110px 110px; border: 1px solid var(--line); border-radius: 4px; margin: 8px 0 12px; font-size: 12.5px; }
+  .dlyhead > span { padding: 7px 10px; border-right: 1px solid var(--line); }
+  .dlyhead > span:last-child { border-right: 0; }
+  .dlyhead .k { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+  .dlyhead .sg { min-height: 36px; color: var(--ink-3); font-size: 11.5px; }
+  .dlyband { background: #1f4e78; color: #fff; font-weight: 700; padding: 7px 10px; border-radius: 4px; margin: 14px 0 0; font-size: 13.5px; }
+  .dlykpi { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--line); border-top: 0; }
+  .dlykpi > div { padding: 8px 6px; text-align: center; background: #e8eef7; border-right: 1px solid var(--line); }
+  .dlykpi > div:last-child { border-right: 0; }
+  .dlykpi > div.w { background: #fdecec; }
+  .dlykpi small { display: block; font-size: 11.5px; color: var(--ink-2); font-weight: 600; }
+  .dlykpi b { display: block; font-size: 22px; margin: 2px 0; }
+  .dlykpi div.on b { color: #c00000; }
+  .dlykpi span { font-size: 11px; color: var(--ink-3); }
+  .dlynote { background: #fdf0f0; color: #c00000; font-weight: 600; padding: 8px 10px; border: 1px solid var(--line); border-top: 0; font-size: 12.5px; }
+  .dlyt th { background: #2f5f8f; color: #fff; }
+  .dlyt td.dlyg { white-space: nowrap; font-weight: 600; text-align: center; }
+  .dlyt td.num { white-space: nowrap; }
+  .dlyt tr.dlyiss1 td { background: #fdecec; }
+  .dlyt tr.dlyiss1 td:nth-child(7), .dlyt tr.dlywarn td:nth-child(7) { color: #c00000; font-weight: 600; }
+  .dlyt tr.dlydone td { color: var(--ink-3); }
+  .dlyt td.dlyfbc { min-width: 200px; }
+  .dlyfb { display: flex; gap: 4px; }
+  .dlyfb input { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 5px; font: inherit; font-size: 12px; }
+  .dlyok { color: #1e7b45; font-weight: 600; font-size: 12px; }
+  .dlynotes td.dlyno { width: 34px; text-align: right; color: var(--ink-2); }
+  @media (max-width: 900px) { .dlykpi { grid-template-columns: repeat(4, 1fr); } }
 </style>
 </head>
 <body>
 
 <div class="top">
   <div class="top-in">
-    <button class="btn btn-sm backtop" type="button" id="backTop" hidden>← 현황</button>
+    <button class="btn btn-sm backtop" type="button" id="backTop" hidden style="display:none">← 현황</button>
     <div class="logo">
       <i class="lmark" aria-hidden="true">PO</i>
       <span class="ltx"><b>발주 실행판</b>
@@ -2219,6 +2264,7 @@
 <aside id="view-run" hidden aria-label="발주건 실행">
   <button class="drawer-close" type="button" id="closeRun" aria-label="닫기">✕</button>
   <div class="runhead" id="runhead"></div>
+  <div class="issbox" id="issbox"></div>
   <div class="ladder" id="ladder"></div>
 </aside>
 
@@ -3600,7 +3646,7 @@ function dateSlots_(steps, cfg, mode) {
     openStep = null;
     $("view-run").hidden = false;
     document.body.classList.add("drawer-open");
-    $("backTop").hidden = false;
+    // ← 현황 단추는 쓰지 않는다(열고 닫힐 때마다 메뉴 위가 들썩였다 — 2026-10-27). 닫기는 ✕ · 바깥 누름 · Esc · 메뉴
     renderRun();
     $("view-run").scrollTop = 0;
     renderBoard();
@@ -3747,6 +3793,8 @@ function dateSlots_(steps, cfg, mode) {
   }
 
   $("closeRun").addEventListener("click", closeRunAsk);
+  $("issbox").addEventListener("click", function (e) { issAct(e); });
+  $("issbox").addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.id === "iss-t" && !e.isComposing) { e.preventDefault(); var b = $("iss-add"); if (b) b.click(); } });
   // 패널 바깥 빈 곳을 누르면 패널을 닫는다 — 다른 줄을 눌러 그 건으로 바뀐 경우 · 단추 · 입력칸 · 창(대화상자) 안은 그대로
   document.addEventListener("click", function (e) {
     var vr = $("view-run"); if (!vr || vr.hidden || !document.body.classList.contains("drawer-open")) return;
@@ -5599,14 +5647,18 @@ function dateSlots_(steps, cfg, mode) {
     var d = t.closest("[data-pmdel]");
     if (d) { if (!confirm("이 프로젝트 비고를 지울까요?")) return; d.disabled = true; sProjMemoSave(row, { del: Number(d.dataset.pmdel), at: d.dataset.pmat }); return; }
     var pw2 = t.closest("[data-pmwait]");
-    if (pw2) { pw2.disabled = true; sProjMemoSave(row, { waitDone: Number(pw2.dataset.pmwait), at: pw2.dataset.wat, undo: pw2.dataset.undo === "1" }); return; }
+    if (pw2) {
+      var rp2 = ""; if (pw2.dataset.undo !== "1") { rp2 = prompt("회신 내용 — 뭐라고 회신이 왔는지(비워도 됨)", ""); if (rp2 === null) return; }
+      pw2.disabled = true; sProjMemoSave(row, { waitDone: Number(pw2.dataset.pmwait), at: pw2.dataset.wat, undo: pw2.dataset.undo === "1", reply: String(rp2 || "").trim() }); return;
+    }
     var wd = t.closest("[data-waitdone]");
     if (wd) {
+      var ridW = row.id, undoW = wd.dataset.undo === "1", rpW = "";
+      if (!undoW) { rpW = prompt("회신 내용 — 뭐라고 회신이 왔는지(비워도 됨)", ""); if (rpW === null) return; }
       wd.disabled = true;
-      var ridW = row.id, undoW = wd.dataset.undo === "1";
       gsr().withSuccessHandler(function (r) { var cur = rowById(ridW); if (cur && r && r.notes) cur.notes = r.notes; if (currentId === ridW) renderRun(); renderBoard(); toast(undoW ? "대기로 되돌렸습니다" : "회신 받음으로 정리했습니다"); })
         .withFailureHandler(function (err) { wd.disabled = false; toast("저장 실패: " + err.message); })
-        .apiSampleWaitDone(ridW, metaOf(row), wd.dataset.vk, Number(wd.dataset.waitdone), { at: wd.dataset.wat, text: wd.dataset.wtx }, !undoW);
+        .apiSampleWaitDone(ridW, metaOf(row), wd.dataset.vk, Number(wd.dataset.waitdone), { at: wd.dataset.wat, text: wd.dataset.wtx }, !undoW, String(rpW || "").trim());
     }
   });
   document.addEventListener("keydown", function (e) {
@@ -5888,13 +5940,14 @@ function dateSlots_(steps, cfg, mode) {
     var rqF = function (f, label, type, need) {
       var v = RQ0[f] || "", lb = "<span>" + esc(label) + (need ? ' <em class="nsneed">필수</em>' : "") + "</span>";
       if (type === "area") return '<label class="full">' + lb + '<textarea data-nsreq="' + f + '" rows="2">' + esc(v) + "</textarea></label>";
+      if (f === "dept") return "<label>" + lb + deptSel('data-nsreq="dept"', v) + "</label>";
       return "<label>" + lb + '<input type="' + (type || "text") + '" data-nsreq="' + f + '" value="' + esc(v) + '"></label>';
     };
     var sec = function (t, sub, body) { return '<div class="nssec"><div class="spgrp">' + esc(t) + (sub ? ' <span class="nghelp" style="font-weight:400">' + esc(sub) + "</span>" : "") + '</div><div class="spform">' + body + "</div></div>"; };
     ov.innerHTML = '<div class="nsbox nsreqbox" role="dialog" aria-label="신규 프로젝트 등록"><h3>신규 프로젝트 등록</h3>' +
       '<p class="nghelp" style="margin:-4px 0 10px">제작 요청서 — 기본정보 · 수량 · 일정 · 납품을 먼저 적습니다. 업체가 정해졌으면 아래 [첫 샘플 요청]도. [임시 저장]은 이 브라우저에 남겨 두고 이어서 씁니다.' + (nsDraft && !pre ? ' <b>임시 저장한 내용을 불러왔습니다(' + esc(nsDraft.at || "") + ").</b>" : "") + "</p>" +
       sec("기본 정보", "", nsF("brand") + nsF("name").replace('<label class="full">', '<label class="w2">') + rqF("dept", "요청부서", "", 1) + rqF("reqBy", "요청 담당자") + nsF("reqAt") + nsF("code") + nsF("owner") + rqF("purpose", "제작 목적 · 행사 (용도 · 행사명 · 프로모션 · 증정 조건)", "area")) +
-      sec("수량 · 예산", "", rqF("tqty", "목표(예상) 수량") + rqF("budget", "예산(원)")) +
+      sec("수량", "", rqF("tqty", "목표(예상) 수량")) +
       sec("사양 · 목표 단가 (첫 구성)", "아래 [첫 샘플 요청]의 구성(용기 등) 사양으로 들어갑니다 — 단상자 등 다른 구성은 등록 뒤 요청 정보 탭에서 [+ 구성 추가]", rqF("tprice", "목표 단가(원)") + rqF("size", "규격") + rqF("material", "소재") + rqF("color", "색상 · 인쇄") + rqF("pack", "포장 방식")) +
       sec("출시 · 리드타임", "출시 예정일에서 거꾸로 — 언제까지 입고 · 발주해야 하는지 아래에 바로 계산", rqF("launch", "출시 예정일", "date") + rqF("massLead", "양산 리드타임(일) — 발주 → 입고") + rqF("prepDays", "입고 → 출시 준비(일)") + '<div class="full" id="nsBack"></div>') +
       sec("일정 · 납품", "예정일 — 일정 탭에서 실제와 비교", rqF("wantPo", "희망 발주일", "date") + rqF("wantMass", "양산 완료 희망일", "date") + rqF("wantIn", "희망 납품(입고)일", "date") + rqF("pickBy", "업체 선정 목표일", "date") + rqF("designAt", "디자인 확정 예정일", "date")) +
@@ -6097,14 +6150,18 @@ function dateSlots_(steps, cfg, mode) {
     if (DATA && DATA.canEdit === false) { toast("보기 전용 계정입니다"); return; }
     var old = $("slov"); if (old) old.remove();
     var ov = document.createElement("div"); ov.className = "nsov"; ov.id = "slov";
-    ov.innerHTML = '<div class="nsbox" role="dialog" aria-label="샘플 목록 고치기" style="width:720px"><h3>샘플 구성 · 사양 · 구분 목록</h3>' +
+    ov.innerHTML = '<div class="nsbox" role="dialog" aria-label="샘플 목록 고치기" style="width:900px"><h3>샘플 구성 · 사양 · 구분 · 요청부서 목록</h3>' +
       '<p class="hint-line" style="margin:0 0 8px">한 줄에 하나씩 적으세요. 적은 순서대로 고르기 목록에 나옵니다. 칸을 비우고 저장하면 시트에 많이 쓰인 값을 보여 줍니다. 목록 밖 값도 칸에 직접 적을 수는 있습니다.</p>' +
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' + Object.keys(SLIST).map(function (f) {
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">' + Object.keys(SLIST).map(function (f) {
         var def = sampleDefList(f), L = def.length ? def : sampleOptList(f);
         return '<label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600">' + SLIST[f][1] +
           (def.length ? "" : ' <span class="nghelp" style="font-weight:400">아직 안 정함 — 시트에 쓰인 값</span>') +
           '<textarea data-slf="' + SLIST[f][0] + '" rows="14" style="font:inherit;font-weight:400;font-size:13px;padding:6px 8px;border:1px solid var(--line-strong);border-radius:6px;resize:vertical">' + esc(L.join(String.fromCharCode(10))) + "</textarea></label>";
-      }).join("") + "</div>" +
+      }).join("") + (function () {          // 요청부서(신규 프로젝트 요청 정보) — 시트 칸이 아니라 목록만
+        var def = ((DATA && DATA.choices) || {}).sdept || [];
+        return '<label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600">요청부서' + (def.length ? "" : ' <span class="nghelp" style="font-weight:400">아직 안 정함 — 지금까지 적힌 값</span>') +
+          '<textarea data-slf="sdept" rows="14" style="font:inherit;font-weight:400;font-size:13px;padding:6px 8px;border:1px solid var(--line-strong);border-radius:6px;resize:vertical">' + esc(deptList().join(String.fromCharCode(10))) + "</textarea></label>";
+      })() + "</div>" +
       '<div class="sebtn" style="display:flex;justify-content:flex-end;gap:6px;margin-top:10px"><button type="button" class="btn-quiet btn-sm" id="slRemap" style="margin-right:auto" title="지금 저장된 목록 기준으로 시트에 섞여 있는 값을 정리합니다">시트 값 정리만</button><button type="button" class="btn btn-sm" id="slCancel">취소</button><button type="button" class="btn btn-sm btn-solid" id="slSave">목록 저장</button></div></div>';
     document.body.appendChild(ov);
     ov.addEventListener("click", function (e) {
@@ -6114,10 +6171,10 @@ function dateSlots_(steps, cfg, mode) {
       var lists = {}; ov.querySelectorAll("[data-slf]").forEach(function (t) { lists[t.dataset.slf] = String(t.value || "").split(String.fromCharCode(10)).map(function (x) { return x.replace(/,/g, " ").trim(); }).filter(String).join(", "); });
       var b = e.target; b.disabled = true; b.textContent = "저장 중…";
       gsr().withSuccessHandler(function (ch) {
-        [DATA, MODEDATA.po, MODEDATA.sample].forEach(function (d) { if (d) d.choices = Object.assign({}, d.choices || {}, { smake: ch.smake || [], sspec: ch.sspec || [], skind: ch.skind || [] }); });
+        [DATA, MODEDATA.po, MODEDATA.sample].forEach(function (d) { if (d) d.choices = Object.assign({}, d.choices || {}, { smake: ch.smake || [], sspec: ch.sspec || [], skind: ch.skind || [], sdept: ch.sdept || [] }); });
         [["sqMakeL", "make"], ["sqSpecL", "spec"], ["sqKindL", "kind"]].forEach(function (x) { document.querySelectorAll('datalist[id="' + x[0] + '"]').forEach(function (dl) { dl.outerHTML = sampleOpts(x[0], x[1]); }); });
         if (typeof fillFilters === "function") try { fillFilters(); } catch (eF) { /* 넘어간다 */ }
-        toast("구성 · 사양 · 구분 목록을 저장했습니다");
+        toast("구성 · 사양 · 구분 · 요청부서 목록을 저장했습니다");
         if (currentId && !$("view-run").hidden) try { renderRun(); } catch (eR) { /* 넘어간다 */ }
         if (!slistRemap(ov)) ov.remove();
       }).withFailureHandler(function (err) { b.disabled = false; b.textContent = "목록 저장"; toast("저장 실패: " + err.message); }).apiSetSampleChoices(lists);
@@ -6588,7 +6645,7 @@ function dateSlots_(steps, cfg, mode) {
   /* ---------- 요청 정보 ---------- */
   var REQ_F = [
     ["기본 정보", [["dept", "요청부서"], ["reqBy", "요청 담당자"], ["reqAt", "요청일", "date"], ["purpose", "제작 목적 · 행사 (용도 · 행사명 · 증정 조건)", "area"]]],
-    ["수량 · 예산", [["tqty", "목표(예상) 수량"], ["budget", "예산(원)"]]],
+    ["수량", [["tqty", "목표(예상) 수량"]]],
     ["리드타임 (출시일에서 거꾸로 계산)", [["massLead", "양산 리드타임(일) — 발주 → 입고"], ["prepDays", "입고 → 출시 준비(일)"]]],
     ["일정 (예정)", [["pickBy", "업체 선정 목표일", "date"], ["wantPo", "희망 발주일", "date"], ["wantMass", "양산 완료 희망일", "date"], ["wantIn", "희망 납품(입고)일", "date"], ["launch", "출시 예정일", "date"]]],
     ["기타", [["etc", "기타 요청사항", "area"]]]
@@ -6627,8 +6684,22 @@ function dateSlots_(steps, cfg, mode) {
     }).join("") + (ro ? "" : '<button type="button" class="mkadd" data-spmkadd="1" title="단상자 · 리드 · 라벨 등 구성을 더합니다">+ 구성 추가</button>') + "</div>";
   }
   function spReqVal(row, f) { var d = spDraft(row).req; return f in d ? d[f] : (sInfo(row, "req")[f] || ""); }
+  /** 요청부서 목록 — 설정(샘플 목록 고치기)에서 정한 것. 안 정했으면 지금까지 적힌 부서 */
+  function deptList() {
+    var ch = (DATA && DATA.choices) || (MODEDATA.sample && MODEDATA.sample.choices) || {};
+    if (ch.sdept && ch.sdept.length) return ch.sdept;
+    var out = ["상품개발"];
+    ((MODEDATA.sample && MODEDATA.sample.rows) || (mode === "sample" && DATA && DATA.rows) || []).forEach(function (r) { var d = String(sInfo(r, "req").dept || "").trim(); if (d && out.indexOf(d) < 0) out.push(d); });
+    return out;
+  }
+  function deptSel(attr, cur) {
+    var L = deptList(); cur = String(cur == null ? "" : cur).trim();
+    return "<select " + attr + '><option value="">고르기</option>' + L.map(function (x) { return '<option value="' + esc(x) + '"' + (x === cur ? " selected" : "") + ">" + esc(x) + "</option>"; }).join("") +
+      (cur && L.indexOf(cur) < 0 ? '<option value="' + esc(cur) + '" selected>' + esc(cur) + "</option>" : "") + "</select>";
+  }
   function spFieldHtml(F, key, v, ro) {
     var id = 'data-spf="req|' + esc(key) + '"', dis = ro ? " disabled" : "";
+    if (F[0] === "dept") return '<label><span>' + esc(F[1]) + "</span>" + deptSel(id + dis, v) + "</label>";
     var inp = F[2] === "area" ? '<textarea ' + id + ' rows="2"' + dis + ">" + esc(v) + "</textarea>"
       : F[2] === "date" ? '<input type="date" ' + id + ' value="' + esc(v) + '"' + dis + ">"
       : F[2] === "sel" ? "<select " + id + dis + ">" + F[3].map(function (o) { return "<option" + (o === v ? " selected" : "") + ' value="' + esc(o) + '">' + esc(o || "—") + "</option>"; }).join("") + "</select>"
@@ -6643,6 +6714,7 @@ function dateSlots_(steps, cfg, mode) {
     h += '<div class="spgrp">프로젝트 (시트)</div><div class="spsheet"><span><small>제품명</small><b>' + esc(row.name || "") + '</b></span><span><small>품목코드</small><b>' + esc(row.code || "—") + '</b></span><span><small>브랜드</small><b>' + esc(row.brand || "—") + '</b></span><span><small>링크</small><b>' + ((row.links || []).length ? (row.links || []).length + "개" : "—") + "</b></span>" +
       (ro ? "" : '<button type="button" class="btn btn-sm" data-spedit="1" title="제품명을 바꾸면 이 프로젝트의 시트 줄 이름이 모두 바뀝니다">제품명 · 코드 · 브랜드 · 링크 고치기</button>') + "</div>";
     REQ_F.forEach(function (G, gi) {
+      if (G[0] === "일정 (예정)") h += spBackHtml(Object.assign({}, R, spDraft(row).req));      // 출시일 역산은 일정 칸 바로 위에(보고 날짜를 정하게)
       h += '<div class="spgrp">' + esc(G[0]) + '</div><div class="spform">' + G[1].map(function (F) { return spFieldHtml(F, F[0], spReqVal(row, F[0]), ro); }).join("") + "</div>";
       if (gi === 1) {          // 수량 · 예산 다음에 구성별 사양
         var mk = spMk(row);
@@ -6650,7 +6722,6 @@ function dateSlots_(steps, cfg, mode) {
           '<div class="spform mkform">' + MK_F.map(function (F) { return spFieldHtml(F, F[0] + "@" + mk, spMkVal(row, mk, F[0]), ro); }).join("") + "</div>";
       }
     });
-    h += spBackHtml(Object.assign({}, R, spDraft(row).req));
     if (!ro) h += '<div class="spfoot"><span class="nghelp">' + (dirty ? "저장하지 않은 칸 " + dirty + "개" : "") + '</span><button type="button" class="btn btn-sm" data-spreset="req"' + (dirty ? "" : " disabled") + '>되돌리기</button><button type="button" class="btn btn-sm btn-solid" data-spsave="req"' + (dirty ? "" : " disabled") + ">요청 정보 저장</button></div>";
     return h + "</div>";
   }
@@ -6805,13 +6876,26 @@ function dateSlots_(steps, cfg, mode) {
   var RV_OPTS = ["승인", "수정 요청", "재샘플", "반려"];
   function rvKey(q) { return q.sid ? String(q.sid) : "r" + q.row; }
   function rvOf(row, q) { return sInfo(row, "rv")[rvKey(q)] || null; }
+  /** 검토 승인 → 그 회차 상태를 채택으로(시트 상태도) */
+  function rvAdopt(rid, key) {
+    var cur = rowById(rid); if (!cur) return;
+    var hit = null, gg = null;
+    (cur.vendors || []).forEach(function (g) { (g.reqs || []).forEach(function (q) { if (rvKey(q) === key) { hit = q; gg = g; } }); });
+    if (!hit || hit.status === "채택") return;
+    var expS = sExp(hit); if (expS) { expS.oldSt = hit.status || ""; expS.old = { status: hit.status || "", doneAt: poDate(hit.doneAt || "") || "" }; }
+    hit.status = "채택"; resyncSample(cur); renderBoard(); if (currentId === rid) renderRun();
+    gsr().withSuccessHandler(function () { toast("승인 → " + (gg ? gg.name + " " : "") + "채택으로 바꿨습니다"); })
+      .withFailureHandler(function (err) { toast("채택 저장 실패: " + err.message); lastSync = 0; setTimeout(revalidate, 400); })
+      .apiSampleStatus(hit.row, "채택", cur.projKey, expS);
+    sampleRejectOthersAsk([{ r: cur, g: gg }]);
+  }
   function rvBox(q) {
     var row = rowById(currentId); if (!row || mode !== "sample") return "";
     var r = rvOf(row, q), ro = DATA && DATA.canEdit === false;
     var tagc = r ? { "승인": "qgood", "반려": "qbad" }[r.res] || "qmid" : "";
     if (r && ro) return '<span class="rvtag ' + tagc + '" title="' + esc((r.note || "") + " · " + (r._at || "") + " " + (r._by || "")) + '">검토 ' + esc(r.res) + "</span>";
     if (ro) return "";
-    return '<select class="rvsel ' + tagc + '" data-rvsel="' + esc(rvKey(q)) + '" title="' + esc(r ? "검토 결과 " + r.res + (r.note ? " — " + r.note : "") + " · " + (r._at || "") + " " + (r._by || "") : "받은 샘플 검토 결과(디자인 · 품질) — 승인 · 수정 요청 · 재샘플 · 반려") + '">' +
+    return '<select class="rvsel ' + tagc + '" data-rvsel="' + esc(rvKey(q)) + '" title="' + esc(r ? "검토 결과 " + r.res + (r.note ? " — " + r.note : "") + " · " + (r._at || "") + " " + (r._by || "") : "받은 샘플 검토 결과(승인하면 그 회차가 채택으로 바뀝니다 · 디자인 · 품질) — 승인 · 수정 요청 · 재샘플 · 반려") + '">' +
       '<option value="">' + (r ? "검토 지우기" : "검토 결과…") + "</option>" + RV_OPTS.map(function (o) { return "<option" + (r && r.res === o ? " selected" : "") + ">" + o + "</option>"; }).join("") + "</select>";
   }
 
@@ -7245,7 +7329,12 @@ function dateSlots_(steps, cfg, mode) {
     if (res && res !== "승인") { note = prompt(res + " — 내용(무엇을 고칠지 · 이유)을 적어 주세요", ""); if (note === null) { renderRun(); return; } }
     if (!res && !confirm("이 회차의 검토 결과를 지울까요?")) { renderRun(); return; }
     el.disabled = true;
-    spInfoSave(row, "rv", [{ sub: el.dataset.rvsel, val: res ? { res: res, note: note || "" } : null }], function (o, er) { if (!er) toast(res ? "검토 결과 " + res + " 저장" : "검토 결과를 지웠습니다"); });
+    var rvk = el.dataset.rvsel, rid = row.id;
+    spInfoSave(row, "rv", [{ sub: rvk, val: res ? { res: res, note: note || "" } : null }], function (o, er) {
+      if (er) return;
+      toast(res ? "검토 결과 " + res + " 저장" : "검토 결과를 지웠습니다");
+      if (res === "승인") rvAdopt(rid, rvk);              // 승인 = 그 회차 채택(다른 업체 탈락 정리는 묻는다)
+    });
   });
 
   /** 고른 프로젝트들에 걸친 업체 — 그 업체를 고른 프로젝트 모두에서 한 번에 수신 · 채택 · 탈락 · 드롭 */
@@ -7389,7 +7478,7 @@ function dateSlots_(steps, cfg, mode) {
   function waitLeft(d) { return Math.round((new Date(d + "T00:00:00") - new Date(todayIso() + "T00:00:00")) / 864e5); }
   function waitTag(x) {
     if (!x || !x.wait) return "";
-    if (x.waitDone) return ' <span class="waittag done">✓ ' + esc(x.wait) + " 받음 " + esc(String(x.waitDone).slice(5).replace("-", ".")) + "</span>";
+    if (x.waitDone) return ' <span class="waittag done">✓ ' + esc(x.wait) + " 회신 받음 " + esc(String(x.waitDone).slice(5).replace("-", ".")) + (x.waitReply ? " — " + esc(x.waitReply) : "") + "</span>";
     var l = x.due ? waitLeft(x.due) : null;
     return ' <span class="waittag' + (l != null && l < 0 ? " late" : "") + '">⏳ ' + esc(x.wait) + " 대기" + (x.due ? " · 기한 " + esc(x.due.slice(5).replace("-", ".")) + (l < 0 ? " (" + -l + "일 지남)" : l === 0 ? " (오늘)" : " (D-" + l + ")") : "") + "</span>";
   }
@@ -7402,7 +7491,7 @@ function dateSlots_(steps, cfg, mode) {
       var vk = k.slice(3), g = (row.vendors || []).filter(function (x) { return sampleVKey(x.name) === vk; })[0];
       L.forEach(function (x, i) { if (x.wait && !x.pend) out.push({ src: "tl", vk: vk, i: i, x: x, vendor: g ? g.name : vk }); });
     });
-    sProjMemo(row).forEach(function (m, i) { if (m.wait) out.push({ src: "pm", i: i, x: { at: m.at, text: m.t, wait: m.wait, due: m.due, waitDone: m.waitDone, who: m.by }, vendor: "" }); });
+    sProjMemo(row).forEach(function (m, i) { if (m.wait) out.push({ src: "pm", i: i, x: { at: m.at, text: m.t, wait: m.wait, due: m.due, waitDone: m.waitDone, waitReply: m.waitReply, who: m.by }, vendor: "" }); });
     return out;
   }
   function sampleOpenWaits(row) { return sampleWaits(row).filter(function (w) { return !w.x.waitDone; }); }
@@ -7416,7 +7505,7 @@ function dateSlots_(steps, cfg, mode) {
     var L = sProjMemo(row), ro = DATA && DATA.canEdit === false;
     return '<div class="vgroup pmemo"><div class="vhead"><b>프로젝트 비고</b><span class="nghelp">업체와 상관없는 프로젝트 전체 메모 — 일정 · 요청 사항 · 결정 등(업체별 내용은 아래 업체 카드에)</span></div>' +
       (L.length ? '<ul class="pmlist">' + L.map(function (m, i) { return { m: m, i: i }; }).reverse().map(function (x) {
-        return '<li><span class="tlwho">' + esc(x.m.at || "") + " · " + esc(x.m.by || "") + "</span> " + esc(x.m.t || "") + waitTag({ wait: x.m.wait, due: x.m.due, waitDone: x.m.waitDone }) +
+        return '<li><span class="tlwho">' + esc(x.m.at || "") + " · " + esc(x.m.by || "") + "</span> " + esc(x.m.t || "") + waitTag({ wait: x.m.wait, due: x.m.due, waitDone: x.m.waitDone, waitReply: x.m.waitReply }) +
           (x.m.wait ? " " + waitBtn({ src: "pm", i: x.i, x: { at: x.m.at, waitDone: x.m.waitDone } }) : "") +
           (ro ? "" : ' <button type="button" class="btn-quiet btn-sm" data-pmdel="' + x.i + '" data-pmat="' + esc(x.m.at || "") + '" title="이 메모 지우기">×</button>') + "</li>";
       }).join("") + "</ul>" : "") +
@@ -7890,6 +7979,63 @@ function dateSlots_(steps, cfg, mode) {
    * 건 상세를 다시 그린다. 쓰고 있던 칸(메모 · 날짜 · 표 칸)은 다시 그린 뒤 같은 칸에 커서와 쓰던 글을 되살린다.
    * 예전에는 늦게 온 저장 응답이 다시 그리면서 쓰던 칸에서 커서가 빠졌다.
    */
+  /* ---------- 이슈(2026-10-27) — 발주건 · 샘플건에 등록 → 일일보고에서 팀장 피드백 → 확인(보고서 이슈에서 빠짐) ---------- */
+  var ISS = {}, ISS_OPEN = {};
+  function issRefBase(row) { return mode === "sample" ? "s:" + row.id + "|" : "po:" + String(row.id).toLowerCase(); }
+  function issLoad(row, force) {
+    var base = issRefBase(row);
+    if (ISS[base] && !force) return;
+    if (!ISS[base]) ISS[base] = { loading: 1, list: [] };
+    gsr().withSuccessHandler(function (L) { ISS[base] = { list: L || [] }; if (currentId === row.id && !$("view-run").hidden) issDraw(); })
+      .withFailureHandler(function () { ISS[base] = { list: [], err: 1 }; }).apiIssueList(base);
+  }
+  function issDraw() {
+    var box = $("issbox"), row = rowById(currentId); if (!box) return;
+    if (!row || $("view-run").hidden) { box.innerHTML = ""; return; }
+    var base = issRefBase(row), C = ISS[base]; issLoad(row);
+    var L = (C && C.list) || [], open = L.filter(function (x) { return x.st !== "확인"; }), done = L.filter(function (x) { return x.st === "확인"; });
+    var ro = DATA && DATA.canEdit === false, show = ISS_OPEN[base] || open.length > 0;
+    var vSel = "";
+    if (mode === "sample") {
+      var V = (row.vendors || []).filter(function (g) { return g.name !== "업체 미정"; });
+      vSel = '<select id="iss-v" title="어느 업체 건인지(프로젝트 전체면 그대로)"><option value="">프로젝트 전체</option>' + V.map(function (g) { return '<option value="' + esc(g.name) + '">' + esc(g.name) + (SAMPLE_OFF[g.status] ? " (드롭)" : "") + "</option>"; }).join("") + "</select>";
+    }
+    var item = function (x) {
+      return '<li class="' + (x.st === "확인" ? "issdone" : "issopen") + '"><div><b>' + (x.st === "확인" ? "✓ 확인" : "⚠ 이슈") + "</b> " + (x.vendor ? '<em class="isv">' + esc(x.vendor) + "</em> " : "") + esc(x.text) +
+        ' <small>' + esc(x.at + " · " + x.by) + "</small>" +
+        (x.st === "확인" ? '<div class="issfb">↳ 피드백' + (x.fb ? ": " + esc(x.fb) : "") + " <small>" + esc(x.fbAt + " · " + x.fbBy) + "</small>" + (ro ? "" : ' <button type="button" class="btn-quiet btn-sm" data-issreopen="' + esc(x.id) + '">다시 열기</button>') + "</div>" : "") + "</div>" +
+        (ro || x.st === "확인" ? "" : '<span class="issact"><button type="button" class="btn-quiet btn-sm" data-issfbopen="' + esc(x.id) + '" title="피드백을 쓰면 확인 처리 — 일일보고 이슈에서 빠집니다">피드백 · 확인</button><button type="button" class="btn-quiet btn-sm" data-issdel="' + esc(x.id) + '">지우기</button></span>') + "</li>";
+    };
+    box.innerHTML = '<div class="issh"><button type="button" class="isstog" data-isstog="1">' + (show ? "▾" : "▸") + " 이슈 " + (open.length ? '<em class="late">' + open.length + "</em>" : "0") + (done.length ? ' <span class="nsub">· 확인 ' + done.length + "</span>" : "") + "</button>" +
+      '<span class="nghelp">발주 · 샘플 진행 중 문제를 남기면 일일보고 이슈로 올라가고, 팀장 피드백을 받으면 확인 처리됩니다</span></div>' +
+      (show ? (L.length ? '<ul class="issl">' + open.concat(done).map(item).join("") + "</ul>" : (C && C.loading ? '<p class="nghelp">불러오는 중…</p>' : "")) +
+        (ro ? "" : '<div class="issadd">' + vSel + '<input type="text" id="iss-t" placeholder="이슈 내용 — 예: 원자재 수급 지연으로 납기 3일 지연 예상 · Enter 로 등록"><button type="button" class="btn btn-sm" id="iss-add">이슈 등록</button></div>') : "");
+  }
+  function issAct(e) {
+    var row = rowById(currentId); if (!row) return false;
+    var base = issRefBase(row), t = e.target;
+    if (t.closest("[data-isstog]")) { ISS_OPEN[base] = !(ISS_OPEN[base] || ((ISS[base] || {}).list || []).some(function (x) { return x.st !== "확인"; })); issDraw(); return true; }
+    if (t.id === "iss-add") {
+      var tx = $("iss-t"), v = $("iss-v"), text = String(tx.value || "").trim(); if (!text) { toast("이슈 내용을 적어 주세요"); tx.focus(); return true; }
+      var vn = v ? v.value : "", ref = mode === "sample" ? base + (vn ? sampleVKey(vn) : "") : base;
+      t.disabled = true;
+      gsr().withSuccessHandler(function () { tx.value = ""; t.disabled = false; ISS_OPEN[base] = 1; toast("이슈를 등록했습니다 — 일일보고에 올라갑니다"); issLoad(row, true); })
+        .withFailureHandler(function (err) { t.disabled = false; toast("등록 실패: " + err.message); })
+        .apiIssueAdd(mode === "sample" ? "샘플" : "발주", ref, row.name + (mode === "po" && row.batch ? " " + row.batch : ""), vn || (mode === "po" ? row.vendor || "" : ""), text);
+      return true;
+    }
+    var fo = t.closest("[data-issfbopen]");
+    if (fo) {
+      var fb = prompt("피드백(확인) — 적은 내용이 이슈 아래에 남고, 이 이슈는 일일보고에서 빠집니다", ""); if (fb === null) return true;
+      gsr().withSuccessHandler(function () { toast("확인 처리했습니다"); issLoad(row, true); }).withFailureHandler(function (err) { toast("실패: " + err.message); }).apiIssueFeedback(fo.dataset.issfbopen, fb);
+      return true;
+    }
+    var ro2 = t.closest("[data-issreopen]");
+    if (ro2) { gsr().withSuccessHandler(function () { issLoad(row, true); }).withFailureHandler(function (err) { toast("실패: " + err.message); }).apiIssueReopen(ro2.dataset.issreopen); return true; }
+    var dl = t.closest("[data-issdel]");
+    if (dl) { if (!confirm("이 이슈를 지울까요?")) return true; gsr().withSuccessHandler(function () { issLoad(row, true); }).withFailureHandler(function (err) { toast("실패: " + err.message); }).apiIssueDelete(dl.dataset.issdel); return true; }
+    return false;
+  }
   function renderRun() {
     var a = document.activeElement, keep = null;
     if (a && a.closest && a.closest("#view-run") && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) {
@@ -7901,6 +8047,7 @@ function dateSlots_(steps, cfg, mode) {
     }
     var typed = runTypedSnap();
     renderRunInner();
+    issDraw();
     runTypedRestore(typed);
     if (!keep) return;
     var b = document.querySelector(keep.sel);
@@ -10088,6 +10235,42 @@ function dateSlots_(steps, cfg, mode) {
   /* ---------- 일일보고(2026-10-27) — 날짜를 고르면 그날 보고서(저장본이 있으면 그때 그대로). 병목 · 이슈는 여기서 적어 날짜별로 저장 ---------- */
   var DLY_ISS_COLS = ["구분", "이슈 내용", "품목 · 업체", "원인", "대응 방안", "해결 예정일", "담당"];
   function dlyWeekday(iso) { var p = String(iso).split("-"); return "일월화수목금토".charAt(new Date(+p[0], +p[1] - 1, +p[2]).getDay()); }
+  /** 일일보고 v6 — 담당자 양식(머리 · 1. 일일 현황 요약 · 2. 발주건 · 3. 샘플건 · 4. 기타 특이사항 및 명일 계획) */
+  function dlyV6Html(d, D, ro) {
+    var who = D.savedBy || (DATA && DATA.me ? String(DATA.me).split("@")[0] : "");
+    var h = '<div class="dlyhead"><span class="k">작성일자</span><span>' + esc(d.to) + " (" + dlyWeekday(d.to) + ')</span><span class="k">작성자</span><span>' + esc(who || "—") + '</span><span class="k">결재</span><span class="sg">담당</span><span class="sg">팀장 / 본부장</span></div>';
+    h += '<div class="dlyband">1. 일일 현황 요약 (Daily Summary)</div><div class="dlykpi">' + (d.kpi || []).map(function (k) {
+      var on = k.warn && Number(k.v) > 0; return '<div class="' + (k.warn ? "w" : "") + (on ? " on" : "") + '"><small>' + esc(k.label) + "</small><b>" + esc(String(k.v)) + "</b><span>" + esc(k.sub || "") + "</span></div>";
+    }).join("") + '</div><div class="dlynote">' + esc(d.note || "") + "</div>";
+    var tbl = function (key, T, title) {
+      var out = '<div class="dlyband">' + esc(title) + '</div><div style="overflow-x:auto"><table class="svtable dlyt"><thead><tr>' + T.cols.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "<th>팀장 피드백</th></tr></thead><tbody>";
+      if (!T.rows.length) out += '<tr><td colspan="' + (T.cols.length + 1) + '" class="nghelp">없음</td></tr>';
+      out += T.rows.map(function (x, i) {
+        var fbc = "";
+        if (x.wt) {                          // 회신 대기 — 회신 내용을 적으면 회신 받음
+          var kw = key + ":" + i;
+          fbc += x.wt.done ? '<span class="dlyok">✓ 회신 받음 — ' + esc(x.wt.done.reply || "(내용 없음)") + "</span>"
+            : ro ? "" : '<div class="dlyfb"><input type="text" data-dlywtt="' + kw + '" placeholder="회신 내용"><button type="button" class="btn btn-sm" data-dlywt="' + kw + '" title="회신 내용을 남기고 회신 받음으로 — 샘플 상세 기록에도 남습니다">회신 받음</button></div>';
+        }
+        if (x.iss && !(x.wt && x.wt.done)) {
+          var k = key + ":" + i;
+          fbc = x.iss.done ? '<span class="dlyok">✓ 확인' + (x.iss.done.fb ? " — " + esc(x.iss.done.fb) : "") + " <small>" + esc(x.iss.done.by || "") + "</small></span>"
+            : ro ? "" : '<div class="dlyfb"><input type="text" data-dlyfbt="' + k + '" placeholder="피드백"><button type="button" class="btn btn-sm" data-dlyfb="' + k + '" title="피드백을 남기고 확인 — 다음 보고서부터 이슈에서 빠집니다">확인</button></div>';
+        }
+        return '<tr class="' + (x.iss && !x.iss.done ? "dlyiss1" : x.warn ? "dlywarn" : "") + (x.iss && x.iss.done ? " dlydone" : "") + '"><td class="dlyg">' + esc(x.g) + "</td>" + x.c.map(function (v, j) { return '<td' + (j === 3 || j === 4 ? ' class="num"' : "") + ">" + esc(v) + "</td>"; }).join("") + '<td class="dlyfbc">' + fbc + "</td></tr>";
+      }).join("");
+      return out + "</tbody></table></div>";
+    };
+    h += tbl("po", d.po, "2. 발주건 상세 관리 (금주 입고예정 / 전주 변경 / 전주 입고)");
+    h += tbl("smp", d.smp, "3. 샘플건 상세 관리 (수신 샘플 / 접수 샘플 / 회신 대기)");
+    var notes = (R0issues(d)).map(function (r) { return r.filter(String).join(" · "); });
+    while (notes.length < 4) notes.push("");
+    h += '<div class="dlyband">4. 기타 특이사항 및 명일 계획 (Notes &amp; Tomorrow\'s Plan)</div><table class="svtable dlyiss dlynotes"><tbody>' +
+      notes.map(function (t, i) { return '<tr><td class="dlyno">' + (i + 1) + ')</td><td><input type="text" value="' + esc(t) + '"' + (ro ? " disabled" : "") + ' placeholder="' + (i === 0 ? "예: 환율 · 원자재 동향 / 명일 주요 일정 / 부서 협조 사항" : "") + '"></td></tr>'; }).join("") + "</tbody></table>" +
+      (ro ? "" : '<div class="svbar" style="margin-top:6px"><button type="button" class="btn btn-sm" id="dly-addrow">+ 줄 추가</button><span style="flex:1"></span><span class="nghelp" id="dly-issmsg"></span><button type="button" class="btn btn-sm btn-solid" id="dly-isssave">특이사항 저장</button></div>');
+    return h;
+  }
+  function R0issues(d) { return (d.issues || []).map(function (r) { return Array.isArray(r) ? r : [String(r)]; }); }
   function wkOpen(to) {
     var old = $("wkrep"); if (old) old.remove();
     var ov = document.createElement("div"); ov.className = "nsov"; ov.id = "wkrep";
@@ -10098,7 +10281,7 @@ function dateSlots_(steps, cfg, mode) {
     var load = function (dt, refresh) {
       date = dt;
       var box = ov.querySelector(".wkbox"); if (box && R) { var st = box.querySelector("#dly-state"); if (st) st.textContent = "불러오는 중…"; }
-      gsr().withSuccessHandler(function (d) { D = d; R = d.rep; R.issues = d.issues || []; draw(); })
+      gsr().withSuccessHandler(function (d) { D = d; R = d.rep; R.issues = d.issues || []; R.author = d.savedBy || (DATA && DATA.me ? String(DATA.me).split("@")[0] : ""); draw(); })
         .withFailureHandler(function (err) { var box2 = ov.querySelector(".wkbox"); if (box2) box2.innerHTML = '<h3>구매팀 일일보고</h3><p class="nghelp">불러오지 못했습니다: ' + esc(String(err.message || err)) + '</p><button type="button" class="btn btn-sm" id="wk-close">닫기</button>'; })
         .apiDailyReport(dt, !!refresh);
     };
@@ -10108,7 +10291,7 @@ function dateSlots_(steps, cfg, mode) {
         (LIST || []).map(function (x) { return '<option value="' + esc(x.date) + '"' + (x.date === date ? " selected" : "") + ">" + esc(x.date + " (" + dlyWeekday(x.date) + ")" + (x.issues ? " · 이슈 " + x.issues : "")) + "</option>"; }).join("") + "</select>";
     };
     var draw = function () {
-      var d = R, today = todayIso(), ro = DATA && DATA.canEdit === false;
+      var d = R, today = todayIso(), ro = DATA && DATA.canEdit === false, box0;
       var state = D.saved ? (D.live ? "오늘 보고서 — 지금 기록으로 만들고 저장했습니다(" + esc(D.savedAt || "") + ")" : "저장된 보고서 — " + esc(D.savedAt || "") + " · " + esc(D.savedBy || "") + " 기준 그대로")
         : "이 날짜는 저장된 기록이 없어 지금 기록으로 다시 계산했습니다(지연 · 대기 같은 그때 상태는 다를 수 있음)";
       var h = '<h3>구매팀 일일보고 <span class="nghelp" style="font-weight:400">' + esc(date) + " (" + dlyWeekday(date) + ") · " + (d.week ? "금주 " + esc(d.week.from.slice(5)) + " ~ " + esc(d.week.to.slice(5)) + " · 전주 " + esc(d.week.prevFrom.slice(5)) + " ~ " + esc(d.week.prevTo.slice(5)) : "향후 7일 " + esc(d.nextFrom.slice(5)) + " ~ " + esc(d.nextTo.slice(5))) + "</span></h3>" +
@@ -10117,6 +10300,7 @@ function dateSlots_(steps, cfg, mode) {
         '<span style="flex:1"></span>' + (ro ? "" : '<button type="button" class="btn btn-sm" id="dly-refresh" title="지금 기록으로 다시 계산해 이 날짜 보고서로 저장">' + (D.saved && !D.live ? "다시 계산 · 저장" : D.saved ? "새로고침" : "이 날짜로 저장") + "</button>") +
         '<button type="button" class="btn btn-sm btn-solid" id="wk-xlsx">엑셀 받기</button><button type="button" class="btn btn-sm" id="wk-close">닫기</button></div>' +
         '<p class="hint-line" id="dly-state">' + state + "</p>";
+      if (d.v >= 6) { box0 = ov.querySelector(".wkbox"); if (box0) box0.innerHTML = h + dlyV6Html(d, D, ro); return; }
       var S = d.summary || { kpi: [], hl: [], team: [] };
       if (S.rows && S.rows.length) {         // 요약 = 항목마다 한 줄(건수 · 핵심) — 누르면 아래 같은 번호 상세로
         h += '<h4>1. 요약</h4><table class="svtable wksum"><colgroup><col style="width:190px"><col style="width:80px"><col></colgroup><thead><tr><th>항목</th><th>건수</th><th>핵심 내용</th></tr></thead><tbody>' + S.rows.map(function (x) {
@@ -10152,7 +10336,34 @@ function dateSlots_(steps, cfg, mode) {
       if (e.target.id === "wk-prev" && R) load(wkShift(date, -1));
       if (e.target.id === "wk-next" && R && date < todayIso()) load(wkShift(date, 1));
       if (e.target.id === "dly-refresh") { if (D && D.saved && !D.live && !confirm(date + " 저장본을 지금 기록으로 다시 계산해 덮을까요? (그때 상태가 사라집니다)")) return; load(date, true); setTimeout(loadList, 4000); }
-      if (e.target.id === "dly-addrow") { var tb = ov.querySelector(".dlyiss tbody"); if (tb) tb.insertAdjacentHTML("beforeend", "<tr>" + DLY_ISS_COLS.map(function () { return '<td><input type="text"></td>'; }).join("") + "</tr>"); }
+      if (e.target.id === "dly-addrow") { var tb = ov.querySelector(".dlyiss tbody"); if (tb) tb.insertAdjacentHTML("beforeend", R && R.v >= 6 ? '<tr><td class="dlyno">' + (tb.children.length + 1) + ')</td><td><input type="text"></td></tr>' : "<tr>" + DLY_ISS_COLS.map(function () { return '<td><input type="text"></td>'; }).join("") + "</tr>"); }
+      var wtb = e.target.closest && e.target.closest("[data-dlywt]");
+      if (wtb && R) {
+        var qq = wtb.dataset.dlywt.split(":"), rw2 = (R[qq[0]] || { rows: [] }).rows[+qq[1]]; if (!rw2 || !rw2.wt) return;
+        var inp2 = ov.querySelector('[data-dlywtt="' + wtb.dataset.dlywt + '"]'), rep = inp2 ? String(inp2.value || "").trim() : "";
+        if (!rep && !confirm("회신 내용 없이 회신 받음으로 할까요?")) return;
+        wtb.disabled = true;
+        gsr().withSuccessHandler(function () {
+          rw2.wt.done = { reply: rep }; rw2.g = "회신 받음";
+          if (rw2.iss && !rw2.iss.done) { rw2.iss.done = { fb: "회신 받음", by: "" }; (R.kpi || []).forEach(function (k) { if (k.k === "siss") k.v = Math.max(0, (Number(k.v) || 0) - 1); }); }
+          toast("회신 받음으로 정리했습니다"); var keep = ov.querySelector(".wkbox").scrollTop; draw(); ov.querySelector(".wkbox").scrollTop = keep;
+          if (MODEDATA.sample) { lastSync = 0; }
+        }).withFailureHandler(function (err) { wtb.disabled = false; toast("실패: " + err.message); }).apiWaitReply(rw2.wt, rep);
+        return;
+      }
+      var fbb = e.target.closest && e.target.closest("[data-dlyfb]");
+      if (fbb && R) {                         // 이슈 피드백 → 확인(보고서 이슈에서 빠짐)
+        var pp = fbb.dataset.dlyfb.split(":"), rw = (R[pp[0]] || { rows: [] }).rows[+pp[1]]; if (!rw || !rw.iss) return;
+        var inp = ov.querySelector('[data-dlyfbt="' + fbb.dataset.dlyfb + '"]'), fb = inp ? String(inp.value || "").trim() : "";
+        if (!fb && !confirm("피드백 없이 확인 처리할까요?")) return;
+        fbb.disabled = true;
+        gsr().withSuccessHandler(function (o) {
+          rw.iss.done = { fb: fb, by: (o && o.fbBy) || "", at: (o && o.fbAt) || "" };
+          (R.kpi || []).forEach(function (k) { if (k.k === (pp[0] === "po" ? "poiss" : "siss")) k.v = Math.max(0, (Number(k.v) || 0) - 1); });
+          toast("확인 처리했습니다 — 이 이슈는 다음 보고서부터 빠집니다"); var keep = ov.querySelector(".wkbox").scrollTop; draw(); ov.querySelector(".wkbox").scrollTop = keep;
+        }).withFailureHandler(function (err) { fbb.disabled = false; toast("실패: " + err.message); })
+          .apiIssueFeedback(rw.iss.id, fb, { kind: rw.iss.kind, ref: rw.iss.ref, name: rw.iss.name, vendor: rw.iss.vendor, text: rw.iss.text });
+      }
       if (e.target.id === "dly-isssave") {
         var rows = issRows(), b = e.target; b.disabled = true;
         gsr().withSuccessHandler(function (r) { b.disabled = false; R.issues = (r && r.issues) || rows; var m = $("dly-issmsg"); if (m) m.textContent = "저장했습니다 · 이슈 " + R.issues.length + "건"; loadList(); toast("병목 · 이슈를 저장했습니다"); })
@@ -10166,8 +10377,51 @@ function dateSlots_(steps, cfg, mode) {
     load(date); loadList();
   }
   /** 엑셀: 양식 1~5 그대로 · 실행판 줄(흰색) + 담당자 직접 칸(노란색, 첫 줄 예시) · A4 가로 */
+  /** 엑셀 v6 — 담당자 양식 그대로(머리 · 결재 · 숫자 칸 · 발주/샘플 상세 표 · 특이사항) · A4 가로 */
+  function dlyXlsxV6(R) {
+    var wb = new ExcelJS.Workbook(), ws = wb.addWorksheet("일일보고", { pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.3, footer: 0.3 } }, views: [{ showGridLines: false }] });
+    var W = 8; [13, 16, 20, 32, 10, 15, 52, 26].forEach(function (w, i) { ws.getColumn(i + 1).width = w; });
+    var F = "맑은 고딕", font = { name: F, size: 9 }, bold = { name: F, size: 9, bold: true }, white = { name: F, size: 9, bold: true, color: { argb: "FFFFFFFF" } }, red = { name: F, size: 9, bold: true, color: { argb: "FFC00000" } };
+    var thin = { style: "thin", color: { argb: "FFBFBFBF" } }, border = { top: thin, left: thin, bottom: thin, right: thin };
+    var fill = function (c) { return { type: "pattern", pattern: "solid", fgColor: { argb: c } }; };
+    var r = 1;
+    var cell = function (c, v, o) { o = o || {}; var x = ws.getCell(r, c); x.value = v == null ? "" : v; x.font = o.font || font; x.border = border; x.alignment = { wrapText: true, vertical: "middle", horizontal: o.al || "left" }; if (o.fill) x.fill = o.fill; return x; };
+    var merge = function (c0, c1, v, o) { for (var c = c0; c <= c1; c++) cell(c, c === c0 ? v : "", o); if (c1 > c0) ws.mergeCells(r, c0, r, c1); };
+    var band = function (t) { merge(1, W, t, { font: { name: F, size: 11, bold: true, color: { argb: "FFFFFFFF" } }, fill: fill("FF1F4E78") }); ws.getRow(r).height = 22; r++; };
+    merge(1, W, "구매팀 일일 업무 보고", { font: { name: F, size: 15, bold: true }, al: "center" }); ws.getRow(r).height = 28; r++;
+    cell(1, "작성일자:", { font: bold, fill: fill("FFF2F2F2") }); cell(2, R.to + " (" + dlyWeekday(R.to) + ")"); cell(3, "작성자:", { font: bold, fill: fill("FFF2F2F2") }); merge(4, 5, R.author || ""); cell(6, "결재: 담당", { font: bold, fill: fill("FFF2F2F2"), al: "center" }); cell(7, "", {}); cell(8, "팀장 / 본부장", { font: bold, fill: fill("FFF2F2F2"), al: "center" }); ws.getRow(r).height = 30; r += 2;
+    band("1. 일일 현황 요약 (Daily Summary)");
+    var K = R.kpi || [], cols = [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 8]];
+    K.forEach(function (k, i) { var c = cols[i] || [i + 1, i + 1]; merge(c[0], c[1], k.label, { font: bold, al: "center", fill: fill(k.warn ? "FFFDECEC" : "FFE8EEF7") }); }); r++;
+    K.forEach(function (k, i) { var c = cols[i] || [i + 1, i + 1]; merge(c[0], c[1], Number(k.v) || 0, { font: { name: F, size: 14, bold: true, color: { argb: k.warn && Number(k.v) > 0 ? "FFC00000" : "FF000000" } }, al: "center", fill: fill(k.warn ? "FFFDECEC" : "FFE8EEF7") }); }); ws.getRow(r).height = 26; r++;
+    merge(1, W, R.note || "", { font: red, fill: fill("FFFDF0F0") }); r += 2;
+    var tbl = function (title, T) {
+      band(title);
+      T.cols.concat(["팀장 피드백"]).forEach(function (c, i) { cell(i + 1, c, { font: white, fill: fill("FF2F5F8F"), al: "center" }); }); r++;
+      if (!T.rows.length) { merge(1, W, "없음", { al: "center" }); r++; }
+      T.rows.forEach(function (x) {
+        var hot = x.iss && !x.iss.done, f0 = hot ? fill("FFFDECEC") : null;
+        cell(1, x.g, { font: bold, al: "center", fill: f0 });
+        x.c.forEach(function (v, j) { cell(j + 2, v, { fill: f0, font: j === 5 && (hot || x.warn) ? red : font, al: j === 3 || j === 4 ? "center" : "left" }); });
+        cell(8, x.iss && x.iss.done ? "확인 — " + (x.iss.done.fb || "") : x.wt && x.wt.done ? "회신: " + (x.wt.done.reply || "") : "", { fill: f0 });
+        r++;
+      });
+      r++;
+    };
+    tbl("2. 발주건 상세 관리 (금주 입고예정 / 전주 변경 / 전주 입고)", R.po);
+    tbl("3. 샘플건 상세 관리 (수신 샘플 / 접수 샘플 / 회신 대기)", R.smp);
+    band("4. 기타 특이사항 및 명일 계획 (Notes & Tomorrow's Plan)");
+    var N = R0issues(R).map(function (q) { return q.filter(String).join(" · "); }).filter(String); while (N.length < 4) N.push("");
+    N.forEach(function (t, i) { merge(1, W, (i + 1) + ") " + t, { fill: t ? null : fill("FFFFF2CC") }); r++; });
+    wb.xlsx.writeBuffer().then(function (buf) {
+      var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      a.download = "구매팀_일일보고_" + R.to + ".xlsx"; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      toast("엑셀을 내려받았습니다");
+    });
+  }
   function wkXlsx(R) {
     var go = function () {
+      if (R.v >= 6) { dlyXlsxV6(R); return; }
       var DL = !!R.daily, wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(DL ? "일일보고" : "주간보고", { pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.3, footer: 0.3 } }, views: [{ showGridLines: false }] });
       var W = 9;
       [9, 12, 38, 30, 18, 16, 40, 10, 8].forEach(function (w, i) { ws.getColumn(i + 1).width = w; });

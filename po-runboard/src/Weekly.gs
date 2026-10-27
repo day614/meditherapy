@@ -64,7 +64,7 @@ function apiWeeklyReport(from, to, kind) {
   var vk = function (v) { return String(v || '').replace(/[\s()]/g, '').toLowerCase().slice(0, 60); };
   var pjOf = function (r) { var pid = si['프로젝트ID'] == null ? '' : str_(r[si['프로젝트ID']]); return pid ? 'p:' + pid : 'n:' + str_(r[si['품목명']]); };
   var vName = {}, pjName = {}; SMP.forEach(function (r) { var v = str_(r[si['업체명']]) || '미정'; vName[pjOf(r) + '|' + vk(v)] = v; pjName[pjOf(r)] = str_(r[si['품목명']]); });
-  var MEMO = [], PDONE = {}, PPICK = {}, WAITS = [], QTS = [];
+  var MEMO = [], PDONE = {}, PPICK = {}, WAITS = [], QTS = [], RVS = {};
   G.rows.forEach(function (r) {
     var gid = str_(g(r, gi, '건ID')), pj = /^p:n:/.test(gid) || !gid ? 'n:' + str_(g(r, gi, '품목명')) : gid;
     var ck = {}; try { ck = JSON.parse(str_(g(r, gi, '진행JSON')) || '{}'); } catch (e0) { ck = {}; }
@@ -74,7 +74,7 @@ function apiWeeklyReport(from, to, kind) {
       if (k.indexOf('tl:') !== 0) return;
       var L = []; try { L = JSON.parse(m[k]); } catch (e2) { L = []; }
       var vkey = vk(k.slice(3));
-      L.forEach(function (e) { MEMO.push({ at: str_(e.at), pj: pj, proj: pjName[pj] || str_(g(r, gi, '품목명')), vk: vkey, vendor: vName[pj + '|' + vkey] || k.slice(3), text: str_(e.text), st: str_(e.st), due: str_(e.due), who: wkWho_(e.who), wait: str_(e.wait), waitDone: str_(e.waitDone) }); });
+      L.forEach(function (e) { MEMO.push({ at: str_(e.at), pj: pj, proj: pjName[pj] || str_(g(r, gi, '품목명')), vk: vkey, vendor: vName[pj + '|' + vkey] || k.slice(3), text: str_(e.text), st: str_(e.st), due: str_(e.due), who: wkWho_(e.who), wait: str_(e.wait), waitDone: str_(e.waitDone), waitReply: str_(e.waitReply), rawText: str_(e.text) }); });
     });
     // 견적 비교(구매 소싱 관리 [견적 비교] — 테스트판 · 개인판에만 있음): 업체 · 구성별 단가
     var QJ = {}; try { QJ = JSON.parse(m['i:qt'] || '{}'); } catch (eQ) { QJ = {}; }
@@ -83,9 +83,10 @@ function apiWeeklyReport(from, to, kind) {
       var ci = qk.indexOf('::'), mk = ci > 0 ? qk.slice(0, ci) : str_(q.make), qv = ci > 0 ? qk.slice(ci + 2) : qk;
       QTS.push({ at: str_(q._at).slice(0, 10), pj: pj, proj: pjName[pj] || str_(g(r, gi, '품목명')), vk: qv, vendor: str_(q.name) || vName[pj + '|' + qv] || qv, make: mk, price: str_(q.price), cur: str_(q.cur) || 'KRW', qty: str_(q.qty), by: wkWho_(q._by) });
     });
+    try { RVS[pj] = JSON.parse(m['i:rv'] || '{}') || {}; } catch (eR) { RVS[pj] = {}; }      // 회차 검토 결과(승인 · 수정 요청 · 재샘플 · 반려)
     // 프로젝트 비고의 역요청 대기(업체와 상관없는 것)
     var PM = []; try { PM = JSON.parse(m.pmemo || '[]'); } catch (eP) { PM = []; }
-    (Array.isArray(PM) ? PM : []).forEach(function (x) { if (x && x.wait) WAITS.push({ at: str_(x.at), pj: pj, proj: pjName[pj] || str_(g(r, gi, '품목명')), vendor: '', text: str_(x.t), wait: str_(x.wait), due: str_(x.due), waitDone: str_(x.waitDone), who: wkWho_(x.by) }); });
+    (Array.isArray(PM) ? PM : []).forEach(function (x) { if (x && x.wait) WAITS.push({ at: str_(x.at), pj: pj, proj: pjName[pj] || str_(g(r, gi, '품목명')), vendor: '', text: str_(x.t), wait: str_(x.wait), due: str_(x.due), waitDone: str_(x.waitDone), waitReply: str_(x.waitReply), who: wkWho_(x.by), vk: '', rawText: str_(x.t) }); });
   });
   var memoOf = function (r) { var pj = pjOf(r), v = vk(str_(r[si['업체명']]) || '미정'); return MEMO.filter(function (m) { return m.pj === pj && m.vk === v; }); };
   // 업체별 마지막 회차 · 프로젝트 채택 여부(받았는데 안 정한 샘플 · 기한 지난 샘플은 업체 단위로 본다)
@@ -444,38 +445,86 @@ function apiWeeklyReport(from, to, kind) {
   SI.sort(function (a, b) { return b.n - a.n; });
   var L35 = SI.map(function (x) { return x.row; });
   var nIdleOK = S_LATE.length + NX_DEC.length - SI.filter(function (x) { return x.row[0] !== '회신 기한 지남'; }).length;
-  // ── 요약
-  var top = function (L, f) { return L.slice(0, 2).map(f).join(', '); };
-  var SUM = [
-    { grp: '1-1. 현황 건수', no: '', id: 'w24', label: '발주 건수', v: poOpen.length + '건', text: '진행 중 발주(종결 · 취소 · 계획 · 상신 제외) · 금주 입고예정 ' + L21.length + '건' },
-    { no: '', id: 'w34', label: '샘플 진행 건수', v: sOpen.length + '건', text: '아직 받지 않은 진행 중 샘플(업체 · 마지막 회차) · 당일 진행 업데이트 ' + L34.length + '건' },
-    { no: '', id: 'w31', label: '샘플 수신 건수', v: cnt(T_RCV.length), text: '당일 ' + T_RCV.length + ' · 금주 누계 ' + cntW.rcv + (T_RCV.length ? ' — ' + top(T_RCV, function (x) { return str_(x[si['품목명']]).slice(0, 20) + '(' + (str_(x[si['업체명']]) || '미정') + ')'; }) : '') },
-    { no: '', id: 'w24', label: '발주 접수 건수', v: cnt(T_PO.length), text: '당일 ' + T_PO.length + ' · 금주 누계 ' + cntW.po + (T_PO.length ? ' — ' + top(T_PO, function (x) { return nm(x).slice(0, 24); }) : '') },
-    { no: '', id: 'w32', label: '샘플 요청 접수 건수', v: cnt(T_REQ.length), text: '당일 ' + T_REQ.length + ' · 금주 누계 ' + cntW.req + (T_REQ.length ? ' — ' + top(T_REQ, function (x) { return str_(x[si['품목명']]).slice(0, 20) + '(' + (str_(x[si['업체명']]) || '미정') + ')'; }) : '') },
-    { grp: '1-2. 이슈', no: '', id: 'w25', label: '발주건 이슈', v: cnt(L25.length), warn: L25.length > 0, text: L25.length ? '입고 지연(예정일 지남 · 잔량) — 긴 순: ' + top(L25, function (r) { return r[0].slice(0, 22) + '(' + r[1] + ' ' + r[4] + ')'; }) : '입고 지연 없음' },
-    { no: '', id: 'w35', label: '샘플진행건 이슈', v: cnt(L35.length), warn: L35.length > 0, text: L35.length ? '마지막 진행 뒤 ' + IDLE + '일 넘게 멈춘 건 · 회신 기한 지남 — ' + top(SI, function (x) { return x.row[1].slice(0, 20) + '(' + x.row[2] + ' ' + x.row[0] + ')'; }) : '멈춘 샘플 없음' + (nIdleOK > 0 ? ' (기한 지남 · 결정 대기 ' + nIdleOK + '건은 최근 ' + IDLE + '일 안에 진행 기록 있음)' : '') },
-    { grp: '4. 기타 특이사항', no: '', id: 'w4', label: '기타 특이사항', v: '직접', text: '아래 4. 기타 특이사항에 직접 작성', manual: 1 }
+  // ── 2026-10-27 v6: 담당자가 준 양식 — 머리(작성일자 · 작성자 · 결재) → 1. 일일 현황 요약(숫자 칸 + 특이사항 요약) → 2. 발주건 상세 한 표 → 3. 샘플건 상세 한 표 → 4. 기타 특이사항 및 명일 계획
+  // 이슈 = 담당자가 발주건 · 샘플건에 등록한 것(열림) + 보고서가 찾은 것(입고 지연 · 멈춘 샘플 · 회신 기한 지남). 팀장이 피드백을 쓰면 '확인' → 이슈에서 빠진다
+  var ISSL = []; try { ISSL = issAll_(); } catch (eI) { ISSL = []; }
+  var ISS_OK = {}; ISSL.forEach(function (x) { if (x.st === '확인') ISS_OK[x.id] = 1; });
+  var ISS_OPEN = ISSL.filter(function (x) { return x.st !== '확인'; });
+  var sheetRowOf = function (r) { return SM.rows.indexOf(r) + 2; };
+  var rvOf = function (r) { var R0 = RVS[pjOf(r)] || {}, sid = si['샘플ID'] == null ? '' : str_(r[si['샘플ID']]); return R0[sid] || R0['r' + sheetRowOf(r)] || null; };
+  var pjId = function (r) { return si['프로젝트ID'] == null ? '' : str_(r[si['프로젝트ID']]); };
+  var rqNo = function (r) { var q = str_(r[si['구성']]); return q; };
+  var PR = [], SR = [];
+  var iss = function (id, meta, x) { return { id: id, kind: meta.kind, ref: meta.ref, name: meta.name, vendor: meta.vendor, text: meta.text, by: x ? x.by : '자동', at: x ? x.at : '' }; };
+  // 2. 발주건 — 이슈(등록) · 입고 지연(자동) · 당일 발주 접수 · 금주 입고예정 · 전주 변경건 · 전주 입고건
+  ISS_OPEN.filter(function (x) { return x.kind === '발주'; }).forEach(function (x) {
+    var p = poById[x.ref.replace(/^po:/, '')];
+    PR.push({ g: '발주 이슈', warn: 1, c: [p ? str_(p[pi['품의번호']]) : '', p ? str_(p[pi['업체명']]) : x.vendor, p ? nm(p) : x.name, p ? wkQty_(p[pi['발주수량']]) : '', p ? wkMd_(p[pi['입고목표']]) : '', '⚠ ' + x.text + ' (' + x.at.slice(5, 10).replace('-', '/') + ' ' + x.by + ')'], iss: iss(x.id, x, x) });
+  });
+  late.forEach(function (x) {
+    var pid = pidOf(x.p), key = 'auto:late:' + pid + ':' + ymd(x.t); if (ISS_OK[key]) return;
+    var tx = '[지연 ' + days(x.t) + '일] 예정 ' + wkMd_(x.t) + ' · 잔량 ' + wkQty_(x.q) + '개' + (memoOfPo(x.p) ? ' — ' + memoOfPo(x.p) : '');
+    PR.push({ g: '입고 지연', warn: 1, c: [str_(x.p[pi['품의번호']]), str_(x.p[pi['업체명']]), nm(x.p), wkQty_(x.p[pi['발주수량']]), wkMd_(x.t), tx], iss: iss(key, { kind: '발주', ref: 'po:' + pid, name: nm(x.p), vendor: str_(x.p[pi['업체명']]), text: tx }) });
+  });
+  T_PO.forEach(function (x) { PR.push({ g: '발주 접수', c: [str_(x[pi['품의번호']]), str_(x[pi['업체명']]), nm(x), wkQty_(x[pi['발주수량']]), wkMd_(x[pi['입고목표']]), tagNew(x) + ' · ' + str_(x[pi['진행상태']])] }); });
+  IN_W.forEach(function (a) { var r = a[0], p = a[1], t = wkDay_(r[yi['입고일']]), lt = t < TODAY;
+    PR.push({ g: '금주 입고예정', warn: lt ? 1 : 0, c: [str_(p[pi['품의번호']]), str_(p[pi['업체명']]), nm(p), wkQty_(r[yi['수량']]), wkMd_(t), (lt ? '[지연 ' + days(t) + '일] ' : (t - TODAY === 0 ? '오늘 입고 예정' : '입고 예정')) + (memoOfPo(p) ? ' — ' + memoOfPo(p) : '')] }); });
+  H.rows.filter(function (r) { return inR(r[hi['시각']], p0, p1) && str_(r[hi['종류']]) === '입고일정'; }).sort(function (a, b) { return wkDay_(a[hi['시각']]) - wkDay_(b[hi['시각']]); }).forEach(function (r) {
+    var p = poOfHist(r), a0 = first(str_(r[hi['이전값']])), b0 = first(str_(r[hi['새값']])), push = a0 && b0 && b0 > a0;
+    PR.push({ g: '전주 변경건', warn: push ? 1 : 0, c: [p ? str_(p[pi['품의번호']]) : str_(r[hi['품의번호']]), p ? str_(p[pi['업체명']]) : '', p ? nm(p) : str_(r[hi['품목명']]), p ? wkQty_(p[pi['발주수량']]) : '', str_(r[hi['새값']]),
+      (push ? '[지연] ' : '') + '변경 ' + wkMd_(r[hi['시각']]) + ': ' + str_(r[hi['이전값']]) + ' → ' + str_(r[hi['새값']]) + (str_(r[hi['사유']]) ? ' (' + str_(r[hi['사유']]) + ')' : '') + ' · ' + wkWho_(r[hi['바꾼사람']])] });
+  });
+  IN_P.forEach(function (a) { var r = a[0], p = a[1]; PR.push({ g: '전주 입고건', c: [str_(p[pi['품의번호']]), str_(p[pi['업체명']]), nm(p), wkQty_(r[yi['수량']]), wkMd_(r[yi['입고일']]), '입고 완료' + (num(r[yi['금액']]) ? ' · ₩' + eok(num(r[yi['금액']])) : '') + ' · ' + str_(p[pi['진행상태']])] }); });
+  // 3. 샘플건 — 이슈(등록) · 멈춘 샘플(자동) · 수신 샘플 · 접수 샘플 · 회신 대기 · 당일 진행
+  var brandOf = function (pj) { var r = SMP.filter(function (x) { return pjOf(x) === pj; })[0]; return r ? str_(r[si['브랜드']]) : ''; };
+  var wt = function (x) { return { pj: x.pj, vk: x.vk || '', at: x.at, text: x.rawText != null ? x.rawText : x.text, name: x.proj, brand: brandOf(x.pj) }; };
+  var smpOfRef = function (ref) {
+    var m = ref.match(/^s:(.*)\|([^|]*)$/); if (!m) return null;
+    var L = SMP.filter(function (x) { return pjOf(x) === m[1] && (!m[2] || vk(str_(x[si['업체명']]) || '미정') === m[2]); });
+    return L.length ? L[L.length - 1] : null;
+  };
+  ISS_OPEN.filter(function (x) { return x.kind === '샘플'; }).forEach(function (x) {
+    var r = smpOfRef(x.ref);
+    SR.push({ g: '샘플 이슈', warn: 1, c: [r ? pjId(r) : '', x.vendor || (r ? str_(r[si['업체명']]) : '') || '프로젝트 전체', r ? proj(r) : x.name, r ? wkQty_(r[si['수량']]) : '', r ? wkMd_(r[si['요청일']]) : '', '⚠ ' + x.text + ' (' + x.at.slice(5, 10).replace('-', '/') + ' ' + x.by + ')'], iss: iss(x.id, x, x) });
+  });
+  S_LATE.concat(NX_DEC).forEach(function (x) {
+    var n = idle(x), isLate = S_LATE.indexOf(x) > -1; if (n != null && n < IDLE) return; if (!isLate && n == null) return;
+    var la = lastAct(x), key = 'auto:s:' + pjOf(x) + '|' + vk(str_(x[si['업체명']]) || '미정') + ':' + (isLate ? 'late' : 'dec') + ':' + (la ? ymd(la) : ''); if (ISS_OK[key]) return;
+    var tx = isLate ? '[기한 지남 ' + days(wkDay_(x[si['전달예정일']])) + '일] 기한 ' + wkMd_(x[si['전달예정일']]) : '[결정 대기] 수신 ' + wkMd_(x[si['전달일']]) + ' · 채택/드롭 미정';
+    tx += ' · 마지막 진행 ' + (n == null ? '없음' : n + '일 전') + (lastTxt(x) ? ' — ' + lastTxt(x) : '');
+    SR.push({ g: isLate ? '샘플 지연' : '결정 대기', warn: 1, n: n == null ? 999 : n, c: [pjId(x), str_(x[si['업체명']]) || '미정', proj(x), wkQty_(x[si['수량']]), wkMd_(x[si['요청일']]), tx],
+      iss: iss(key, { kind: '샘플', ref: 's:' + pjOf(x) + '|' + vk(str_(x[si['업체명']]) || '미정'), name: proj(x), vendor: str_(x[si['업체명']]), text: tx }) });
+  });
+  W_OPEN.forEach(function (x) {
+    var d = wkDay_(x.due); if (!(d && d < TODAY)) return;
+    var key = 'auto:w:' + x.pj + '|' + x.vk + ':' + str_(x.at).slice(0, 16) + ':' + ymd(d); if (ISS_OK[key]) return;
+    var tx = '[회신 기한 지남 ' + days(d) + '일] ' + x.wait + ' — ' + x.text;
+    SR.push({ g: '회신 지연', warn: 1, wt: wt(x), c: ['', x.vendor || '', x.proj, '', wkMd_(x.at), tx], iss: iss(key, { kind: '샘플', ref: 's:' + x.pj + '|' + (x.vk || ''), name: x.proj, vendor: x.vendor, text: tx }) });
+  });
+  var rvTxt = function (r) { var v = rvOf(r); return v ? '검토 ' + v.res + (v.note ? '(' + v.note + ')' : '') : ''; };
+  T_RCV.forEach(function (x) { SR.push({ g: '수신 샘플', c: [pjId(x), str_(x[si['업체명']]) || '미정', proj(x), wkQty_(x[si['수량']]), wkMd_(x[si['전달일']]), [rvTxt(x) || '수신 — 검토 전', lastTxt(x)].filter(String).join(' · ')] }); });
+  T_REQ.forEach(function (x) { SR.push({ g: '접수 샘플', c: [pjId(x), str_(x[si['업체명']]) || '미정', proj(x), wkQty_(x[si['수량']]), wkMd_(x[si['요청일']]), '요청 — 전달예정 ' + (wkMd_(x[si['전달예정일']]) || '미정') + (str_(x[si['구분']]) ? ' · ' + str_(x[si['구분']]) : '')] }); });
+  W_OPEN.forEach(function (x) { var d = wkDay_(x.due); if (d && d < TODAY) return; SR.push({ g: '회신 대기', c: ['', x.vendor || '', x.proj, '', wkMd_(x.at), x.wait + ' — ' + x.text + (x.due ? ' (회신 기한 ' + wkMd_(x.due) + ')' : '')], wt: wt(x) }); });
+  W_DONE.forEach(function (x) { SR.push({ g: '회신 받음', c: ['', x.vendor || '', x.proj, '', wkMd_(x.waitDone), x.wait + ' — ' + x.text + ' → 회신: ' + (x.waitReply || '(내용 없음)')] }); });
+  MEMO.filter(function (m) { return inR(m.at, d1, d1) && m.text && !PDONE[m.pj] && !m.wait; }).sort(function (a, b) { return a.at < b.at ? -1 : 1; }).forEach(function (m) {
+    var r = SMP.filter(function (x) { return pjOf(x) === m.pj && vk(str_(x[si['업체명']]) || '미정') === m.vk; })[0];
+    SR.push({ g: '당일 진행', c: [r ? pjId(r) : '', m.vendor, m.proj, '', dmd(m.at), m.text + (m.st && m.st !== '메모' ? ' [' + m.st + ']' : '') + ' · ' + (ownerOfPV(m.pj, m.vk) || m.who)] });
+  });
+  var nPoIss = PR.filter(function (x) { return x.iss; }).length, nSIss = SR.filter(function (x) { return x.iss; }).length;
+  var KPI = [
+    { k: 'po', label: '발주 건수', v: poOpen.length, sub: '진행 중' },
+    { k: 'poin', label: '발주 접수건수', v: T_PO.length, sub: '당일 · 금주 ' + cntW.po },
+    { k: 'sreq', label: '샘플요청 접수건', v: T_REQ.length, sub: '당일 · 금주 ' + cntW.req },
+    { k: 'sopen', label: '샘플 진행건수', v: sOpen.length, sub: '받기 전' },
+    { k: 'srcv', label: '샘플 수신건수', v: T_RCV.length, sub: '당일 · 금주 ' + cntW.rcv },
+    { k: 'poiss', label: '발주 이슈건', v: nPoIss, warn: 1, sub: '피드백 전' },
+    { k: 'siss', label: '샘플 이슈건', v: nSIss, warn: 1, sub: '피드백 전' }
   ];
-  var S2 = function (id, t, n, items) { return { t: t + ' — ' + (n ? n + '건' : '없음'), id: id, items: items }; };
-  var parts = [
-    { h: '2. 발주건', subs: [
-      S2('w21', '2-1. 금주 입고예정 (' + md(w0) + '~' + md(w1) + ')', L21.length, [T('예정일 순 · 지난 날짜는 지연', ['예정일', '품목 · 차수', '수량', '업체', '상태', '비고', '담당'], L21, { manual: 0 })]),
-      S2('w22', '2-2. 전주 입고예정 변경건 (' + md(p0) + '~' + md(p1) + ')', L22.length, [T('변경일 순', ['변경일', '품목 · 차수', '업체', '이전 일정', '새 일정', '사유', '담당'], L22, { manual: 0 })]),
-      S2('w23', '2-3. 전주 입고 건 (' + md(p0) + '~' + md(p1) + ')', L23.length, [T('입고일 순' + (inPKrw ? ' · 합계 ₩' + eok(inPKrw) : ''), ['입고일', '품목 · 차수', '입고수량', '업체', '금액', '진행상태', '담당'], L23, { manual: 0 })]),
-      S2('w24', '2-4. 당일 발주 접수', L24.length, [T('작성일 순', ['작성일', '구분', '품목 · 차수', '수량', '업체', '입고목표', '담당'], L24, { manual: 0 })]),
-      S2('w25', '2-5. 발주건 이슈 — 입고 지연', L25.length, [T('지연 긴 순(예정일부터)', ['품목 · 차수', '업체', '예정', '잔량', '지연', '비고', '담당'], L25, { manual: 0 })])
-    ] },
-    { h: '3. 샘플건', subs: [
-      S2('w31', '3-1. 수신 샘플 건 (당일)', L31.length, [T('수신일 순', ['수신일', '프로젝트 · 구성', '업체', '요청일', '상태', '최근 진행', '담당'], L31, { manual: 0 })]),
-      S2('w32', '3-2. 접수 샘플 건 (당일 요청)', L32.length, [T('요청일 순', ['요청일', '프로젝트 · 구성', '업체', '수량', '구분', '전달예정', '담당'], L32, { manual: 0 })]),
-      S2('w33', '3-3. 회신 대기 건', W_OPEN.length, [T('우리가 요청하고 기다리는 일 — 기한 순 · 당일 회신 받은 것 포함', ['요청일', '대기 대상', '프로젝트 · 업체', '요청 내용', '회신 기한', '상태', '담당'], L33, { manual: 0 })]),
-      S2('w34', '3-4. 당일 진행 업데이트', L34.length, [T('보고일에 남긴 진행 기록만', ['시각', '프로젝트', '업체', '내용', '상태 변경', '대기', '담당'], L34, { manual: 0 })]),
-      S2('w35', '3-5. 샘플진행건 이슈', L35.length, [T('마지막 진행 뒤 ' + IDLE + '일 넘게 멈춘 건 · 회신 기한 지남 — 멈춘 기간 긴 순', ['구분', '프로젝트 · 구성', '업체', '상태', '마지막 진행', '마지막 기록', '담당'], L35, { manual: 0 })])
-    ] },
-    { h: '4. 기타 특이사항', subs: [
-      { t: '담당자가 직접 작성', id: 'w4', items: [T('지연 사유 · 품질 · 협력사 · 의사결정 필요 · 유관부서 협조 요청', ['구분', '내용', '품목 · 업체', '원인', '대응 방안', '해결 예정일', '담당'], [], { manual: 6, blank: 1 })] }
-    ] }
-  ];
-  return { v: 5, from: ymd(d0), to: ymd(d1), nextFrom: ymd(n0), nextTo: ymd(n1), week: { from: ymd(w0), to: ymd(w1), prevFrom: ymd(p0), prevTo: ymd(p1) },
-    summary: { rows: SUM, kpi: [], hl: [], team: [], tables: [] }, parts: parts };
+  var issTop = function (L) { return L.filter(function (x) { return x.iss; }).slice(0, 2).map(function (x) { return x.c[2].slice(0, 20) + ' ' + x.g; }).join(', '); };
+  var NOTE = '[특이사항 요약] ' + (nPoIss ? '발주 이슈 ' + nPoIss + '건(' + issTop(PR) + ')' : '발주 이슈 없음') + ', ' + (nSIss ? '샘플 이슈 ' + nSIss + '건(' + issTop(SR) + ')' : '샘플 이슈 없음');
+  return { v: 6, from: ymd(d0), to: ymd(d1), nextFrom: ymd(n0), nextTo: ymd(n1), week: { from: ymd(w0), to: ymd(w1), prevFrom: ymd(p0), prevTo: ymd(p1) },
+    kpi: KPI, note: NOTE,
+    po: { cols: ['구분', '발주번호', '협력업체(공급사)', '품목명 / 규격', '발주수량', '입고예정일 / 입고일', '진행상태 및 이슈사항'], rows: PR },
+    smp: { cols: ['구분', '샘플관리ID', '요청/공급처', '샘플 품목명', '수량', '접수/수신일', '검토현황 및 후속조치'], rows: SR },
+    summary: { rows: [], kpi: [], hl: [], team: [], tables: [] }, parts: [] };
 }
