@@ -15237,7 +15237,7 @@ function dateSlots_(steps, cfg, mode) {
       ["bomv-fixbtn", "bomv-ordbtn", "bomv-flat"].forEach(function (id) { if ($(id)) $(id).hidden = true; }); if ($("bomv-hf")) $("bomv-hf").hidden = true;
       return;
     }
-    $("bomv-name").textContent = bvTitle() + (BV.newProduct ? " · 신제품" : "");
+    $("bomv-name").innerHTML = esc(bvTitle() + (BV.newProduct ? " · 신제품" : "")) + (BV.newProduct ? ' <button type="button" class="btn btn-sm" id="bomv-newcode" title="저장 전 — 자동 채번한 제품 코드를 고칩니다(자재 예상 코드도 같은 번호로)">코드 고치기</button>' : "");
     var ob = bvEditRound(), orderR = bvOrderRound();
     var pts = bvPoints(), opts = "", ordR = {};
     if (mode === "po" && !BV.semi) (DATA.rows || []).forEach(function (r) { if (!r.cancelled && String(r.code || "").toUpperCase() === BV.code) ordR[bvR(r.batch) || 0] = 1; });
@@ -16022,7 +16022,9 @@ function dateSlots_(steps, cfg, mode) {
     gsr().withSuccessHandler(function (r) {
       if (seq !== BOMN_SEQ) return;                      // 그사이 다시 골랐으면 옛 결과는 버린다
       BV.newCodes = r.codes || [];
-      $("bomn-codes").textContent = "코드: " + BV.newCodes.join(" · ") + (r.fromParent ? " (모제품 번호 " + r.num + ")" : " (새 번호 " + r.num + ")");
+      // 자동 계산한 코드는 칸에 넣어 고칠 수 있게(2026-10-27) — 고치면 아래 자재 예상 코드도 그 번호로
+      $("bomn-codes").innerHTML = "코드: " + BV.newCodes.map(function (c, i) { return '<input class="bomn-codein" data-ci="' + i + '" value="' + esc(c) + '" size="11" title="자동 채번 — 필요하면 고치세요(예: M0160AA1)">'; }).join(" · ") +
+        " " + esc(r.fromParent ? "(모제품 번호 " + r.num + ")" : "(새 번호 " + r.num + ")");
       bomnMatsRender();
       if (then) then.call(null);
     }).withFailureHandler(function (er) { if (seq !== BOMN_SEQ) return; $("bomn-codes").textContent = "코드: 계산 실패"; $("bomv-msg").textContent = er.message; })
@@ -16441,6 +16443,30 @@ function dateSlots_(steps, cfg, mode) {
   $("bomv").addEventListener("input", function (e) { if (e.target && e.target.id === "bomn-load") bomnLoadSearch(); });
   $("bomv").addEventListener("input", function (e) { if (e.target && e.target.id === "bomn-parent") bomnAutoCode(600); });
   $("bomv").addEventListener("input", function (e) { if (e.target && e.target.id === "bomn-parent") bomnNameFollow(); });
+  $("bomv").addEventListener("click", function (e) {
+    if (!e.target || e.target.id !== "bomv-newcode" || !BV.newProduct) return;
+    var old = BV.code, nc = prompt("제품 코드 고치기 (예: M0160AA1)", old); if (nc === null) return;
+    nc = String(nc).trim().toUpperCase().replace(/\s+/g, ""); if (!nc || nc === old) return;
+    if (!/^[A-Z]\d{4}[A-Z]{2}\d+$/.test(nc)) { $("bomv-msg").textContent = "제품 코드 형식이 아닙니다(예: M0160AA1)"; return; }
+    $("bomv-msg").textContent = nc + " 확인하는 중…";
+    gsr().withSuccessHandler(function (d) {
+      if (d && d.rows && d.rows.length) { $("bomv-msg").textContent = nc + " 은(는) 이미 BOM이 있습니다 — 다른 코드를 넣어 주세요."; return; }
+      var om = old.match(/^([A-Z])(\d{4})/), nm2 = nc.match(/^([A-Z])(\d{4})/);
+      var fix = function (c) { if (!c) return c; if (c === old) return nc; if (om && nm2) { c = c.replace(new RegExp("^" + om[1] + "P" + om[2]), nm2[1] + "P" + nm2[2]).replace(new RegExp("^" + om[1] + "X" + om[2]), nm2[1] + "X" + nm2[2]); } return c; };
+      (BV.adds || []).forEach(function (a) { if (a.predict) a.predict = fix(a.predict); if (a.want && !a.picked) a.want = fix(a.want); });
+      BV.code = nc; if (BV.newCodes) BV.newCodes[0] = nc;
+      if (BV.newProduct && BV.newProduct.extra) BV.newProduct.extra = BV.newProduct.extra.map(function (c) { return om && nm2 ? c.replace(new RegExp("^" + om[1] + om[2]), nm2[1] + nm2[2]) : c; });      // 같은 구성의 다른 국가 코드도 같은 번호로
+      $("bomv-q").value = (BV.name || "") + " " + nc;
+      bomShow(); $("bomv-msg").textContent = "코드를 " + old + " → " + nc + " 로 고쳤습니다(아직 저장 전) — 자재 예상 코드도 같은 번호로 바꿨습니다.";
+    }).withFailureHandler(function (er) { $("bomv-msg").textContent = "확인하지 못했습니다: " + er.message; }).apiBomGet(nc);
+  });
+  $("bomv").addEventListener("change", function (e) {
+    var ci = e.target && e.target.classList && e.target.classList.contains("bomn-codein") ? e.target : null; if (!ci) return;
+    var v = String(ci.value || "").trim().toUpperCase().replace(/\s+/g, ""); ci.value = v;
+    if (!/^[A-Z]\d{4}[A-Z]{2}\d+$/.test(v)) { $("bomv-msg").textContent = "제품 코드 형식이 아닙니다(예: M0160AA1) — 브랜드 1글자 + 번호 4자리 + 국가 2글자 + 버전"; ci.focus(); return; }
+    (BV.newCodes = BV.newCodes || [])[Number(ci.dataset.ci)] = v; $("bomv-msg").textContent = "코드를 " + v + " 로 고쳤습니다";
+    if (typeof bomnMatsRender === "function") bomnMatsRender();
+  });
   $("bomv").addEventListener("input", function (e) { if (e.target && e.target.id === "bomn-parent") { BV.newCodes = []; if ($("bomn-codes")) $("bomn-codes").textContent = ""; bomnParentSearch(); } });
   $("bomv").addEventListener("change", function (e) {
     if (e.target && e.target.closest && e.target.closest(".bvcur") && e.target.tagName === "SELECT") {
