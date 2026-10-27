@@ -494,7 +494,14 @@ function apiWeeklyReport(from, to, kind) {
     var p = poOfHist(r), a0 = first(str_(r[hi['이전값']])), b0 = first(str_(r[hi['새값']])), push = a0 && b0 && b0 > a0;
     return { cat: catOf(p), warn: push ? 1 : 0, c: [wkMd_(r[hi['시각']]), p ? poNo(p) : str_(r[hi['품의번호']]), p ? str_(p[pi['업체명']]) : '', p ? nm(p) : str_(r[hi['품목명']]), dts(r[hi['이전값']]), dts(r[hi['새값']]) + (push ? ' (늦춰짐)' : ''), str_(r[hi['사유']]), wkWho_(r[hi['바꾼사람']])] };
   });
-  var P_IN = IN_P.map(function (a) { var r = a[0], p = a[1]; return { cat: catOf(p), c: [wkMd_(r[yi['입고일']]), poNo(p), str_(p[pi['업체명']]), nm(p), wkQty_(r[yi['수량']]), num(r[yi['금액']]) ? '₩' + eok(num(r[yi['금액']])) : '', str_(p[pi['진행상태']])] }; });
+  // 남은 잔량 — 진행상태 대신(2026-10-27 담당자): 잔량 N개 · 전량 입고 · 잔량 마감
+  var remTxt = function (p) {
+    if (pi['종결'] != null && str_(p[pi['종결']])) return '잔량 마감';
+    var rm = pi['발주잔량'] == null ? '' : str_(p[pi['발주잔량']]).replace(/,/g, '');
+    if (rm !== '' && isFinite(Number(rm))) return Number(rm) > 0 ? '잔량 ' + wkQty_(rm) + '개' : '전량 입고';
+    return str_(p[pi['진행상태']]) === '종결' ? '완료' : '';
+  };
+  var P_IN = IN_P.map(function (a) { var r = a[0], p = a[1]; return { cat: catOf(p), c: [wkMd_(r[yi['입고일']]), poNo(p), str_(p[pi['업체명']]), nm(p), wkQty_(r[yi['수량']]), num(r[yi['금액']]) ? '₩' + eok(num(r[yi['금액']])) : '', remTxt(p)] }; });
   // ── 3. 샘플건
   var brandOf = function (pj) { var r = SMP.filter(function (x) { return pjOf(x) === pj; })[0]; return r ? str_(r[si['브랜드']]) : ''; };
   var wt = function (x) { return { pj: x.pj, vk: x.vk || '', at: x.at, text: x.rawText != null ? x.rawText : x.text, name: x.proj, brand: brandOf(x.pj) }; };
@@ -536,7 +543,7 @@ function apiWeeklyReport(from, to, kind) {
     SEC('p1', '2-1. 발주 이슈', ['구분', '발주번호', '협력업체', '품목명 / 차수', '입고예정', '이슈 내용'], P_ISS, { fb: 1, hot: 1 })
   ].concat(byCat('p2', '2-2. 금주 입고예정 (' + wr(w0, w1) + ')', ['입고예정일', '발주번호', '협력업체', '품목명 / 차수', '수량', '상태', '비고'], P_IN_W))
     .concat(byCat('p3', '2-3. 전주 일정변경 (' + wr(p0, p1) + ')', ['변경일', '발주번호', '협력업체', '품목명 / 차수', '이전 일정', '새 일정', '사유', '변경자'], P_CHG))
-    .concat(byCat('p4', '2-4. 전주 입고 (' + wr(p0, p1) + ')', ['입고일', '발주번호', '협력업체', '품목명 / 차수', '입고수량', '금액', '진행상태'], P_IN))
+    .concat(byCat('p4', '2-4. 전주 입고 (' + wr(p0, p1) + ')', ['입고일', '발주번호', '협력업체', '품목명 / 차수', '입고수량', '금액', '잔량'], P_IN))
     .concat(byCat('p5', '2-5. ' + PL + ' 발주 접수', ['작성일', '발주번호', '협력업체', '품목명 / 차수', '발주수량', '입고목표', '구분 · 상태'], P_NEW));
   var SM_S = [
     SEC('s1', '3-1. 샘플 이슈', ['구분', '샘플관리ID', '업체', '샘플 품목', '이슈 내용'], S_ISS, { fb: 1, hot: 1 }),
