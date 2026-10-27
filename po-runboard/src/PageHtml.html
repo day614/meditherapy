@@ -1630,13 +1630,16 @@
   @media (max-width: 760px) { .spform { grid-template-columns: 1fr 1fr; } }
   .spfoot { display: flex; align-items: center; gap: 8px; justify-content: flex-end; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
   .spfoot .nghelp { margin-right: auto; }
-  .qtwrap { overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+  .qtwrap { overflow: auto; border: 1px solid var(--line); border-radius: 10px; max-width: 100%; max-height: calc(100vh - 260px); min-height: 240px; }      /* 가로 · 세로 스크롤 막대가 늘 보이게(표가 길면 아래 끝까지 내려야 가로 막대가 보였다) */
   table.qtab { min-width: 0; width: max-content; min-width: 100%; table-layout: auto; font-size: 13px; border-collapse: collapse; }
   .qtab th, .qtab td { padding: 7px 12px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); min-width: 170px; vertical-align: middle; position: static; }
   .qtab thead th { background: #f3f6fa; color: var(--ink); font-size: 13px; letter-spacing: 0; text-transform: none; white-space: nowrap; }
   .qtab thead th small { color: var(--ink-3); font-weight: 500; margin-right: 4px; }
-  .qtab .qtl { position: sticky; left: 0; background: var(--surface-2); min-width: 150px; color: var(--ink-2); font-size: 12px; border-left: 0; z-index: 1; }
-  .qtab tr.qtg td { background: var(--surface-2); font-size: 11.5px; font-weight: 700; color: var(--primary); padding: 5px 12px; }
+  .qtab .qtl { position: sticky; left: 0; background: #f3f5f8; width: 150px; min-width: 150px; max-width: 150px; white-space: normal; color: var(--ink-2); font-size: 12px; border-left: 0; z-index: 2; box-shadow: 1px 0 0 var(--line); }
+  .qtab thead th { position: sticky; top: 0; z-index: 3; }
+  .qtab thead th.qtl { z-index: 4; }
+  .qtab tr.qtg td { background: #f3f5f8; font-size: 11.5px; font-weight: 700; color: var(--primary); padding: 5px 12px; }
+  .qtab tr.qtg td span { position: sticky; left: 12px; }
   .qtab tbody tr { cursor: default; }
   .qtab tbody tr:hover td { background: inherit; }
   .qtab td input, .qtab td select { width: 100%; border: 1px solid var(--line-strong); border-radius: 6px; padding: 4px 7px; font-size: 13px; background: var(--surface); }
@@ -1798,6 +1801,11 @@
   .dlyok { color: #1e7b45; font-weight: 600; font-size: 12px; }
   .dlynotes td.dlyno { width: 34px; text-align: right; color: var(--ink-2); }
   @media (max-width: 900px) { .dlykpi { grid-template-columns: repeat(4, 1fr); } }
+  .dlysec { margin: 12px 0 4px; font-size: 13.5px; color: #1f4e78; }
+  .dlysec small { font-weight: 400; color: var(--ink-3); margin-left: 4px; }
+  .dlyt tr.dlywarn td:nth-child(6) { color: #c00000; font-weight: 600; }      /* 지연 · 늦춰짐은 그 칸만 빨갛게 */
+  .dlywknotes { margin: 8px 0 0 18px; padding: 0; font-size: 13px; }
+  .dlywknotes li { padding: 3px 0; }
 </style>
 </head>
 <body>
@@ -5644,6 +5652,13 @@ function dateSlots_(steps, cfg, mode) {
       sProjMemoSave(row, opP, function (er) { var b2 = $("pmemoAdd"); if (b2) b2.disabled = false; if (er) { var i2 = $("pmemoText"); if (i2) i2.value = v; } });
       return;
     }
+    var pe = t.closest("[data-pmedit]");
+    if (pe) {
+      var cur0 = (sProjMemo(row)[Number(pe.dataset.pmedit)] || {}).t || "";
+      var nt = prompt("프로젝트 비고 고치기", cur0); if (nt === null || String(nt).trim() === cur0) return;
+      if (!String(nt).trim()) { toast("지우려면 × 를 누르세요"); return; }
+      pe.disabled = true; sProjMemoSave(row, { edit: Number(pe.dataset.pmedit), at: pe.dataset.pmat, t: String(nt).trim() }); return;
+    }
     var d = t.closest("[data-pmdel]");
     if (d) { if (!confirm("이 프로젝트 비고를 지울까요?")) return; d.disabled = true; sProjMemoSave(row, { del: Number(d.dataset.pmdel), at: d.dataset.pmat }); return; }
     var pw2 = t.closest("[data-pmwait]");
@@ -6825,7 +6840,7 @@ function dateSlots_(steps, cfg, mode) {
         ((g.extra || g.other) && !ro ? ' <button type="button" class="btn-quiet btn-sm" data-qtdel="' + esc(k) + '" title="이 업체를 이 구성 견적 비교에서 뺍니다">✕</button>' : "") + "</th>";
     }).join("") + "</tr></thead><tbody>";
     QT_ROWS.forEach(function (G) {
-      h += '<tr class="qtg"><td colspan="' + (V.length + 1) + '">' + esc(G[0]) + "</td></tr>";
+      h += '<tr class="qtg"><td colspan="' + (V.length + 1) + '"><span>' + esc(G[0]) + "</span></td></tr>";
       G[1].forEach(function (F) {
         h += '<tr><td class="qtl">' + esc(F[1]) + "</td>" + V.map(function (g) {
           var vk = sampleVKey(g.name), c = C[vk], q = c.q, v = q[F[0]] == null ? "" : String(q[F[0]]), cls = c.off ? "qoff" : "";
@@ -7507,7 +7522,8 @@ function dateSlots_(steps, cfg, mode) {
       (L.length ? '<ul class="pmlist">' + L.map(function (m, i) { return { m: m, i: i }; }).reverse().map(function (x) {
         return '<li><span class="tlwho">' + esc(x.m.at || "") + " · " + esc(x.m.by || "") + "</span> " + esc(x.m.t || "") + waitTag({ wait: x.m.wait, due: x.m.due, waitDone: x.m.waitDone, waitReply: x.m.waitReply }) +
           (x.m.wait ? " " + waitBtn({ src: "pm", i: x.i, x: { at: x.m.at, waitDone: x.m.waitDone } }) : "") +
-          (ro ? "" : ' <button type="button" class="btn-quiet btn-sm" data-pmdel="' + x.i + '" data-pmat="' + esc(x.m.at || "") + '" title="이 메모 지우기">×</button>') + "</li>";
+          (x.m.edited ? ' <span class="tlwho" title="고친 때">(고침 ' + esc(x.m.edited) + ")</span>" : "") +
+          (ro ? "" : ' <button type="button" class="btn-quiet btn-sm" data-pmedit="' + x.i + '" data-pmat="' + esc(x.m.at || "") + '" title="이 메모 고치기">✎</button><button type="button" class="btn-quiet btn-sm" data-pmdel="' + x.i + '" data-pmat="' + esc(x.m.at || "") + '" title="이 메모 지우기">×</button>') + "</li>";
       }).join("") + "</ul>" : "") +
       (ro ? "" : '<div class="tladd"><input type="text" id="pmemoText" placeholder="프로젝트 메모 한 줄 — Enter 로 남기기 · 요청하고 기다리는 일이면 [대기]도" style="flex:1 1 320px;min-width:0">' + waitSel('id="pmemoWait"') + '<label class="tldue" title="회신 기한(대기일 때)">기한 <input type="date" id="pmemoDue"></label><button type="button" class="btn btn-sm" id="pmemoAdd">남기기</button></div>') + "</div>";
   }
@@ -10270,6 +10286,40 @@ function dateSlots_(steps, cfg, mode) {
       (ro ? "" : '<div class="svbar" style="margin-top:6px"><button type="button" class="btn btn-sm" id="dly-addrow">+ 줄 추가</button><span style="flex:1"></span><span class="nghelp" id="dly-issmsg"></span><button type="button" class="btn btn-sm btn-solid" id="dly-isssave">특이사항 저장</button></div>');
     return h;
   }
+  function dlyRowAt(R, k) { return k.length === 3 ? (((R[k[0]] || [])[+k[1]] || { rows: [] }).rows[+k[2]]) : (R[k[0]] || { rows: [] }).rows[+k[1]]; }
+  /** 일일보고 v7 — 1. 현황 요약 → 2. 발주건(항목마다 표) → 3. 샘플건(항목마다 표) → 4. 기타 특이사항 및 명일 계획 */
+  function dlyV7Html(d, ro, wk) {
+    var h = '<div class="dlyband">1. ' + (wk ? "주간" : "일일") + ' 현황 요약 (' + (wk ? "Weekly" : "Daily") + ' Summary)</div><div class="dlykpi">' + (d.kpi || []).map(function (k) {
+      var on = k.warn && Number(k.v) > 0; return '<div class="' + (k.warn ? "w" : "") + (on ? " on" : "") + '"><small>' + esc(k.label) + "</small><b>" + esc(String(k.v)) + "</b><span>" + esc(k.sub || "") + "</span></div>";
+    }).join("") + '</div><div class="dlynote">' + esc(d.note || "") + "</div>";
+    var sec = function (key, si, S) {
+      var out = '<h5 class="dlysec">' + esc(S.t) + ' <small>' + (S.rows.length ? S.rows.length + "건" : "없음") + "</small></h5>";
+      if (!S.rows.length) return out;
+      out += '<div style="overflow-x:auto"><table class="svtable dlyt' + (S.hot ? " hot" : "") + '"><thead><tr>' + S.cols.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + (S.fb ? "<th>" + (S.hot ? "팀장 피드백" : "회신 내용") + "</th>" : "") + "</tr></thead><tbody>";
+      out += S.rows.map(function (x, i) {
+        var k = key + ":" + si + ":" + i, fbc = "";
+        if (x.wt) fbc += x.wt.done ? '<span class="dlyok">✓ 회신 받음 — ' + esc(x.wt.done.reply || "(내용 없음)") + "</span>"
+          : ro ? "" : '<div class="dlyfb"><input type="text" data-dlywtt="' + k + '" placeholder="회신 내용"><button type="button" class="btn btn-sm" data-dlywt="' + k + '">회신 받음</button></div>';
+        if (x.iss && !(x.wt && x.wt.done)) fbc += x.iss.done ? '<span class="dlyok">✓ 확인' + (x.iss.done.fb ? " — " + esc(x.iss.done.fb) : "") + "</span>"
+          : ro ? "" : '<div class="dlyfb"><input type="text" data-dlyfbt="' + k + '" placeholder="피드백"><button type="button" class="btn btn-sm" data-dlyfb="' + k + '" title="피드백을 남기고 확인 — 다음 보고서부터 이슈에서 빠집니다">확인</button></div>';
+        var done = (x.iss && x.iss.done) || (x.wt && x.wt.done);
+        return '<tr class="' + (S.hot && !done ? "dlyiss1" : "") + (x.warn && !S.hot ? " dlywarn" : "") + (done ? " dlydone" : "") + '">' + x.c.map(function (v) { return "<td>" + esc(v) + "</td>"; }).join("") + (S.fb ? '<td class="dlyfbc">' + fbc + "</td>" : "") + "</tr>";
+      }).join("");
+      return out + "</tbody></table></div>";
+    };
+    h += '<div class="dlyband">2. 발주건 상세 관리</div>' + (d.poS || []).map(function (S, i) { return sec("poS", i, S); }).join("");
+    h += '<div class="dlyband">3. 샘플건 상세 관리</div>' + (d.smS || []).map(function (S, i) { return sec("smS", i, S); }).join("");
+    var notes = R0issues(d).map(function (r) { return r.filter(String).join(" · "); });
+    if (wk) {
+      h += '<div class="dlyband">4. 기타 특이사항 (그 주 일일보고에서 모음)</div>' + (notes.length ? '<ol class="dlywknotes">' + notes.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ol>" : '<p class="nghelp">그 주에 적은 특이사항이 없습니다</p>');
+      return h;
+    }
+    while (notes.length < 4) notes.push("");
+    h += '<div class="dlyband">4. 기타 특이사항 및 명일 계획 (Notes &amp; Tomorrow\'s Plan)</div><table class="svtable dlyiss dlynotes"><tbody>' +
+      notes.map(function (t, i) { return '<tr><td class="dlyno">' + (i + 1) + ')</td><td><input type="text" value="' + esc(t) + '"' + (ro ? " disabled" : "") + ' placeholder="' + (i === 0 ? "예: 환율 · 원자재 동향 / 명일 주요 일정 / 부서 협조 사항" : "") + '"></td></tr>'; }).join("") + "</tbody></table>" +
+      (ro ? "" : '<div class="svbar" style="margin-top:6px"><button type="button" class="btn btn-sm" id="dly-addrow">+ 줄 추가</button><span style="flex:1"></span><span class="nghelp" id="dly-issmsg"></span><button type="button" class="btn btn-sm btn-solid" id="dly-isssave">특이사항 저장</button></div>');
+    return h;
+  }
   function R0issues(d) { return (d.issues || []).map(function (r) { return Array.isArray(r) ? r : [String(r)]; }); }
   function wkOpen(to) {
     var old = $("wkrep"); if (old) old.remove();
@@ -10279,13 +10329,25 @@ function dateSlots_(steps, cfg, mode) {
     var R = null, D = null, LIST = null;
     var date = /^\d{4}-\d{2}-\d{2}$/.test(String(to || "")) ? to : todayIso();
     var load = function (dt, refresh) {
-      date = dt;
+      date = dt; WKM = "";
       var box = ov.querySelector(".wkbox"); if (box && R) { var st = box.querySelector("#dly-state"); if (st) st.textContent = "불러오는 중…"; }
       gsr().withSuccessHandler(function (d) { D = d; R = d.rep; R.issues = d.issues || []; R.author = d.savedBy || (DATA && DATA.me ? String(DATA.me).split("@")[0] : ""); draw(); })
         .withFailureHandler(function (err) { var box2 = ov.querySelector(".wkbox"); if (box2) box2.innerHTML = '<h3>구매팀 일일보고</h3><p class="nghelp">불러오지 못했습니다: ' + esc(String(err.message || err)) + '</p><button type="button" class="btn btn-sm" id="wk-close">닫기</button>'; })
         .apiDailyReport(dt, !!refresh);
     };
     var loadList = function () { gsr().withSuccessHandler(function (L) { LIST = L || []; var sel = $("dly-hist"); if (sel) sel.outerHTML = histSel(); }).withFailureHandler(function () { /* 넘어간다 */ }).apiDailyList(); };
+    var WKM = "";                          // 주간 취합 중이면 그 주 월요일
+    var weekSel = function () {             // 주간 취합 — 최근 12주
+      var t = todayIso().split("-"), d0 = new Date(+t[0], +t[1] - 1, +t[2]); d0.setDate(d0.getDate() - ((d0.getDay() + 6) % 7));
+      var f = function (x) { return x.getFullYear() + "-" + ("0" + (x.getMonth() + 1)).slice(-2) + "-" + ("0" + x.getDate()).slice(-2); }, out = [];
+      for (var i = 0; i < 12; i++) { var m = new Date(d0); m.setDate(m.getDate() - 7 * i); var e = new Date(m); e.setDate(e.getDate() + 6); out.push([f(m), f(m).slice(5).replace("-", "/") + " ~ " + f(e).slice(5).replace("-", "/") + (i === 0 ? " (이번 주)" : i === 1 ? " (지난주)" : "")]); }
+      return '<select id="dly-week" title="주간 취합 — 고르면 그 주(월~일) 기록을 모은 보고서"><option value="">주간 취합…</option>' + out.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === WKM ? " selected" : "") + ">" + esc(x[1]) + "</option>"; }).join("") + "</select>";
+    };
+    var loadWeek = function (mon) {
+      var st = ov.querySelector("#dly-state"); if (st) st.textContent = "주간 취합 불러오는 중…";
+      gsr().withSuccessHandler(function (d) { WKM = d.from; D = d; R = d.rep; R.issues = d.issues || []; R.weekMode = 1; date = d.to; draw(); })
+        .withFailureHandler(function (err) { toast("주간 취합 실패: " + err.message); }).apiDailyWeek(mon);
+    };
     var histSel = function () {
       return '<select id="dly-hist" title="저장된 일일보고 — 고르면 그날 보고서">' + '<option value="">기록 ' + (LIST ? LIST.length + "개" : "…") + "</option>" +
         (LIST || []).map(function (x) { return '<option value="' + esc(x.date) + '"' + (x.date === date ? " selected" : "") + ">" + esc(x.date + " (" + dlyWeekday(x.date) + ")" + (x.issues ? " · 이슈 " + x.issues : "")) + "</option>"; }).join("") + "</select>";
@@ -10294,12 +10356,15 @@ function dateSlots_(steps, cfg, mode) {
       var d = R, today = todayIso(), ro = DATA && DATA.canEdit === false, box0;
       var state = D.saved ? (D.live ? "오늘 보고서 — 지금 기록으로 만들고 저장했습니다(" + esc(D.savedAt || "") + ")" : "저장된 보고서 — " + esc(D.savedAt || "") + " · " + esc(D.savedBy || "") + " 기준 그대로")
         : "이 날짜는 저장된 기록이 없어 지금 기록으로 다시 계산했습니다(지연 · 대기 같은 그때 상태는 다를 수 있음)";
-      var h = '<h3>구매팀 일일보고 <span class="nghelp" style="font-weight:400">' + esc(date) + " (" + dlyWeekday(date) + ") · " + (d.week ? "금주 " + esc(d.week.from.slice(5)) + " ~ " + esc(d.week.to.slice(5)) + " · 전주 " + esc(d.week.prevFrom.slice(5)) + " ~ " + esc(d.week.prevTo.slice(5)) : "향후 7일 " + esc(d.nextFrom.slice(5)) + " ~ " + esc(d.nextTo.slice(5))) + "</span></h3>" +
+      var WO = d.wk || (d.week && typeof d.week === "object" ? d.week : null);
+      if (WKM) state = "주간 취합 — " + esc(D.from) + " ~ " + esc(D.to) + " (그 주 기록을 모아 지금 계산 · 저장하지 않음). 날짜를 고르면 일일보고로 돌아갑니다";
+      var h = '<h3>' + (WKM ? "구매팀 주간 취합 보고" : "구매팀 일일보고") + ' <span class="nghelp" style="font-weight:400">' + (WKM ? esc(D.from) + " ~ " + esc(D.to) : esc(date) + " (" + dlyWeekday(date) + ")") + (WO ? " · 금주 " + esc(WO.from.slice(5)) + " ~ " + esc(WO.to.slice(5)) + " · 전주 " + esc(WO.prevFrom.slice(5)) + " ~ " + esc(WO.prevTo.slice(5)) : " · 향후 7일 " + esc(d.nextFrom.slice(5)) + " ~ " + esc(d.nextTo.slice(5))) + "</span></h3>" +
         '<div class="svbar" style="margin-bottom:6px"><button type="button" class="btn btn-sm" id="wk-prev">← 전날</button><label>날짜 <input type="date" id="wk-to" value="' + esc(date) + '" max="' + today + '"></label>' +
-        '<button type="button" class="btn btn-sm" id="wk-next"' + (date >= today ? " disabled" : "") + '>다음 날 →</button>' + histSel() +
-        '<span style="flex:1"></span>' + (ro ? "" : '<button type="button" class="btn btn-sm" id="dly-refresh" title="지금 기록으로 다시 계산해 이 날짜 보고서로 저장">' + (D.saved && !D.live ? "다시 계산 · 저장" : D.saved ? "새로고침" : "이 날짜로 저장") + "</button>") +
+        '<button type="button" class="btn btn-sm" id="wk-next"' + (date >= today ? " disabled" : "") + '>다음 날 →</button>' + histSel() + weekSel() +
+        '<span style="flex:1"></span>' + (ro || WKM ? "" : '<button type="button" class="btn btn-sm" id="dly-refresh" title="지금 기록으로 다시 계산해 이 날짜 보고서로 저장">' + (D.saved && !D.live ? "다시 계산 · 저장" : D.saved ? "새로고침" : "이 날짜로 저장") + "</button>") +
         '<button type="button" class="btn btn-sm btn-solid" id="wk-xlsx">엑셀 받기</button><button type="button" class="btn btn-sm" id="wk-close">닫기</button></div>' +
         '<p class="hint-line" id="dly-state">' + state + "</p>";
+      if (d.v >= 7) { box0 = ov.querySelector(".wkbox"); if (box0) box0.innerHTML = h + dlyV7Html(d, ro, !!WKM); return; }
       if (d.v >= 6) { box0 = ov.querySelector(".wkbox"); if (box0) box0.innerHTML = h + dlyV6Html(d, D, ro); return; }
       var S = d.summary || { kpi: [], hl: [], team: [] };
       if (S.rows && S.rows.length) {         // 요약 = 항목마다 한 줄(건수 · 핵심) — 누르면 아래 같은 번호 상세로
@@ -10332,14 +10397,14 @@ function dateSlots_(steps, cfg, mode) {
     ov.addEventListener("click", function (e) {
       if (ovBackdrop(e, ov) || e.target.id === "wk-close") { ov.remove(); return; }
       var go = e.target.closest && e.target.closest("[data-wkgo]"); if (go) { var tg = $("wk-" + go.dataset.wkgo); if (tg) tg.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
-      if (e.target.id === "wk-xlsx" && R) { R.issues = issRows(); wkXlsx(R); }
+      if (e.target.id === "wk-xlsx" && R) { if (!WKM) R.issues = issRows(); wkXlsx(R); }
       if (e.target.id === "wk-prev" && R) load(wkShift(date, -1));
       if (e.target.id === "wk-next" && R && date < todayIso()) load(wkShift(date, 1));
       if (e.target.id === "dly-refresh") { if (D && D.saved && !D.live && !confirm(date + " 저장본을 지금 기록으로 다시 계산해 덮을까요? (그때 상태가 사라집니다)")) return; load(date, true); setTimeout(loadList, 4000); }
       if (e.target.id === "dly-addrow") { var tb = ov.querySelector(".dlyiss tbody"); if (tb) tb.insertAdjacentHTML("beforeend", R && R.v >= 6 ? '<tr><td class="dlyno">' + (tb.children.length + 1) + ')</td><td><input type="text"></td></tr>' : "<tr>" + DLY_ISS_COLS.map(function () { return '<td><input type="text"></td>'; }).join("") + "</tr>"); }
       var wtb = e.target.closest && e.target.closest("[data-dlywt]");
       if (wtb && R) {
-        var qq = wtb.dataset.dlywt.split(":"), rw2 = (R[qq[0]] || { rows: [] }).rows[+qq[1]]; if (!rw2 || !rw2.wt) return;
+        var qq = wtb.dataset.dlywt.split(":"), rw2 = dlyRowAt(R, qq); if (!rw2 || !rw2.wt) return;
         var inp2 = ov.querySelector('[data-dlywtt="' + wtb.dataset.dlywt + '"]'), rep = inp2 ? String(inp2.value || "").trim() : "";
         if (!rep && !confirm("회신 내용 없이 회신 받음으로 할까요?")) return;
         wtb.disabled = true;
@@ -10353,13 +10418,13 @@ function dateSlots_(steps, cfg, mode) {
       }
       var fbb = e.target.closest && e.target.closest("[data-dlyfb]");
       if (fbb && R) {                         // 이슈 피드백 → 확인(보고서 이슈에서 빠짐)
-        var pp = fbb.dataset.dlyfb.split(":"), rw = (R[pp[0]] || { rows: [] }).rows[+pp[1]]; if (!rw || !rw.iss) return;
+        var pp = fbb.dataset.dlyfb.split(":"), rw = dlyRowAt(R, pp); if (!rw || !rw.iss) return;
         var inp = ov.querySelector('[data-dlyfbt="' + fbb.dataset.dlyfb + '"]'), fb = inp ? String(inp.value || "").trim() : "";
         if (!fb && !confirm("피드백 없이 확인 처리할까요?")) return;
         fbb.disabled = true;
         gsr().withSuccessHandler(function (o) {
           rw.iss.done = { fb: fb, by: (o && o.fbBy) || "", at: (o && o.fbAt) || "" };
-          (R.kpi || []).forEach(function (k) { if (k.k === (pp[0] === "po" ? "poiss" : "siss")) k.v = Math.max(0, (Number(k.v) || 0) - 1); });
+          (R.kpi || []).forEach(function (k) { if (k.k === (/^po/.test(pp[0]) ? "poiss" : "siss")) k.v = Math.max(0, (Number(k.v) || 0) - 1); });
           toast("확인 처리했습니다 — 이 이슈는 다음 보고서부터 빠집니다"); var keep = ov.querySelector(".wkbox").scrollTop; draw(); ov.querySelector(".wkbox").scrollTop = keep;
         }).withFailureHandler(function (err) { fbb.disabled = false; toast("실패: " + err.message); })
           .apiIssueFeedback(rw.iss.id, fb, { kind: rw.iss.kind, ref: rw.iss.ref, name: rw.iss.name, vendor: rw.iss.vendor, text: rw.iss.text });
@@ -10373,11 +10438,54 @@ function dateSlots_(steps, cfg, mode) {
     ov.addEventListener("change", function (e) {
       if (e.target.id === "wk-to" && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(e.target.value)) load(e.target.value);
       if (e.target.id === "dly-hist" && e.target.value) load(e.target.value);
+      if (e.target.id === "dly-week" && e.target.value) loadWeek(e.target.value);
     });
     load(date); loadList();
   }
   /** 엑셀: 양식 1~5 그대로 · 실행판 줄(흰색) + 담당자 직접 칸(노란색, 첫 줄 예시) · A4 가로 */
   /** 엑셀 v6 — 담당자 양식 그대로(머리 · 결재 · 숫자 칸 · 발주/샘플 상세 표 · 특이사항) · A4 가로 */
+  /** 엑셀 v7 — 화면과 같은 순서 · 항목마다 표 · A4 가로 */
+  function dlyXlsxV7(R) {
+    var WK = !!R.weekMode, wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(WK ? "주간 취합" : "일일보고", { pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.3, footer: 0.3 } }, views: [{ showGridLines: false }] });
+    var W = 9; [11, 16, 18, 34, 14, 14, 30, 12, 26].forEach(function (w, i) { ws.getColumn(i + 1).width = w; });
+    var F = "맑은 고딕", font = { name: F, size: 9 }, bold = { name: F, size: 9, bold: true }, white = { name: F, size: 9, bold: true, color: { argb: "FFFFFFFF" } }, red = { name: F, size: 9, color: { argb: "FFC00000" } };
+    var thin = { style: "thin", color: { argb: "FFBFBFBF" } }, border = { top: thin, left: thin, bottom: thin, right: thin };
+    var fill = function (c) { return { type: "pattern", pattern: "solid", fgColor: { argb: c } }; };
+    var r = 1;
+    var cell = function (c, v, o) { o = o || {}; var x = ws.getCell(r, c); x.value = v == null ? "" : v; x.font = o.font || font; if (o.border !== false) x.border = border; x.alignment = { wrapText: true, vertical: "middle", horizontal: o.al || "left" }; if (o.fill) x.fill = o.fill; return x; };
+    var merge = function (c0, c1, v, o) { for (var c = c0; c <= c1; c++) cell(c, c === c0 ? v : "", o); if (c1 > c0) ws.mergeCells(r, c0, r, c1); };
+    var band = function (t) { merge(1, W, t, { font: { name: F, size: 11, bold: true, color: { argb: "FFFFFFFF" } }, fill: fill("FF1F4E78") }); ws.getRow(r).height = 22; r++; };
+    merge(1, W, (WK ? "구매팀 주간 취합 보고 " + R.from + " ~ " + R.to : "구매팀 일일보고 " + R.to + " (" + dlyWeekday(R.to) + ")"), { font: { name: F, size: 14, bold: true }, border: false }); ws.getRow(r).height = 26; r += 2;
+    band("1. " + (WK ? "주간" : "일일") + " 현황 요약");
+    var K = R.kpi || [], cols = [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 7], [8, 9]];
+    K.forEach(function (k, i) { var c = cols[i]; merge(c[0], c[1], k.label, { font: bold, al: "center", fill: fill(k.warn ? "FFFDECEC" : "FFE8EEF7") }); }); r++;
+    K.forEach(function (k, i) { var c = cols[i]; merge(c[0], c[1], Number(k.v) || 0, { font: { name: F, size: 14, bold: true, color: { argb: k.warn && Number(k.v) > 0 ? "FFC00000" : "FF000000" } }, al: "center", fill: fill(k.warn ? "FFFDECEC" : "FFE8EEF7") }); }); ws.getRow(r).height = 26; r++;
+    merge(1, W, R.note || "", { font: { name: F, size: 9, bold: true, color: { argb: "FFC00000" } }, fill: fill("FFFDF0F0") }); r += 2;
+    var sec = function (S) {
+      merge(1, W, S.t + "  (" + (S.rows.length ? S.rows.length + "건" : "없음") + ")", { font: { name: F, size: 10, bold: true, color: { argb: "FF1F4E78" } }, border: false }); r++;
+      if (!S.rows.length) { r++; return; }
+      var cols2 = S.cols.concat(S.fb ? [S.hot ? "팀장 피드백" : "회신 내용"] : []), last = cols2.length;
+      cols2.forEach(function (c, i) { if (i < last - 1) cell(i + 1, c, { font: white, fill: fill("FF2F5F8F"), al: "center" }); });
+      merge(last, W, cols2[last - 1], { font: white, fill: fill("FF2F5F8F"), al: "center" }); r++;
+      S.rows.forEach(function (x) {
+        var vals = x.c.slice(); if (S.fb) vals.push(x.iss && x.iss.done ? "확인 — " + (x.iss.done.fb || "") : x.wt && x.wt.done ? "회신: " + (x.wt.done.reply || "") : "");
+        var f0 = S.hot && !((x.iss && x.iss.done) || (x.wt && x.wt.done)) ? fill("FFFDECEC") : null;
+        vals.forEach(function (v, i) { if (i < last - 1) cell(i + 1, v, { fill: f0, font: x.warn && !S.hot && i === 5 ? red : font }); });
+        merge(last, W, vals[last - 1], { fill: f0, font: x.warn && !S.hot && last - 1 === 5 ? red : font }); r++;
+      });
+      r++;
+    };
+    band("2. 발주건 상세 관리"); (R.poS || []).forEach(sec);
+    band("3. 샘플건 상세 관리"); (R.smS || []).forEach(sec);
+    band(WK ? "4. 기타 특이사항 (그 주 일일보고에서 모음)" : "4. 기타 특이사항 및 명일 계획");
+    var N = R0issues(R).map(function (q) { return q.filter(String).join(" · "); }).filter(String); if (!WK) while (N.length < 4) N.push("");
+    N.forEach(function (t, i) { merge(1, W, (i + 1) + ") " + t, { fill: t ? null : fill("FFFFF2CC") }); r++; });
+    wb.xlsx.writeBuffer().then(function (buf) {
+      var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      a.download = WK ? "구매팀_주간취합_" + R.from + "_" + R.to + ".xlsx" : "구매팀_일일보고_" + R.to + ".xlsx"; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      toast("엑셀을 내려받았습니다");
+    });
+  }
   function dlyXlsxV6(R) {
     var wb = new ExcelJS.Workbook(), ws = wb.addWorksheet("일일보고", { pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.3, footer: 0.3 } }, views: [{ showGridLines: false }] });
     var W = 8; [13, 16, 20, 32, 10, 15, 52, 26].forEach(function (w, i) { ws.getColumn(i + 1).width = w; });
@@ -10421,6 +10529,7 @@ function dateSlots_(steps, cfg, mode) {
   }
   function wkXlsx(R) {
     var go = function () {
+      if (R.v >= 7) { dlyXlsxV7(R); return; }
       if (R.v >= 6) { dlyXlsxV6(R); return; }
       var DL = !!R.daily, wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(DL ? "일일보고" : "주간보고", { pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.3, footer: 0.3 } }, views: [{ showGridLines: false }] });
       var W = 9;

@@ -534,6 +534,11 @@ function apiSampleProjMemo(projKey, meta, op) {
       if (!(wi >= 0 && wi < list.length) || (op.at && list[wi].at !== op.at)) throw new Error('그사이 메모가 바뀌었습니다 — 새로고침해 주세요.');
       if (op.undo) { delete list[wi].waitDone; delete list[wi].waitBy; delete list[wi].waitReply; }
       else { list[wi].waitDone = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'); list[wi].waitBy = me_().split('@')[0]; if (str_(op.reply)) list[wi].waitReply = str_(op.reply).slice(0, 500); }
+    } else if (op.edit != null) {                                                     // 비고 고치기(2026-10-27) — 내용만, 적은 시각 · 사람은 그대로
+      var ei = Number(op.edit), nt = str_(op.t).slice(0, 500);
+      if (!(ei >= 0 && ei < list.length) || (op.at && list[ei].at !== op.at)) throw new Error('그사이 메모가 바뀌었습니다 — 새로고침해 주세요.');
+      if (!nt) throw new Error('메모를 적어 주세요(지우려면 ×).');
+      list[ei].t = nt; list[ei].edited = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yy/MM/dd HH:mm') + ' ' + me_().split('@')[0];
     } else if (op.del != null) {
       var i = Number(op.del);
       if (!(i >= 0 && i < list.length) || (op.at && list[i].at !== op.at)) throw new Error('그사이 메모가 바뀌었습니다 — 새로고침해 주세요.');

@@ -96,3 +96,28 @@ function dailyAutoSave_() {
     dailyWrite_(today, dailyCompute_(today), old ? old.issues : [], '자동(18시)');
   } catch (e) { try { console.log('일일보고 자동 저장 실패: ' + e.message); } catch (e2) { /* 넘어간다 */ } }
 }
+
+/**
+ * 화면: 주간 취합 — anyDate 가 든 주(월 ~ 일 · 오늘까지)를 한 보고서로. 저장하지 않는다(그때그때 계산)
+ * 4. 기타 특이사항은 그 주 날짜별로 저장된 줄을 '날짜 · 내용'으로 모은다
+ */
+function apiDailyWeek(anyDate) {
+  var today = dailyToday_(), d = dailyOkDate_(anyDate) || today;
+  var p = d.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+  var mon = new Date(dt); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  var sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+  var f = function (x) { return Utilities.formatDate(x, 'Asia/Seoul', 'yyyy-MM-dd'); };
+  var from = f(mon), to = f(sun) > today ? today : f(sun);
+  if (from > today) throw new Error('앞으로의 주는 볼 수 없습니다.');
+  var rep = apiWeeklyReport(from, to, 'day'); rep.daily = 1;
+  var sh = dailyTab_(), n = sh.getLastRow() - 1, issues = [];
+  if (n > 0) {
+    var v = sh.getRange(2, 1, n, 4).getValues();
+    v.map(function (r) { return { d: dailyCell_(r[0]), j: str_(r[3]) }; }).filter(function (x) { return x.d >= from && x.d <= to; })
+      .sort(function (a, b) { return a.d < b.d ? -1 : 1; }).forEach(function (x) {
+        var L = []; try { L = JSON.parse(x.j || '[]'); } catch (e) { L = []; }
+        L.forEach(function (r) { var t = (Array.isArray(r) ? r : [r]).filter(function (y) { return str_(y); }).join(' · '); if (t) issues.push([x.d.slice(5).replace('-', '/') + ' ' + t]); });
+      });
+  }
+  return { date: to, from: from, to: to, week: true, saved: false, rep: rep, issues: issues };
+}
