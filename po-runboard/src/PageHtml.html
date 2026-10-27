@@ -6353,7 +6353,7 @@ function dateSlots_(steps, cfg, mode) {
     };
     var stSel = function (cur, keep) {
       var opts = SST.slice(); if (cur && opts.indexOf(cur) < 0) opts.unshift(cur);          // 시트에 목록 밖 상태(보류 등)가 있으면 그대로 고를 수 있게
-      return '<label>상태<select data-tlf="st">' + (keep ? '<option value="">상태 유지</option>' : "") + opts.map(function (o) { return "<option" + (o === cur ? " selected" : "") + ">" + o + "</option>"; }).join("") + "</select></label>";
+      return '<label>상태<select data-tlf="st">' + (keep ? '<option value="">상태 그대로(메모만)</option>' : "") + opts.map(function (o) { return "<option" + (o === cur ? " selected" : "") + ">" + o + "</option>"; }).join("") + "</select></label>";
     };
     var isoOf = function (v) { var d = poDate(v); return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d) ? d : ""; };
     var body = "", del = "";
@@ -6676,7 +6676,7 @@ function dateSlots_(steps, cfg, mode) {
   function spReqHist(row, f) { var L = spReqLog(row).filter(function (x) { return x.f === f; }); return L.length ? { n: L.length, first: L[0].a, list: L } : null; }
   /* ---------- 견적 비교(구성별) — 견적 칸 이름 '구성::업체키'. 예전 것(업체키만)은 그 업체의 첫 구성으로 본다 ---------- */
   var QT_ROWS = [
-    ["업체 정보", [["st", "상태", "sel", ["검토중", "후보", "제외"]], ["country", "국가 · 생산지"], ["contact", "업체 담당자"], ["file", "견적서 링크", "url"]]],
+    ["업체 정보", [["st", "상태", "sel", ["후보", "제외"]], ["country", "국가 · 생산지"], ["contact", "업체 담당자"], ["file", "견적서 링크", "url"]]],
     ["수량 · 단가", [["round", "견적 차수"], ["moq", "MOQ"], ["qty", "견적 수량"], ["price", "단가"], ["cur", "통화", "sel", ["KRW", "CNY", "USD", "EUR", "JPY"]], ["rate", "적용 환율(원)"], ["_krw", "단가(원화)", "calc"], ["vat", "VAT", "sel", ["", "별도", "포함"]], ["shipIn", "운송비 포함 여부", "sel", ["", "별도", "포함"]]]],
     ["부대 비용(견적 통화)", [["fSample", "샘플비"], ["fMold", "금형비"], ["fPlate", "판비 · 동판"], ["fShip", "운송비"]]],
     ["자동 계산", [["_total", "총 견적금액(원화)", "calc"], ["_low", "최저 단가 대비", "calc"], ["_tgt", "목표 단가 대비", "calc"]]],
@@ -6764,7 +6764,7 @@ function dateSlots_(steps, cfg, mode) {
             return '<td><input type="' + (F[2] === "date" ? "date" : "text") + '" ' + a + ' value="' + esc(v) + '"' + (F[0] === "avail" && !v && c.avail ? ' title="비우면 오늘 + 양산 소요기간(' + esc(c.avail) + ')"' : "") + "></td>";
           }
           var show = esc(v) || "—";
-          if (F[0] === "st") show = '<span class="qst q' + ({ "후보": "c", "제외": "x" }[v] || "r") + '">' + esc(v || "검토중") + "</span>";
+          if (F[0] === "st") { var sx = c && c.off; show = '<span class="qst q' + (sx ? "x" : "c") + '">' + (sx ? "제외" : "후보") + "</span>"; }      // 기본 = 후보 · [제외]로 고르거나 업체가 드롭 · 탈락이면 제외
           if (F[0] === "price" && v) show = "<b>" + esc(Number(spNum(v)).toLocaleString()) + " " + esc(q.cur || "KRW") + "</b>";
           if (F[0] === "file" && v) show = '<a href="' + esc(v) + '" target="_blank" rel="noopener">견적서 열기</a>';
           if (F[0] === "avail") show = c.avail ? esc(c.avail) + (c.availAuto ? ' <span class="nsub">(소요기간으로 계산)</span>' : "") : "—";
@@ -6914,12 +6914,14 @@ function dateSlots_(steps, cfg, mode) {
     MKS.forEach(function (mk) {
       var C = qtCalc(row, mk), lk = Object.keys(C).filter(function (k) { return C[k].isLow; })[0];
       if (lk) lows.push(esc(mk) + " " + won(C[lk].krw) + ' <span class="nsub">' + esc(C[lk].name) + "</span>");
-      Object.keys(C).forEach(function (k) { if (C[k].q.st === "후보" && cands.indexOf(C[k].name) < 0) cands.push(C[k].name); });
       var tp = spMkVal(row, mk, "tprice"); if (tp) tps.push(esc(mk) + " " + esc(Number(spNum(tp) || 0).toLocaleString()) + "원");
       var sp = ["size", "material", "color", "pack"].map(function (f) { return spMkVal(row, mk, f); }).filter(Boolean), ds = spMkVal(row, mk, "designSt"), da = spMkVal(row, mk, "designAt");
       if (sp.length || ds || da) specs.push("<div><span>" + esc(mk) + (MOFF.indexOf(mk) > -1 ? " (드롭)" : "") + "</span><b>" + esc(sp.join(" · ") || "—") + (ds || da ? ' <em class="nsub">디자인 ' + esc([ds, md2(da)].filter(Boolean).join(" ")) + "</em>" : "") + "</b></div>");
       picks.forEach(function (g) { var c = C[sampleVKey(g.name)]; if (c && c.krw != null) pickTxt.push(esc(mk) + " " + won(c.krw) + " · " + esc(md2(c.avail) || "—")); });
     });
+    // 후보 업체 = 진행 중인 업체(드롭 · 탈락 · 채택 아님) 중 견적 비교에서 [제외]로 고르지 않은 업체 — 따로 '후보'로 고르지 않아도 된다
+    var exV = {}; Object.keys(Q).forEach(function (k) { if ((Q[k] || {}).st === "제외") { var i = k.indexOf("::"); exV[i > 0 ? k.slice(i + 2) : k] = 1; } });
+    (row.vendors || []).forEach(function (g) { if (g.name !== "업체 미정" && !SAMPLE_OFF[g.status] && g.status !== "채택" && !exV[sampleVKey(g.name)] && cands.indexOf(g.name) < 0) cands.push(g.name); });
     var card = function (title, tab, body, wide) { return '<div class="spcard sphc"><div class="spch"><b>' + title + "</b>" + (tab ? '<button type="button" class="btn-quiet btn-sm" data-sptab="' + tab + '">자세히</button>' : "") + '</div><div class="spkv' + (wide ? " one" : "") + '">' + body + "</div></div>"; };
     var rvC = {}; Object.keys(sInfo(row, "rv")).forEach(function (k) { var r = sInfo(row, "rv")[k]; rvC[r.res] = (rvC[r.res] || 0) + 1; });
     var OW = sampleWaits(row).filter(function (w) { return !w.x.waitDone; });
@@ -7450,7 +7452,7 @@ function dateSlots_(steps, cfg, mode) {
         (fold ? "" : sampleTimeline(row, g) +
         '<div class="tladd">' + (g.reqs.length ? sampleRoundSel(row, g) : "") + '<input type="text" data-tltext="' + esc(vk) + '" placeholder="진행상황 · 견적 메모 한 줄 — 시트 [비고/피드백]에도 덧붙습니다. 예: 견적 개당 600원(MOQ 1만)" maxlength="500">' +
           // 수신은 회차 줄 오른쪽 [수신]으로(어느 회차를 받았는지가 분명하게) — 여기서는 진행중 · 채택 · 탈락 · 드롭만
-          '<select data-tlst="' + esc(vk) + '"><option value="">상태 유지</option>' + SST.filter(function (x) { return x !== "수신"; }).map(function (x) { return x === "드롭" ? '<option value="드롭" title="고른 회차만 드롭 — 업체 전체를 드롭하려면 카드의 [업체 드롭]">이 회차만 드롭</option>' : "<option>" + x + "</option>"; }).join("") + "</select>" +
+          '<select data-tlst="' + esc(vk) + '" title="메모만 남길 땐 [상태 그대로] — 진행중 · 채택 · 탈락 · 드롭을 고르면 메모와 함께 그 회차 상태도 바뀝니다"><option value="">상태 그대로(메모만)</option>' + SST.filter(function (x) { return x !== "수신"; }).map(function (x) { return x === "드롭" ? '<option value="드롭" title="고른 회차만 드롭 — 업체 전체를 드롭하려면 카드의 [업체 드롭]">이 회차만 드롭</option>' : "<option>" + x + "</option>"; }).join("") + "</select>" +
           waitSel('data-tlwait="' + esc(vk) + '"') +
           '<label class="tldue" title="이 일의 기한(없으면 비워 둠) — 대기를 골랐으면 회신 기한">기한 <input type="date" data-tldue="' + esc(vk) + '"></label>' +
           '<button class="btn btn-sm btn-solid" type="button" data-tlsave="' + esc(vk) + '" data-tlrow="' + g.lastRow + '">기록</button></div>' +
