@@ -7914,12 +7914,8 @@ function dateSlots_(steps, cfg, mode) {
       '<button type="button" class="chgbtn' + (dec === "N" ? " on" : "") + '" data-chgdec="' + ref + '|N"' + dis + ">변경 없음</button>" +
       '<button type="button" class="chgbtn' + (dec === "Y" ? " on" : "") + '" data-chgdec="' + ref + '|Y"' + dis + ">변경 있음</button>";
     // 무엇을 확인해야 하는지 먼저 보여준다. 누르면 바로 '변경 있음' + 그 종류로 기록된다.
-    if (dec !== "Y" && (it.opts || []).length) {
-      html += '<span class="chgwhat">확인할 것</span>' + it.opts.map(function (o, oi) {
-        return '<button type="button" class="chgopt pre" data-chgpick="' + ref + "|" + oi + '"' + dis +
-          ' title="누르면 [변경 있음]으로 기록하고 이 종류를 고릅니다">' + esc(o) + "</button>";
-      }).join("");
-    } else if (!dec) {
+    // 종류(업체 · 데이터 …)는 [변경 있음]을 고른 뒤에만 보인다(2026-10-27)
+    if (!dec) {
       html += '<span class="chghint">변경이 있는지 먼저 골라 주세요</span>';
     }
     if (dec === "Y") {
@@ -8268,8 +8264,10 @@ function dateSlots_(steps, cfg, mode) {
               (skOn ? "생략함 ✕" : "생략") + "</button></div>"
             : "";
           // 추가 버튼(항목의 f) — 켜면 초록색. 항목 체크 · 단계 완료와는 상관없다.
-          var acts = (i === bomItemIdx ? '<button type="button" class="btn btn-sm btn-solid" data-bomopen="1" title="이 발주 차수의 BOM 구성을 봅니다 · 바꿀 자재가 있으면 차수 변경">BOM 보기</button>' : "") +
-            (it.f || []).map(function (fl) { return flagBtn(row, step, i, k, fl, skipped); }).join("");
+          // 변경 여부 항목: [변경 없음/있음] → 있음이면 종류 · 내용 → 그 다음에 표시 버튼(18층 · mm.yyyy …). 있음을 고르기 전엔 표시 버튼을 숨긴다(이미 켠 것은 보임)
+          var flags = (it.f || []).filter(function (fl) { return !it.chg || dec === "Y" || row.checks[flagKey(k, fl.k)]; }).map(function (fl) { return flagBtn(row, step, i, k, fl, skipped); }).join("");
+          var bomB = i === bomItemIdx ? '<button type="button" class="btn btn-sm btn-solid" data-bomopen="1" title="이 발주 차수의 BOM 구성을 봅니다 · 바꿀 자재가 있으면 차수 변경">BOM 보기</button>' : "";
+          var acts = it.chg ? bomB : bomB + flags;
           var dateHtml = slot[i] !== undefined ? slot[i] : "";
           var liCls = (it.chg ? "chgitem" : "") + (skOn ? " skipitem" : "");
           var wrap = !!(dateHtml || skipHtml);
@@ -8282,7 +8280,7 @@ function dateSlots_(steps, cfg, mode) {
             (dateHtml ? '<div class="itemdate">' + dateHtml + "</div>" : "") +
             skipHtml + (wrap ? "</div>" : "") +
             (acts ? '<div class="itemacts">' + acts + "</div>" : "") +
-            (it.chg ? chgBlock(row, step, i, k, dec, skipped) : "") + "</li>";
+            (it.chg ? chgBlock(row, step, i, k, dec, skipped) + (flags ? '<div class="itemacts">' + flags + "</div>" : "") : "") + "</li>";
         }).join("");
 
         var links = (step.links || []).map(function (k) {
