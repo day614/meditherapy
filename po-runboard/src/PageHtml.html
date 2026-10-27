@@ -2211,7 +2211,7 @@
       <div class="bomvrules-bd"><p class="nghelp">▲ ▼ 로 옮기고 [저장]. 같은 자재의 지난 버전 줄도 같이 옮겨집니다 · BOM 탭 '순서' 칸에 저장되고 실행판 화면 · 배포용 BOM 파일이 이 순서로 보입니다(시트 줄 자리는 그대로).</p><ol class="bomvord-list" id="bomv-ord-list"></ol></div></div></div>
     <div class="bomvtop">
       <div class="bomvsearch">
-        <input type="search" id="bomv-q" placeholder="품목명 · 품목코드 · 자재코드 · 업체명 (포함 단어)" aria-label="BOM 품목 검색" autocomplete="off">
+        <input type="search" id="bomv-q" placeholder="품목명 · 품목코드 · 자재코드 · 업체명 · 사양 (포함 단어)" aria-label="BOM 품목 검색" autocomplete="off">
         <div class="bomvres" id="bomv-res" hidden></div>
       </div>
       <button class="btn btn-sm" type="button" id="bomv-newbtn" title="BOM이 없는 새 제품의 1차 BOM을 만듭니다">신제품 BOM 등록</button>
@@ -13288,7 +13288,7 @@ function dateSlots_(steps, cfg, mode) {
     var l = BL.list.filter(function (x) {
       if (BL.only === "semi" && !x.semi) return false;
       if (BL.only === "need" && !x.need) return false;
-      return !toks.length || matchToks([x.code, x.name, x.brand, x.parents || "", x.mats || "", x.vendors || ""].join(" "), toks);
+      return !toks.length || matchToks([x.code, x.name, x.brand, x.parents || "", x.mats || "", x.vendors || "", x.specs || ""].join(" "), toks);
     });
     var k = BL.sort, d = BL.dir;
     l.sort(function (a, b) { var x = a[k], y = b[k]; if (typeof x === "string") { x = x || ""; y = y || ""; return x < y ? -d : x > y ? d : 0; } return ((x || 0) - (y || 0)) * d; });

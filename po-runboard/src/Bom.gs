@@ -223,7 +223,9 @@ function bomStampIds_() {
 }
 /** BOM 보기 목록 한 품목(줄 하나씩 더한다) */
 function bomIdxAdd_(idx, o) {
-  var it = idx[o.product] || (idx[o.product] = { code: o.product, brand: str_(o.brand), name: '', search: str_(o.search), mats: [], vendors: [], semis: {} });
+  var it = idx[o.product] || (idx[o.product] = { code: o.product, brand: str_(o.brand), name: '', search: str_(o.search), mats: [], vendors: [], specs: [], semis: {} });
+  var spc = str_(o.spec).replace(/\s+/g, ' ').slice(0, 80);              // 사양으로도 찾게(2026-10-27)
+  if (spc && it.specs.length < 60 && it.specs.indexOf(spc) < 0) it.specs.push(spc);
   if (!it.brand && str_(o.brand)) it.brand = str_(o.brand);
   var vd = str_(o.vendor);
   if (vd && it.vendors.indexOf(vd) < 0) it.vendors.push(vd);
@@ -259,11 +261,11 @@ function bomIdxDone_(it) {
   var on = rs.filter(function (x) { return !x.done && (!max || ((x.s || 1) <= max && x.e2 >= max)); });
   it.round = max; it.n = on.length;
   if (!it.brand) { it.brand = bomBrandOf_(it.code); it.brandGuess = !!it.brand; }
-  it.cost = Math.round(on.reduce(function (a, x) { return a + (x.ck ? x.c : 0); }, 0) * 100) / 100; it.ck = 6;
+  it.cost = Math.round(on.reduce(function (a, x) { return a + (x.ck ? x.c : 0); }, 0) * 100) / 100; it.ck = 7;
   // 최신 차수 구성의 코드(겹침 없이) — BOM 보기 목록 '품목코드 생성 필요' 개수
   var lv = {}; lv[it.code] = 1; on.forEach(function (x) { if (x.code && x.db) lv[x.code] = 1; }); it.live = Object.keys(lv).join(' ');
   delete it._r; delete it._pn;
-  it.mats = it.mats.join(' '); it.vendors = it.vendors.join('|');
+  it.mats = it.mats.join(' '); it.vendors = it.vendors.join('|'); it.specs = (it.specs || []).join('|');
   return it;
 }
 /**
@@ -274,7 +276,7 @@ function bomIdxDone_(it) {
 function bomRefreshOne_(codes) {
   codes = (codes || []).map(function (c) { return str_(c).toUpperCase(); }).filter(String);
   var list = cacheGet_('bom4:idx');
-  if (!list || !list.length || list[0].ck !== 6) { bomBuildCache_(); return; }
+  if (!list || !list.length || list[0].ck !== 7) { bomBuildCache_(); return; }
   var sh = bomSheet_(), C = bomCols_(sh), lr = sh.getLastRow();
   var pcol = lr > 2 ? sh.getRange(3, C.product + 1, lr - 2, 1).getValues() : [];
   var want = {}; codes.forEach(function (c) { want[c] = []; });
@@ -336,7 +338,7 @@ function bomDropAllRows_() {
 }
 function bomIndex_() {
   var l = cacheGet_('bom4:idx');
-  if (l && l.length && l[0].ck !== 6) l = null;      // 옛 캐시(원가 합계 · 반제품 · 최신 구성 코드가 없던 것)
+  if (l && l.length && l[0].ck !== 7) l = null;      // 옛 캐시(원가 합계 · 반제품 · 최신 구성 코드가 없던 것)
   return l || bomBuildCache_().list;
 }
 
@@ -390,7 +392,7 @@ function apiBomList() {
   var idx = bomIndex_(), have = {}, semi = {}, out = [];
   idx.forEach(function (it) { have[it.code] = 1; });
   idx.forEach(function (it) {
-    out.push({ code: it.code, name: it.name, brand: it.brand, brandGuess: !!it.brandGuess, round: it.round || 0, n: it.n || 0, cost: it.cost || 0, live: it.live || '', mats: it.mats || '', vendors: String(it.vendors || '').replace(/\|/g, ' ') });   // 목록 검색: 자재코드 · 업체명으로도
+    out.push({ code: it.code, name: it.name, brand: it.brand, brandGuess: !!it.brandGuess, round: it.round || 0, n: it.n || 0, cost: it.cost || 0, live: it.live || '', mats: it.mats || '', specs: it.specs || '', vendors: String(it.vendors || '').replace(/\|/g, ' ') });   // 목록 검색: 자재코드 · 업체명으로도
     var s = it.semis || {};
     Object.keys(s).forEach(function (sc) {
       if (have[sc]) return;
@@ -522,7 +524,7 @@ function apiBomSearch(q) {
   list.forEach(function (it) {
     var why = '';
     var hay = norm(it.code + ' ' + it.name + ' ' + it.search + ' ' + it.brand);
-    var all = norm(it.code + it.name + it.search + it.brand + ' ' + (it.vendors || '') + ' ' + (it.mats || ''));
+    var all = norm(it.code + it.name + it.search + it.brand + ' ' + (it.vendors || '') + ' ' + (it.mats || '') + ' ' + (it.specs || ''));
     if (hay.indexOf(nq) > -1 || (words.length > 1 && words.every(function (w) { return hay.indexOf(w) > -1; }))) why = '';
     else if (words.length > 1 && words.every(function (w) { return all.indexOf(w) > -1; })) why = '여러 칸에서';
     else {
@@ -530,7 +532,9 @@ function apiBomSearch(q) {
       if (vd.length) why = '업체 ' + vd.join(', ');
       else {
         var mt = String(it.mats || '').split(' ').filter(function (m) { return norm(m).indexOf(nq) > -1; });
+        var sp = String(it.specs || '').split('|').filter(function (m) { var n = norm(m); return n.indexOf(nq) > -1 || (words.length > 1 && words.every(function (w) { return n.indexOf(w) > -1; })); });
         if (mt.length) why = '자재 ' + mt.slice(0, 3).join(', ');
+        else if (sp.length) why = '사양 ' + sp.slice(0, 2).join(' / ');
         else return;
       }
     }
