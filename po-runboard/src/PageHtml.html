@@ -1801,7 +1801,8 @@
   .dlyok { color: #1e7b45; font-weight: 600; font-size: 12px; }
   .dlynotes td.dlyno { width: 34px; text-align: right; color: var(--ink-2); }
   @media (max-width: 900px) { .dlykpi { grid-template-columns: repeat(4, 1fr); } }
-  .dlyt { table-layout: fixed; }      /* 첫 네 칸(일자 · 번호 · 업체 · 품목)을 모든 표에서 같은 자리 · 너비로 */
+  .dlyt { table-layout: fixed; width: 100%; }
+  .wkbox.clrepbox, #wkrep > .nsbox.wkbox { width: 1200px !important; max-width: 100% !important; }      /* 보고서 폭 고정 — 화면이 넓어도(메뉴 페이지로 열어도) 늘어나지 않게 */      /* 첫 네 칸(일자 · 번호 · 업체 · 품목)을 모든 표에서 같은 자리 · 너비로 */
   .dlyt td { overflow-wrap: anywhere; }
   .dlysec { margin: 12px 0 4px; font-size: 13.5px; color: #1f4e78; }
   .dlysec small { font-weight: 400; color: var(--ink-3); margin-left: 4px; }
@@ -10288,10 +10289,9 @@ function dateSlots_(steps, cfg, mode) {
   }
   /** 일일보고 표 칸 너비 — 내용에 맞춰 고정(표가 화면 폭으로 늘어나지 않게). 첫 네 칸은 모든 표에서 같은 자리 · 너비 */
   function dlyColW(c, i) {
-    if (i === 0) return 82; if (i === 1) return 168; if (i === 2) return 110; if (i === 3) return 250;
-    if (/수량|금액/.test(c)) return 78;
-    if (/내용|비고|사유|검토현황/.test(c)) return 240;
-    return 104;
+    if (i === 0) return 76; if (i === 1) return 160; if (i === 2) return 104; if (i === 3) return 240;
+    if (/수량|금액/.test(c)) return 76;
+    return 0;
   }
   function dlyRowAt(R, k) { return k.length === 3 ? (((R[k[0]] || [])[+k[1]] || { rows: [] }).rows[+k[2]]) : (R[k[0]] || { rows: [] }).rows[+k[1]]; }
   /** 일일보고 v7 — 1. 현황 요약 → 2. 발주건(항목마다 표) → 3. 샘플건(항목마다 표) → 4. 기타 특이사항 및 명일 계획 */
@@ -10302,8 +10302,8 @@ function dateSlots_(steps, cfg, mode) {
     var sec = function (key, si, S) {
       var out = '<h5 class="dlysec">' + esc(S.t) + ' <small>' + (S.rows.length ? S.rows.length + "건" : "없음") + "</small></h5>";
       if (!S.rows.length) return out;
-      var ws0 = S.cols.map(dlyColW).concat(S.fb ? [230] : []), tw = ws0.reduce(function (a2, b2) { return a2 + b2; }, 0);
-      out += '<div style="overflow-x:auto"><table class="svtable dlyt' + (S.hot ? " hot" : "") + '" style="width:' + tw + 'px"><colgroup>' + ws0.map(function (w) { return '<col style="width:' + w + 'px">'; }).join("") + "</colgroup><thead><tr>" + S.cols.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + (S.fb ? "<th>" + (S.hot ? "팀장 피드백" : "회신 내용") + "</th>" : "") + "</tr></thead><tbody>";
+      var ws0 = S.cols.map(dlyColW).concat(S.fb ? [220] : []);      // 첫 네 칸 · 피드백 칸은 고정, 나머지는 남는 폭을 나눔(표 폭 = 보고서 폭)
+      out += '<div style="overflow-x:auto"><table class="svtable dlyt' + (S.hot ? " hot" : "") + '"><colgroup>' + ws0.map(function (w) { return w ? '<col style="width:' + w + 'px">' : "<col>"; }).join("") + "</colgroup><thead><tr>" + S.cols.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + (S.fb ? "<th>" + (S.hot ? "팀장 피드백" : "회신 내용") + "</th>" : "") + "</tr></thead><tbody>";
       out += S.rows.map(function (x, i) {
         var k = key + ":" + si + ":" + i, fbc = "";
         if (x.wt) fbc += x.wt.done ? '<span class="dlyok">✓ 회신 받음 — ' + esc(x.wt.done.reply || "(내용 없음)") + "</span>"
