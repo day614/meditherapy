@@ -90,3 +90,10 @@ function apiIssueDelete(id) {
   } finally { lock.releaseLock(); dailyDirty_(); }
   return { ok: true };
 }
+
+/** 화면(목록): 열린 이슈 — 대상키별 [{ text, at, by, vendor }] (목록 품목명 옆 '이슈 N' 표시) */
+function apiIssueOpen() {
+  var out = {};
+  issAll_().forEach(function (x) { if (x.st === '확인') return; (out[x.ref] = out[x.ref] || []).push({ text: x.text, at: x.at, by: x.by, vendor: x.vendor }); });
+  return out;
+}

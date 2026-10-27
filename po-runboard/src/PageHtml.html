@@ -1750,6 +1750,7 @@
   .waittag.late { color: #b42318; background: #fdecea; border-color: #f3c7c3; }
   .waittag.done { color: #1c6b41; background: #e5f4ec; border-color: #bfe3cd; font-weight: 500; }
   .waitbtn { margin-left: 4px; padding: 1px 8px; font-size: 11.5px; }
+  .issbadge { display: inline-block; font-size: 11px; font-weight: 700; color: #c00000; background: #fdecec; border: 1px solid #f3c7c3; border-radius: 6px; padding: 0 6px; margin-left: 4px; vertical-align: 1px; }
   .waitbadge { font-size: 11px; font-weight: 700; color: #8a5a00; background: #fff4d6; border: 1px solid #f1d49a; border-radius: 4px; padding: 0 5px; white-space: nowrap; }
   .waitbadge.late { color: #b42318; background: #fdecea; border-color: #f3c7c3; }
   .dlyiss td { padding: 2px 4px; } .dlyiss input { width: 100%; min-width: 90px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-size: 12.5px; background: #fffbe6; }
@@ -2999,7 +3000,7 @@ function dateSlots_(steps, cfg, mode) {
       .withFailureHandler(function () { /* 넘어간다 */ }).apiDailyReport(t, false);
   }
   function onBoot(d) {
-    if (!DLY_PRE) { DLY_PRE = 1; setTimeout(dlyPrefetch, 6000); setInterval(function () { if (!document.hidden) dlyPrefetch(); }, 5 * 60000); }
+    if (!DLY_PRE) { DLY_PRE = 1; setTimeout(function () { issAllLoad(true); }, 2500); setInterval(function () { if (!document.hidden) issAllLoad(); }, 130000); setTimeout(dlyPrefetch, 6000); setInterval(function () { if (!document.hidden) dlyPrefetch(); }, 5 * 60000); }
     setTimeout(bootTail, 0);
     if (!window.__perfBoot) { window.__perfBoot = 1; setTimeout(function () { perfLog("첫 화면 표시(페이지 열고)", performance.now(), true); }, 0); }
     DATA = d;
@@ -4749,7 +4750,10 @@ function dateSlots_(steps, cfg, mode) {
         }).join("") +
         '<td class="cell-name">' + esc(r.name) + (r.batch && mode === "po" ? " " + esc(r.batch) : "") +
           (mode === "sample" ? (function () { var W = sampleOpenWaits(r); if (!W.length) return ""; var late = W.some(function (w) { return w.x.due && waitLeft(w.x.due) < 0; }); return ' <span class="waitbadge' + (late ? " late" : "") + '" title="' + esc(W.map(function (w) { return w.x.wait + (w.vendor ? " · " + w.vendor : "") + " — " + (w.x.text || "") + (w.x.due ? " (기한 " + w.x.due + ")" : ""); }).join("\n")) + '">⏳ 대기 ' + W.length + "</span>"; })() : "") +
-          (mode === "sample" && sProjMemo(r).length ? (function () { var L = sProjMemo(r), m = L[L.length - 1]; return ' <span class="memohit" title="프로젝트 비고 ' + L.length + "건 — 최근: " + esc((m.at || "") + " " + (m.by || "") + " · " + (m.t || "")) + '">비고 ' + L.length + "</span>"; })() : "") +
+          (function () {                       // 열린 이슈(비고 대신 — 2026-10-27) · 마우스를 올리면 내용
+            var L = issOpenOf(r); if (!L.length) return "";
+            return ' <span class="issbadge" title="' + esc(L.map(function (x) { return (x.vendor ? x.vendor + " — " : "") + x.text + " (" + String(x.at || "").slice(5, 10) + " " + (x.by || "") + ")"; }).join("\n")) + '">⚠ 이슈 ' + L.length + "</span>";
+          })() +
           (mode === "sample" && r.links && r.links.length ? '<a class="rowlink" href="' + esc(r.links[0]) + '" target="_blank" rel="noopener" title="' + esc(r.links.join(" ")) + '">🔗' + (r.links.length > 1 ? " " + r.links.length : "") + "</a>" : "") +
           (memoOnlyHit(r) ? ' <span class="memohit" title="검색어가 비고에 있어서 찾았습니다 — 비고: ' + esc(memoOf(r)) + '">비고 일치</span>' : "") +
           // 아래 줄: 왼쪽 품목코드(드래그해서 복사) · 업체, 오른쪽 끝 품의번호
@@ -8006,8 +8010,22 @@ function dateSlots_(steps, cfg, mode) {
    */
   /* ---------- 이슈(2026-10-27) — 발주건 · 샘플건에 등록 → 일일보고에서 팀장 피드백 → 확인(보고서 이슈에서 빠짐) ---------- */
   var ISS = {}, ISS_OPEN = {};
+  /** 목록용 열린 이슈(대상키 → 목록) — 처음 · 2분마다 · 이슈를 바꾼 뒤 다시 받는다 */
+  var ISS_ALL = null, ISS_ALL_AT = 0;
+  function issOpenOf(r) {
+    if (!ISS_ALL) return [];
+    if (mode === "sample") { var out = [], p = "s:" + r.id + "|"; Object.keys(ISS_ALL).forEach(function (k) { if (k.indexOf(p) === 0) out = out.concat(ISS_ALL[k]); }); return out; }
+    return ISS_ALL["po:" + String(r.id).toLowerCase()] || [];
+  }
+  function issAllLoad(force) {
+    if (!force && Date.now() - ISS_ALL_AT < 120000) return;
+    ISS_ALL_AT = Date.now();
+    gsr().withSuccessHandler(function (m) { var before = JSON.stringify(ISS_ALL || {}); ISS_ALL = m || {}; if (JSON.stringify(ISS_ALL) !== before && view === "board" && !(typeof navPageOpen === "function" && navPageOpen())) renderBoard(); })
+      .withFailureHandler(function () { /* 넘어간다 */ }).apiIssueOpen();
+  }
   function issRefBase(row) { return mode === "sample" ? "s:" + row.id + "|" : "po:" + String(row.id).toLowerCase(); }
   function issLoad(row, force) {
+    if (force) issAllLoad(true);
     var base = issRefBase(row);
     if (ISS[base] && !force) return;
     if (!ISS[base]) ISS[base] = { loading: 1, list: [] };
