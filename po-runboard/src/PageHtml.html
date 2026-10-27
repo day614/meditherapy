@@ -1750,6 +1750,8 @@
   .waitbadge.late { color: #b42318; background: #fdecea; border-color: #f3c7c3; }
   .dlyiss td { padding: 2px 4px; } .dlyiss input { width: 100%; min-width: 90px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-size: 12.5px; background: #fffbe6; }
   .wksum td { vertical-align: top; } .wksum tr { cursor: pointer; } .wksum tr:hover td { background: var(--surface-2); } .wksum td:first-child { white-space: nowrap; width: 170px; } .wksum td:nth-child(2) { white-space: nowrap; width: 70px; font-weight: 700; } .wksum tr.wkwarn td:nth-child(2) { color: #c00000; }
+  .mkbar button.mkoff { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 1px; opacity: .75; }
+  .mkbar button.mkoff[aria-pressed="true"] { opacity: 1; }
 </style>
 </head>
 <body>
@@ -6587,7 +6589,9 @@ function dateSlots_(steps, cfg, mode) {
   var SPMK = {};            // 건ID → 보고 있는 구성
   function spNorm(m) { return String(m == null ? "" : m).trim(); }
   /** 이 프로젝트의 구성 — 샘플 회차의 구성 + [+ 구성 추가]로 넣은 것 + 견적 · 사양을 적은 구성. 하나도 없으면 '기본' */
-  function spMakes(row) {
+  /** 구성 목록 — 진행 중 구성 먼저, 업체가 모두 드롭된 구성은 뒤로(처음 고르는 구성 = 진행 중 첫 구성) */
+  function spMakes(row) { var L = spMakesAll(row), off = spMakesOffOf(row, L); return L.filter(function (m) { return off.indexOf(m) < 0; }).concat(off); }
+  function spMakesAll(row) {
     var out = [], add = function (m) { m = spNorm(m); if (m && out.indexOf(m) < 0) out.push(m); };
     (row.vendors || []).forEach(function (g) { (g.reqs || []).forEach(function (q) { add(q.make); }); });
     var R = sInfo(row, "req");
@@ -6606,10 +6610,10 @@ function dateSlots_(steps, cfg, mode) {
     return mk === spMakes(row)[0] ? (R[f] || "") : "";
   }
   function spMkBar(row, kind) {
-    var cur = spMk(row), ro = DATA && DATA.canEdit === false;
+    var cur = spMk(row), ro = DATA && DATA.canEdit === false, off = spMakesOff(row);
     return '<div class="mkbar"><span class="mkl">구성</span>' + spMakes(row).map(function (m) {
-      var n = kind === "qt" ? qtVendors(row, m).length : MK_F.filter(function (F) { return spMkVal(row, m, F[0]); }).length;
-      return '<button type="button" data-spmk="' + esc(m) + '" aria-pressed="' + (m === cur) + '">' + esc(m) + (n ? " <em>" + n + "</em>" : "") + "</button>";
+      var n = kind === "qt" ? qtVendors(row, m).length : MK_F.filter(function (F) { return spMkVal(row, m, F[0]); }).length, o = off.indexOf(m) > -1;
+      return '<button type="button" data-spmk="' + esc(m) + '" aria-pressed="' + (m === cur) + '"' + (o ? ' class="mkoff" title="이 구성은 업체가 모두 드롭 · 탈락 — 기록 보기용"' : "") + ">" + esc(m) + (o ? " · 드롭" : "") + (n ? " <em>" + n + "</em>" : "") + "</button>";
     }).join("") + (ro ? "" : '<button type="button" class="mkadd" data-spmkadd="1" title="단상자 · 리드 · 라벨 등 구성을 더합니다">+ 구성 추가</button>') + "</div>";
   }
   function spReqVal(row, f) { var d = spDraft(row).req; return f in d ? d[f] : (sInfo(row, "req")[f] || ""); }
@@ -6889,8 +6893,20 @@ function dateSlots_(steps, cfg, mode) {
   }
 
   /* ---------- 진행 현황(첫 탭) ---------- */
+  /** 구성 중 업체가 모두 드롭 · 탈락한 것(요청 정보에만 있고 업체가 아직 없는 구성은 진행으로 본다) */
+  function spMakesOff(row) {
+    return spMakesOffOf(row, spMakesAll(row));
+  }
+  function spMakesOffOf(row, L) {
+    var on = {}, any = {};
+    (row.vendors || []).forEach(function (g) {
+      var off = /드롭|탈락/.test(g.status || "");
+      (g.reqs || []).forEach(function (q) { var m = spNorm(q.make); if (!m) return; any[m] = 1; if (!off && !/드롭|탈락/.test(q.status || "")) on[m] = 1; });
+    });
+    return L.filter(function (m) { return any[m] && !on[m]; });
+  }
   function spHomeTab(row) {
-    var R = sInfo(row, "req"), Q = sInfo(row, "qt"), items = svItems([row]), cnt = {}, MKS = spMakes(row);
+    var R = sInfo(row, "req"), Q = sInfo(row, "qt"), items = svItems([row]), cnt = {}, MKS = spMakes(row), MOFF = spMakesOff(row), MON = MKS.filter(function (m) { return MOFF.indexOf(m) < 0; });
     items.forEach(function (x) { cnt[x.b] = (cnt[x.b] || 0) + 1; });
     var kv = function (k, v) { return "<div><span>" + esc(k) + "</span><b>" + (v === "" || v == null ? "—" : v) + "</b></div>"; };
     var picks = (row.vendors || []).filter(function (g) { return g.status === "채택"; });
@@ -6901,7 +6917,7 @@ function dateSlots_(steps, cfg, mode) {
       Object.keys(C).forEach(function (k) { if (C[k].q.st === "후보" && cands.indexOf(C[k].name) < 0) cands.push(C[k].name); });
       var tp = spMkVal(row, mk, "tprice"); if (tp) tps.push(esc(mk) + " " + esc(Number(spNum(tp) || 0).toLocaleString()) + "원");
       var sp = ["size", "material", "color", "pack"].map(function (f) { return spMkVal(row, mk, f); }).filter(Boolean), ds = spMkVal(row, mk, "designSt"), da = spMkVal(row, mk, "designAt");
-      if (sp.length || ds || da) specs.push("<div><span>" + esc(mk) + "</span><b>" + esc(sp.join(" · ") || "—") + (ds || da ? ' <em class="nsub">디자인 ' + esc([ds, md2(da)].filter(Boolean).join(" ")) + "</em>" : "") + "</b></div>");
+      if (sp.length || ds || da) specs.push("<div><span>" + esc(mk) + (MOFF.indexOf(mk) > -1 ? " (드롭)" : "") + "</span><b>" + esc(sp.join(" · ") || "—") + (ds || da ? ' <em class="nsub">디자인 ' + esc([ds, md2(da)].filter(Boolean).join(" ")) + "</em>" : "") + "</b></div>");
       picks.forEach(function (g) { var c = C[sampleVKey(g.name)]; if (c && c.krw != null) pickTxt.push(esc(mk) + " " + won(c.krw) + " · " + esc(md2(c.avail) || "—")); });
     });
     var card = function (title, tab, body, wide) { return '<div class="spcard sphc"><div class="spch"><b>' + title + "</b>" + (tab ? '<button type="button" class="btn-quiet btn-sm" data-sptab="' + tab + '">자세히</button>' : "") + '</div><div class="spkv' + (wide ? " one" : "") + '">' + body + "</div></div>"; };
@@ -6911,8 +6927,8 @@ function dateSlots_(steps, cfg, mode) {
       OW.map(function (w) { return '<li class="ev-rv"><b>' + esc(w.x.wait) + (w.vendor ? " · " + esc(w.vendor) : "") + " — " + esc(w.x.text || "") + waitTag(w.x) + " " + waitBtn(w) + "</b><small>" + esc((w.x.who ? w.x.who + " · " : "") + (w.x.at || "")) + "</small></li>"; }).join("") + "</ul></div>" : "";
     var h = sampleStepper(row) + waitBox + '<div class="sphome">' +
       card("요청 기본정보", "req", kv("요청부서", esc(R.dept || "")) + kv("요청일", esc(md2(R.reqAt || "") || "")) + kv("희망 발주일", esc(md2(R.wantPo))) + kv("희망 납품일", esc(md2(R.wantIn))) + kv("출시 예정일", esc(md2(R.launch))) + kv("목표 단가", tps.join("<br>")) + (function () { var B = spBack(R); if (!B.poDue) return ""; var l = dDiff(B.poDue, todayIso()); return kv("발주 마감(역산)", esc(md2(B.poDue)) + ' <em class="' + (l < 0 ? "late" : "") + '">' + (l < 0 ? -l + "일 지남" : "D-" + l) + "</em>"); })()) +
-      card("구성별 디자인 · 포장 사양", "req", specs.join("") || '<div><span>구성</span><b>' + esc(MKS.join(" · ")) + "</b></div>", true) +
-      card("소싱 · 견적 · 샘플", "qt", kv("견적", Object.keys(Q).length + "건 · 구성 " + MKS.length) + kv("후보 업체", esc(cands.join(" · "))) + kv("최저 단가(구성별)", lows.join("<br>")) + kv("선정(채택)", esc(picks.map(function (g) { return g.name; }).join(" · "))) +
+      card("구성별 디자인 · 포장 사양", "req", specs.join("") || '<div><span>구성</span><b>' + esc(MON.join(" · ") || "—") + (MOFF.length ? ' <em class="nsub">드롭: ' + esc(MOFF.join(" · ")) + "</em>" : "") + "</b></div>", true) +
+      card("소싱 · 견적 · 샘플", "qt", kv("견적", Object.keys(Q).length + "건 · 구성 " + MON.length + (MOFF.length ? ' <span class="nsub">(드롭 ' + MOFF.length + ")</span>" : "")) + kv("후보 업체", esc(cands.join(" · "))) + kv("최저 단가(구성별)", lows.join("<br>")) + kv("선정(채택)", esc(picks.map(function (g) { return g.name; }).join(" · "))) +
         kv("샘플", "진행 " + ((cnt.open || 0) + (cnt.late || 0)) + " · 수신 " + (cnt.rcv || 0) + (cnt.late ? ' · <em class="late">지남 ' + cnt.late + "</em>" : "")) + kv("검토 결과", esc(RV_OPTS.filter(function (o) { return rvC[o]; }).map(function (o) { return o + " " + rvC[o]; }).join(" · "))) +
         (pickTxt.length ? kv("선정 업체 단가 · 납기", pickTxt.join("<br>")) : "")) +
       "</div>" + sProjMemoBlock(row) + '<div class="spsec">업체별 진행</div>' + sampleBlock(row) + spPoCard(row) +
