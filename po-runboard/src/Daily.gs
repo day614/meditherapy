@@ -25,6 +25,7 @@ function dailyFind_(sh, date) {
 function dailyRelabel_(r) {
   var f = function (t) { return str_(t).replace(/이번 주/g, '당일').replace(/다음 주 예정/g, '향후 7일 예정').replace(/다음 주/g, '향후 7일').replace(/주간/g, '일일'); };
   (r.summary.kpi || []).forEach(function (k) { k.label = f(k.label); k.sub = f(k.sub); });
+  (r.summary.rows || []).forEach(function (x) { x.label = f(x.label); x.text = f(x.text); });
   var fixT = function (it) { it.t = f(it.t); it.cols = (it.cols || []).map(f); };
   (r.summary.tables || []).forEach(fixT);
   (r.parts || []).forEach(function (p) { p.h = f(p.h); if (p.note) p.note = f(p.note); (p.subs || []).forEach(function (s) { s.t = f(s.t); (s.items || []).forEach(fixT); }); });
