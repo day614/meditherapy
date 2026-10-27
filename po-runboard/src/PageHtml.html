@@ -3746,6 +3746,14 @@ function dateSlots_(steps, cfg, mode) {
   }
 
   $("closeRun").addEventListener("click", closeRunAsk);
+  // 패널 바깥 빈 곳을 누르면 패널을 닫는다 — 다른 줄을 눌러 그 건으로 바뀐 경우 · 단추 · 입력칸 · 창(대화상자) 안은 그대로
+  document.addEventListener("click", function (e) {
+    var vr = $("view-run"); if (!vr || vr.hidden || !document.body.classList.contains("drawer-open")) return;
+    var t = e.target; if (!t || !t.closest || !document.body.contains(t)) return;
+    if (vr.contains(t) || t.closest("button, a, input, select, textarea, label, [role=dialog], .ov, .nsov, .modal, #toast, [data-id], [data-schid], .gclick, [data-go], [data-open]")) return;
+    var was = currentId;
+    setTimeout(function () { if (!vr.hidden && currentId === was && ![].some.call(document.querySelectorAll(".ov, [role=dialog]"), function (d) { return !vr.contains(d) && d.getClientRects().length > 0; })) closeRunAsk(); }, 0);   // 떠 있는 창이 있으면 그대로
+  });
   document.addEventListener("keydown", function (e) {
     if (escFor("view-run", e)) closeRunAsk();
   });
@@ -3907,6 +3915,7 @@ function dateSlots_(steps, cfg, mode) {
     var b = e.target.closest("button[data-nav]"); if (!b) return;
     var k = b.dataset.nav;
     if (!DATA || !DATA.rows) { NAV_WAIT = b; toast("처음 화면을 불러오는 중입니다 — 다 뜨면 '" + b.textContent + "'를 엽니다"); return; }
+    if (!$("view-run").hidden && !closeRunAsk()) return;            // 메뉴를 옮기면 열려 있던 상세 패널은 닫는다(저장 안 한 입력은 묻고)
     if (NAV_PAGE[k]) {
       if (navPageOpen() === k) return;
       if (!navClosePages(k)) return;
@@ -7452,7 +7461,7 @@ function dateSlots_(steps, cfg, mode) {
         (fold ? "" : sampleTimeline(row, g) +
         '<div class="tladd">' + (g.reqs.length ? sampleRoundSel(row, g) : "") + '<input type="text" data-tltext="' + esc(vk) + '" placeholder="진행상황 · 견적 메모 한 줄 — 시트 [비고/피드백]에도 덧붙습니다. 예: 견적 개당 600원(MOQ 1만)" maxlength="500">' +
           // 수신은 회차 줄 오른쪽 [수신]으로(어느 회차를 받았는지가 분명하게) — 여기서는 진행중 · 채택 · 탈락 · 드롭만
-          '<select data-tlst="' + esc(vk) + '" title="비고만 남길 땐 [비고 추가] — 진행중 · 채택 · 탈락 · 드롭을 고르면 메모와 함께 그 회차 상태도 바뀝니다"><option value="">비고 추가</option>' + SST.filter(function (x) { return x !== "수신"; }).map(function (x) { return x === "드롭" ? '<option value="드롭" title="고른 회차만 드롭 — 업체 전체를 드롭하려면 카드의 [업체 드롭]">이 회차만 드롭</option>' : "<option>" + x + "</option>"; }).join("") + "</select>" +
+          '<select data-tlst="' + esc(vk) + '" title="비고만 남길 땐 [비고 추가] — 진행중 · 채택 · 탈락 · 드롭을 고르면 메모와 함께 그 회차 상태도 바뀝니다"><option value="">비고 추가</option><optgroup label="비고 + 회차 상태 바꾸기">' + SST.filter(function (x) { return x !== "수신"; }).map(function (x) { return x === "드롭" ? '<option value="드롭" title="고른 회차만 드롭 — 업체 전체를 드롭하려면 카드의 [업체 드롭]">→ 이 회차만 드롭</option>' : '<option value="' + x + '" title="' + (x === "진행중" ? "드롭 · 탈락 · 채택했던 회차를 다시 진행 중으로 되돌릴 때" : x === "채택" ? "이 업체 · 회차로 결정" : "검토 결과 이 업체는 떨어짐") + '">→ ' + (x === "진행중" ? "진행중으로 되돌리기" : x) + "</option>"; }).join("") + "</optgroup></select>" +
           waitSel('data-tlwait="' + esc(vk) + '"') +
           '<label class="tldue" title="이 일의 기한(없으면 비워 둠) — 대기를 골랐으면 회신 기한">기한 <input type="date" data-tldue="' + esc(vk) + '"></label>' +
           '<button class="btn btn-sm btn-solid" type="button" data-tlsave="' + esc(vk) + '" data-tlrow="' + g.lastRow + '">기록</button></div>' +
