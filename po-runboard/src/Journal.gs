@@ -405,6 +405,7 @@ function warmCaches(e) {
   }
   if (typeof warmBom_ === 'function') warmBom_();
   if (typeof warmStock_ === 'function') warmStock_();     // 재고시트 입고예정(25분마다)
+  if (typeof dailyAutoSave_ === 'function') dailyAutoSave_();     // 일일보고: 18시 넘으면 하루 한 번 저장
 }
 
 /** 첫 화면 캐시(설정 · 발주 목록 · 진행 기록)가 비었으면 시트를 읽어 채운다. 있는지 보기는 캐시 칸 수만(풀지 않는다). */

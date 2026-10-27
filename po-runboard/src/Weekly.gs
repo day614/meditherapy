@@ -33,13 +33,13 @@ function wkTab_(name) {
 }
 
 /** 화면: 주간보고 데이터. from · to = 'yyyy-MM-dd'(없으면 지난 금 ~ 이번 목) */
-function apiWeeklyReport(from, to) {
+function apiWeeklyReport(from, to, kind) {
   var now = new Date(), t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   var d1 = wkDay_(to), d0 = wkDay_(from);
   if (!d1) { d1 = new Date(t0); d1.setDate(d1.getDate() - 1); while (d1.getDay() !== 4) d1.setDate(d1.getDate() - 1); }   // 어제까지 중 가장 최근 목요일
   if (!d0) { d0 = new Date(d1); d0.setDate(d0.getDate() - 6); }
-  var TODAY = new Date(d1); TODAY.setDate(TODAY.getDate() + 1);
-  var n0 = new Date(TODAY), n1 = new Date(TODAY); n1.setDate(n1.getDate() + 6);
+  var TODAY = new Date(d1); if (kind !== 'day') TODAY.setDate(TODAY.getDate() + 1);    // 일일보고: 그날 기준(그날 기한은 아직 지연 아님)
+  var n0 = new Date(d1); n0.setDate(n0.getDate() + 1); var n1 = new Date(n0); n1.setDate(n1.getDate() + 6);
   var inwk = function (x) { var d = wkDay_(x); return !!d && d >= d0 && d <= d1; };
   var innx = function (x) { var d = wkDay_(x); return !!d && d >= n0 && d <= n1; };
   var ymd = function (d) { return Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd'); };
