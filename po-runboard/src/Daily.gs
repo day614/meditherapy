@@ -59,19 +59,46 @@ function dailyWrite_(date, rep, issues, who) {
 function apiDailyReport(date, refresh) {
   var today = dailyToday_(); date = dailyOkDate_(date) || today;
   if (date > today) throw new Error('앞으로의 날짜는 볼 수 없습니다.');
-  var sh = dailyTab_(), at = dailyFind_(sh, date), old = at ? dailyRead_(sh, at) : null;
-  if (old && old.rep && !refresh && date !== today) return { date: date, saved: true, savedAt: old.savedAt, savedBy: old.savedBy, rep: old.rep, issues: old.issues };
-  // 오늘 보고서: 10분 안에 저장한 게 있으면 그대로(열 때마다 다시 계산 · 저장하느라 느렸다). [새로고침]은 다시 계산
-  if (old && old.rep && !refresh && date === today && old.rep.v >= 7) {
-    var ago = (new Date().getTime() - new Date(old.savedAt.replace(' ', 'T') + ':00+09:00').getTime()) / 60000;
-    var dirty = 0; try { dirty = Number(CacheService.getScriptCache().get('daily:dirty')) || 0; } catch (eC) { dirty = 0; }
-    if (ago >= 0 && ago < 10 && dirty < new Date(old.savedAt.replace(' ', 'T') + ':00+09:00').getTime()) return { date: date, saved: true, savedAt: old.savedAt, savedBy: old.savedBy, rep: old.rep, issues: old.issues, live: true, cached: true };
+  var sh = dailyTab_(), at = dailyFind_(sh, date);
+  if (date === today && !refresh) {
+    // 오늘: 1분 작업이 미리 계산해 둔 캐시 → 없으면 계산해 캐시에(열 때는 시트에 저장하지 않는다 — 저장은 18시 · [새로고침] · 특이사항 저장)
+    var c = dailyWarmGet_(today), head = at ? dailyHead_(sh, at) : null;
+    if (!c) c = dailyWarmPut_(today);
+    return { date: date, saved: !!head, savedAt: head ? head.savedAt : '', savedBy: head ? head.savedBy : '', rep: c.rep, issues: head ? head.issues : [], live: true, cached: true, calcAt: c.at };
   }
-  var rep = dailyCompute_(date), issues = old ? old.issues : [];
-  if (date === today || refresh) {
-    if (canEdit_()) { dailyWrite_(date, rep, issues); return { date: date, saved: true, savedAt: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'), savedBy: me_().split('@')[0], rep: rep, issues: issues, live: date === today }; }
+  var old = at ? dailyRead_(sh, at) : null;
+  if (old && old.rep && !refresh) return { date: date, saved: true, savedAt: old.savedAt, savedBy: old.savedBy, rep: old.rep, issues: old.issues };
+  var rep = dailyCompute_(date), issues = old ? old.issues : (at ? dailyHead_(sh, at).issues : []);
+  if (refresh && canEdit_()) {
+    dailyWrite_(date, rep, issues);
+    if (date === today) dailyWarmSet_(today, rep);
+    return { date: date, saved: true, savedAt: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'), savedBy: me_().split('@')[0], rep: rep, issues: issues, live: date === today };
   }
   return { date: date, saved: false, recomputed: true, rep: rep, issues: issues };
+}
+/** 저장 줄의 앞 네 칸만(날짜 · 시각 · 저장자 · 특이사항) — 보고서 JSON(큰 칸)은 안 읽는다 */
+function dailyHead_(sh, at) {
+  var v = sh.getRange(at, 1, 1, 4).getValues()[0], issues = [];
+  try { issues = JSON.parse(str_(v[3]) || '[]'); } catch (e) { issues = []; }
+  return { savedAt: str_(v[1]), savedBy: str_(v[2]), issues: Array.isArray(issues) ? issues : [] };
+}
+/** 오늘 보고서 캐시(1분 작업이 미리 계산) — 이슈 · 회신이 바뀌면(dirty) 버린다 */
+function dailyWarmGet_(date) {
+  var c = cacheGet_('dly:warm:' + date); if (!c || !c.rep) return null;
+  var dirty = 0; try { dirty = Number(CacheService.getScriptCache().get('daily:dirty')) || 0; } catch (e) { dirty = 0; }
+  return dirty >= c.t ? null : c;
+}
+function dailyWarmSet_(date, rep) { var o = { t: new Date().getTime(), at: Utilities.formatDate(new Date(), 'Asia/Seoul', 'HH:mm'), rep: rep }; cachePut_('dly:warm:' + date, o, 900); return o; }
+function dailyWarmPut_(date) { return dailyWarmSet_(date, dailyCompute_(date)); }
+/** 1분 작업: 근무 시간(7~21시)에 오늘 보고서를 5분마다 미리 계산(열 때 바로 뜨게) */
+function dailyWarm_() {
+  try {
+    var h = Number(Utilities.formatDate(new Date(), 'Asia/Seoul', 'H')); if (h < 7 || h >= 21) return;
+    var today = dailyToday_(), c = cacheGet_('dly:warm:' + today);
+    var dirty = 0; try { dirty = Number(CacheService.getScriptCache().get('daily:dirty')) || 0; } catch (e) { dirty = 0; }
+    if (c && c.t && new Date().getTime() - c.t < 5 * 60000 && dirty < c.t) return;
+    dailyWarmPut_(today);
+  } catch (e) { try { console.log('일일보고 미리 계산 실패: ' + e.message); } catch (e2) { /* 넘어간다 */ } }
 }
 /** 화면: 병목 · 이슈(직접 작성) 저장 — rows = [[구분, 이슈 내용, 품목 · 업체, 원인, 대응 방안, 해결 예정일, 담당], …] */
 function apiDailyIssues(date, rows) {

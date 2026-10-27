@@ -465,7 +465,7 @@ function apiWeeklyReport(from, to, kind) {
   var dts = function (v) { return str_(v).split(/\s*,\s*/).filter(String).map(function (x) { return wkMd_(x); }).join(', '); };      // '2026-10-19, 2026-10-23' → '10/19, 10/23'
   var poNo = function (p) { return p ? str_(p[pi['품의번호']]) : ''; };
   var iss = function (id, meta, x) { return { id: id, kind: meta.kind, ref: meta.ref, name: meta.name, vendor: meta.vendor, text: meta.text, by: x ? x.by : '자동', at: x ? x.at : '' }; };
-  var regTxt = function (x) { return x.text + ' (' + x.at.slice(5, 10).replace('-', '/') + ' ' + x.by + ')'; };
+  var regTxt = function (x) { return x.text + ' (' + wkMd_(x.at) + ' ' + x.by + ' 등록)'; };
   var SEC = function (id, t, cols, rows, o) { o = o || {}; return { id: id, t: t, cols: cols, rows: rows, fb: !!o.fb, hot: !!o.hot }; };
   // ── 2. 발주건
   // 구분(완제품 · 부자재 …)별로 표를 나눈다(2026-10-27 담당자) — 완제품 · 부자재 먼저, 그 밖의 구분은 그 이름으로

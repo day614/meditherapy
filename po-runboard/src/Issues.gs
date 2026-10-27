@@ -11,13 +11,15 @@ var RB_ISS_HEAD = ['이슈ID', '종류', '대상키', '품목', '업체', '내�
 
 function issTab_() { return tab_(RB_ISS_TAB, RB_ISS_HEAD); }       // 없으면 머리글과 함께 만든다(sheet_ 는 없는 탭을 기억해 두어 쓰지 않는다)
 function issNow_() { return Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'); }
+/** 시트가 날짜로 바꿔 둔 시각 칸 → 'yyyy-MM-dd HH:mm' (그대로 글자로 쓰면 'Tue Oct 27 …'이 되어 보고서에 'ct 27'로 찍혔다) */
+function issTime_(v) { return v instanceof Date ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd HH:mm') : str_(v); }
 function issWho_() { return me_().split('@')[0]; }
 /** 이슈 전부 — [{ id, kind, ref, name, vendor, text, at, by, st, fb, fbBy, fbAt, row }] */
 function issAll_() {
   var sh = ss_().getSheetByName(RB_ISS_TAB); if (!sh || sh.getLastRow() < 2) return [];
   return sh.getRange(2, 1, sh.getLastRow() - 1, RB_ISS_HEAD.length).getValues().map(function (v, i) {
-    return { id: str_(v[0]), kind: str_(v[1]), ref: str_(v[2]), name: str_(v[3]), vendor: str_(v[4]), text: str_(v[5]), at: str_(v[6]), by: str_(v[7]),
-      st: str_(v[8]) || '열림', fb: str_(v[9]), fbBy: str_(v[10]), fbAt: str_(v[11]), row: i + 2 };
+    return { id: str_(v[0]), kind: str_(v[1]), ref: str_(v[2]), name: str_(v[3]), vendor: str_(v[4]), text: str_(v[5]), at: issTime_(v[6]), by: str_(v[7]),
+      st: str_(v[8]) || '열림', fb: str_(v[9]), fbBy: str_(v[10]), fbAt: issTime_(v[11]), row: i + 2 };
   }).filter(function (x) { return x.id; });
 }
 function issPub_(x) { var o = {}; Object.keys(x).forEach(function (k) { if (k !== 'row') o[k] = x[k]; }); return o; }

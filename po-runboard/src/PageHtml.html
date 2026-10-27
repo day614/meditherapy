@@ -10340,7 +10340,15 @@ function dateSlots_(steps, cfg, mode) {
     var load = function (dt, refresh) {
       date = dt; WKM = "";
       var box = ov.querySelector(".wkbox"); if (box && R) { var st = box.querySelector("#dly-state"); if (st) st.textContent = "불러오는 중…"; }
-      gsr().withSuccessHandler(function (d) { D = d; R = d.rep; R.issues = d.issues || []; R.author = d.savedBy || (DATA && DATA.me ? String(DATA.me).split("@")[0] : ""); draw(); })
+      // 지난번 본 같은 날짜 보고서를 먼저 띄우고(브라우저 기억), 서버 것이 오면 바꿔 끼운다
+      var lk = "rb.dly." + dt;
+      if (!refresh) { try { var c0 = JSON.parse(localStorage.getItem(lk) || "null"); if (c0 && c0.rep && c0.rep.v >= 7) { D = c0; R = c0.rep; R.issues = c0.issues || []; draw(); var st0 = ov.querySelector("#dly-state"); if (st0) st0.textContent = "지난번에 본 보고서 — 최신으로 불러오는 중…"; } } catch (eL) { /* 넘어간다 */ } }
+      gsr().withSuccessHandler(function (d) {
+          if (WKM || date !== dt) return;                       // 그사이 다른 날짜 · 주간으로 넘어갔다
+          D = d; R = d.rep; R.issues = d.issues || []; R.author = d.savedBy || (DATA && DATA.me ? String(DATA.me).split("@")[0] : "");
+          var keep = (ov.querySelector(".wkbox") || {}).scrollTop || 0; draw(); var bx = ov.querySelector(".wkbox"); if (bx) bx.scrollTop = keep;
+          try { localStorage.setItem(lk, JSON.stringify(d)); Object.keys(localStorage).filter(function (k) { return k.indexOf("rb.dly.") === 0 && k !== lk; }).sort().slice(0, -2).forEach(function (k) { localStorage.removeItem(k); }); } catch (eS) { /* 넘어간다 */ }
+        })
         .withFailureHandler(function (err) { var box2 = ov.querySelector(".wkbox"); if (box2) box2.innerHTML = '<h3>구매팀 일일보고</h3><p class="nghelp">불러오지 못했습니다: ' + esc(String(err.message || err)) + '</p><button type="button" class="btn btn-sm" id="wk-close">닫기</button>'; })
         .apiDailyReport(dt, !!refresh);
     };
@@ -10363,7 +10371,7 @@ function dateSlots_(steps, cfg, mode) {
     };
     var draw = function () {
       var d = R, today = todayIso(), ro = DATA && DATA.canEdit === false, box0;
-      var state = D.saved ? (D.live ? (D.cached ? "오늘 보고서 — " + esc(D.savedAt || "") + "에 만든 것(10분 안) · 지금 기록으로 다시 보려면 [새로고침]" : "오늘 보고서 — 지금 기록으로 만들고 저장했습니다(" + esc(D.savedAt || "") + ")") : "저장된 보고서 — " + esc(D.savedAt || "") + " · " + esc(D.savedBy || "") + " 기준 그대로")
+      var state = D.saved ? (D.live ? (D.cached ? "오늘 보고서 — " + esc(D.calcAt || "") + " 계산(5분마다 미리 계산) · 방금 바꾼 것까지 보려면 [새로고침]" : "오늘 보고서 — 지금 기록으로 만들고 저장했습니다(" + esc(D.savedAt || "") + ")") : "저장된 보고서 — " + esc(D.savedAt || "") + " · " + esc(D.savedBy || "") + " 기준 그대로")
         : "이 날짜는 저장된 기록이 없어 지금 기록으로 다시 계산했습니다(지연 · 대기 같은 그때 상태는 다를 수 있음)";
       var WO = d.wk || (d.week && typeof d.week === "object" ? d.week : null);
       if (WKM) state = "주간 취합 — " + esc(D.from) + " ~ " + esc(D.to) + " (그 주 기록을 모아 지금 계산 · 저장하지 않음). 날짜를 고르면 일일보고로 돌아갑니다";
