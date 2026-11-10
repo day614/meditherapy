@@ -1,0 +1,188 @@
+--- a/ItemInfo.gs
++++ b/ItemInfo.gs
+@@ -185,7 +185,12 @@
+     try { appendHist_(hist); } catch (e) { /* 이력은 넘어간다 */ }
+     cacheDrop_(RB_ITEM.CACHE); cacheDrop_(RB_II_CACHE);
+     // 품목명 · 업체 · 사양을 고쳤으면 그 코드를 쓰는 BOM 줄도 같이(같은 자재코드 = 같은 값, 기준은 품목 DB)
+-    if (hist.some(function (h) { return h.item === RB_ITEM_LABEL.name || h.item === RB_ITEM_LABEL.vendor || h.item === RB_ITEM_LABEL.spec; })) { var only = {}; only[code] = 1; try { bomNameSync_(only, true); } catch (eS) { /* 10분 작업이 맞춘다 */ } }
++    // 2026-11-10: 화면(품목 정보 창)에서 고친 건 BOM 줄 맞추기를 1분 작업으로 미룬다 — BOM 탭 전체 · 품목 DB 를 두 번씩 읽어 저장 한 줄이 수 초 걸렸다.
++    //   못 미루면(속성 저장 실패) 예전처럼 지금. 화면 밖(bomRenameApply_ 등 · 이미 1분 작업 안)은 지금 바로.
++    if (hist.some(function (h) { return h.item === RB_ITEM_LABEL.name || h.item === RB_ITEM_LABEL.vendor || h.item === RB_ITEM_LABEL.spec; })) {
++      if (fromUi && bomLater_({ k: 'nsync', codes: [code] })) out.later = 1;
++      else { var only = {}; only[code] = 1; try { bomNameSync_(only, true); } catch (eS) { /* 10분 작업이 맞춘다 */ } }
++    }
+   }
+   out.changed = hist.length;
+   return out;
+--- a/BomExtra.gs
++++ b/BomExtra.gs
+@@ -265,7 +265,7 @@
+   var P = PropertiesService.getScriptProperties(), all = P.getProperties();
+   var keys = Object.keys(all).filter(function (k) { return k.indexOf(RB_BL) === 0; }).sort();
+   if (!keys.length) return 0;
+-  var codes = {}, rens = [], cms = [], sbs = {}, regs = [];
++  var codes = {}, rens = [], cms = [], sbs = {}, regs = [], nsync = {};
+   keys.forEach(function (k) {
+     var j = null; try { j = JSON.parse(all[k]); } catch (e) { j = null; }
+     P.deleteProperty(k);
+@@ -275,6 +275,7 @@
+     else if (j.k === 'cm') cms.push(j);
+     else if (j.k === 'reg') regs.push(j);
+     else if (j.k === 'sb') (j.codes || []).forEach(function (c) { sbs[c] = 1; });
++    else if (j.k === 'nsync') (j.codes || []).forEach(function (c) { nsync[c] = 1; });
+   });
+   RB_EDITOR_OK = true;
+   if (regs.length) { var lkR = LockService.getScriptLock(); try { waitLock_(lkR, 60000); } catch (eL) { lkR = null; } }      // 품목 DB 에 붙이기는 잠금 안에서(다른 저장과 같은 줄에 쓰지 않게)
+@@ -283,6 +284,11 @@
+   if (Object.keys(sbs).length) { try { sbPushProductsFromSheet_(Object.keys(sbs)); } catch (eSb) { try { console.log('Supabase 맞추기 실패: ' + eSb.message); } catch (eSb2) { /* 10분 작업 */ } } }
+   cms.forEach(function (j) { try { bomCmSync_(j.product, j.round, j.codes, j.tag); } catch (e) { try { console.log('공용 맞추기(미룸) 실패: ' + e.message); } catch (e2) { /* 10분 작업이 다시 */ } } });      // f83
+   rens.forEach(function (j) { try { bomLogDbPrev_(j.product, j.tag, bomRenameApply_(j.ren)); } catch (e) { try { console.log('이름 맞추기(미룸) 실패: ' + e.message); } catch (e2) { /* 10분 작업이 다시 */ } } });
++  // 품목 정보 창에서 고친 품목명 · 업체 · 사양 → 그 코드를 쓰는 BOM 줄(apiItemDbSave 가 미룸 · 2026-11-10). 여러 건을 한 번에(BOM 탭 한 번 읽기)
++  if (Object.keys(nsync).length) {
++    try { bomNameSync_(nsync, true); }
++    catch (eN) { bomLater_({ k: 'nsync', codes: Object.keys(nsync) }); try { console.log('품목 정보 BOM 맞추기(미룸) 실패 — 다음 1분에: ' + eN.message); } catch (eN2) { /* 넘어간다 */ } }
++  }
+   if (Object.keys(codes).length) { try { itemDbPriceSync_(Object.keys(codes), null); } catch (e3) { try { console.log('품목 단가(미룸) 실패: ' + e3.message); } catch (e4) { /* 넘어간다 */ } } }
+   return keys.length;
+ }
+--- a/Bom.gs
++++ b/Bom.gs
+@@ -1401,7 +1401,19 @@
+   var tw0 = Date.now();
+   // 업체 · 사양 · 소요량도 바뀌는 줄은 새 코드가 생긴다 — 그 이름을 옛 코드(다른 품목 · 지난 차수 줄)에 덮어쓰지 않는다
+   var ren = bomRenamesFrom_(str_(product).toUpperCase(), (changes || []).filter(function (c) { return c && c.kind !== 'add' && !c.remove && c.vendor == null && c.spec == null && c.qty == null; }).map(function (c) { return { row: c.row, name: c.name }; }));
+-  var res = bomVirtual_(function () { return apiBomSaveCore_(product, round, changes, meta); });      // Supabase 먼저(켜져 있으면 · BomShim.js)
++  var res;
++  try { res = bomVirtual_(function () { return apiBomSaveCore_(product, round, changes, meta); }); }      // Supabase 먼저(켜져 있으면 · BomShim.js)
++  catch (eSame) {
++    // 신제품 BOM 을 다시 눌렀는데 앞 저장이 이미 들어가 있음(bomNewSame_) — 아무것도 쓰지 않고 저장된 BOM 을 돌려준다(2026-11-10)
++    if (!(eSame && eSame.bomSame)) throw eSame;
++    try { bomDropCache_([eSame.product]); } catch (eDc) { /* 넘어간다 */ }
++    res = apiBomGet(eSame.product);
++    res.already = 1; res.made = []; res.saved = 0; res.logTag = ''; res.splitMap = {};
++    res.follow = bomOrderFollow_(meta, eSame.product);       // 앞 저장이 발주 건 맞추기 전에 끊겼을 수 있다
++    if (res.follow && res.follow.err) res.follow = null;      // 앞 저장이 이미 맞췄으면(기대 값이 달라 실패) 알림 없이
++    res.timing = { total: Date.now() - tw0, already: 1 };
++    return res;
++  }
+   var tw1 = Date.now(), tm = res.timing || {};
+   if (Object.keys(ren || {}).length && !bomLater_({ k: 'ren', product: str_(product).toUpperCase(), tag: res.logTag, ren: ren })) { try { bomLogDbPrev_(str_(product).toUpperCase(), res.logTag, bomRenameApply_(ren)); } catch (eR0) { /* 이름 맞추기는 10분 작업이 다시 */ } }
+   tm['이름맞추기'] = Date.now() - tw1; tw1 = Date.now();
+@@ -1471,6 +1483,28 @@
+ function bomNoRawType_(t) {
+   if (str_(t) === '원재료') throw new Error('원재료 구성은 더 등록하지 않습니다 — 다른 구분으로 넣어 주세요.');
+ }
++/**
++ * 신제품 BOM 다시 저장 확인(2026-11-10): 시트에 이미 있는 그 품목 줄(mine)이 보내는 자재 추가(changes)와 같은가.
++ * 줄 수가 같고, 추가 줄마다 아직 안 짝지은 시트 줄 하나와 맞아야 한다 — 기존 코드를 고른 줄은 코드, 제품 · 세트 줄은 구분, 나머지는 구분 + 품목명(띄어쓰기 · 대소문자 무시).
++ */
++function bomNewSame_(all, mine, C, changes) {
++  var adds = (changes || []).filter(function (c) { return c && c.kind === 'add'; });
++  if (!mine.length || mine.length !== adds.length || C.type < 0 || C.name < 0) return false;
++  var nm = function (s) { return str_(s).replace(/\s+/g, '').toUpperCase(); };
++  var rows = mine.map(function (r) { var x = all[r - 3] || []; return { t: str_(x[C.type]), n: nm(x[C.name]), c: str_(x[C.code]).toUpperCase(), used: false }; });
++  return adds.every(function (a) {
++    var t = str_(a.type), want = (a.picked || a.reuse) && a.want ? str_(a.want).toUpperCase() : '';
++    var hit = rows.filter(function (r) {
++      if (r.used || r.t !== t) return false;
++      if (want) return r.c === want;
++      if (t === '제품' || t === '세트') return true;
++      return r.n === nm(a.name);
++    })[0];
++    if (!hit) return false;
++    hit.used = true;
++    return true;
++  });
++}
+ function apiBomSaveCore_(product, round, changes, meta) {
+   requireEditor_();
+   product = str_(product).toUpperCase();
+@@ -1539,7 +1573,12 @@
+     mk('BOM읽기');
+     var isNew = !mine.length;
+     if (isNew && !meta.newProduct) throw new Error('BOM 탭에 ' + product + ' 줄이 없습니다.');
+-    if (!isNew && meta.newProduct) throw new Error('품목코드 ' + product + ' 는 그사이 BOM이 생겼습니다(다른 사람이 같은 코드를 먼저 저장). [만들기]를 다시 눌러 새 코드를 받아 주세요.');
++    if (!isNew && meta.newProduct) {
++      // 2026-11-10: 앞에서 누른 저장이 시트에는 들어갔는데 화면이 응답을 못 받으면(오래 걸림 · 연결 끊김 · 저장 뒤 단계 오류) 다시 누를 때 여기서 막혔다.
++      // 이미 있는 줄이 지금 보내는 줄과 같으면(구분 · 품목명, 고른 기존 코드는 코드) 같은 저장이 끝난 것 — 저장된 BOM 을 그대로 돌려준다(아무것도 쓰지 않음)
++      if (bomNewSame_(all, mine, C, changes)) throw { bomSame: 1, product: product };      // 잠금을 놓은 뒤 bomSaveRun_ 이 저장된 BOM 을 돌려준다
++      throw new Error('품목코드 ' + product + ' 는 그사이 BOM이 생겼습니다(다른 사람이 같은 코드를 먼저 저장). [만들기]를 다시 눌러 새 코드를 받아 주세요.');
++    }
+     if (isNew && cc2.some(function (r) { return str_(r[C.code]).toUpperCase() === product; })) throw new Error('품목코드 ' + product + ' 는 이미 다른 품목 BOM에 자재로 쓰이고 있습니다. 코드를 다시 확인해 주세요.');
+     if (isNew && changes.some(function (c) { return c.kind !== 'add'; })) throw new Error('신제품 BOM은 자재 추가로만 만들 수 있습니다.');
+     // 이미 쓰는 코드 목록은 새 코드를 만들 때만 읽는다(품목 DB · 채번 탭 · 발주 DB 열 — 단가만 바꾼 저장도 매번 읽었다)
+--- a/PageHtml.html
++++ b/PageHtml.html
+@@ -1218,6 +1218,9 @@
+   #bomv-wrap .bomt td.c, #bomv-wrap .bomt td.g-code { white-space: normal; }
+   #bomv-wrap .bomt td .nghelp, #bomv-wrap .bomt td .nodb { white-space: normal; overflow-wrap: anywhere; }
+   #bomv-wrap .bomt td.n, #bomv-wrap .bomt td.num { overflow-wrap: normal; }
++  /* 2026-11-10: 정정 · 구성 표(자재코드 칸 116px 고정)에서 자재 추가 줄(td.c)의 추천 코드 칸(118px + 여백)이 칸을 넘어 품목명 칸을 덮었다 — 칸 안에 맞춘다 */
++  #bomv.fixmode .bomt td.c input.wantcode { width: 100%; max-width: 100%; min-width: 0; }
++  #bomv.fixmode .bomt td.c { width: 116px; min-width: 116px; max-width: 116px; white-space: normal; overflow-wrap: anywhere; }
+   .bomt input.wantcode { width: 118px; height: 24px; box-sizing: border-box; border: 1px dashed var(--accent); border-radius: 5px; padding: 1px 6px; font-family: "IBM Plex Mono", monospace; font-size: 12px; text-transform: uppercase; background: var(--surface); }
+   .bomn-mats { margin-top: 12px; }
+   .bomn-mh { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+@@ -17553,6 +17556,7 @@
+   function bvCopy(d) { return JSON.parse(JSON.stringify(d)); }
+   function bvGetPut(d) {
+     if (!d || !d.code || !d.rows) return;
++    if (Array.isArray(d.made) && d.made.length) bvPendReg(d.made);      // 방금 받은 새 코드(품목 DB 등록은 1분 작업)
+     if (d.semiPin) BV_PINS[String(d.code).toUpperCase()] = d.semiPin;
+     if (d.timing) { d = Object.assign({}, d); delete d.timing; }
+     if (!d._snap) bvSnapPut(d);
+@@ -17952,12 +17956,13 @@
+     var tr = document.querySelector('#ii-rows tr[data-iicode="' + CSS.escape(code) + '"]'), b = tr && tr.querySelector("[data-iisave]");
+     if (b) { b.disabled = true; b.textContent = "저장 중…"; }
+     gsr().withSuccessHandler(function (r) {
+-      Object.keys(r).forEach(function (k) { if (k !== "changed") it[k] = r[k]; });
++      Object.keys(r).forEach(function (k) { if (k !== "changed" && k !== "later") it[k] = r[k]; });
+       delete II.dirty[code];
+       if (r.changed) iiBomStale();
++      if (r.later) { clearTimeout(iiSave.t); iiSave.t = setTimeout(iiBomStale, 80000); }      // BOM 줄 맞추기는 1분 작업 — 끝난 뒤 BOM 을 한 번 더 받는다
+       (ITEMDB || []).forEach(function (x) { if (String(x.code).toUpperCase() === code) { x.name = it.name; x.brand = it.brand; x.vendor = it.vendor; x.spec = it.spec; x.cat = it.cat; } });
+       iiRender(false);
+-      toast(code + (r.changed ? " 저장했습니다" : " — 바뀐 칸이 없습니다"));
++      toast(code + (r.changed ? " 저장했습니다" + (r.later ? " (같은 코드 BOM 줄은 1분 안에 맞춰집니다)" : "") : " — 바뀐 칸이 없습니다"));
+       if (done) done();
+     }).withFailureHandler(function (e) {
+         if (b) { b.disabled = false; b.textContent = "저장"; }
+@@ -18420,10 +18425,14 @@
+     return false;
+   }
+   /** 품목 DB(실행판 품목 목록)에 있는 코드인지 — 목록을 받기 전엔 표시하지 않는다(BOM 에서만 온 코드는 품목 DB 가 아님) */
++  /* 2026-11-10: BOM 저장으로 새로 받은 코드 — 품목 DB 등록은 1분 작업이 한다(f94). 그동안 '품목코드 생성 필요' · [등록]이 떠 등록이 안 된 것처럼 보였다 → 3분 동안 등록된 것으로 본다 */
++  var BV_PENDREG = {};
++  function bvPendReg(codes) { var t = Date.now() + 180000; (codes || []).forEach(function (c) { c = String(c || "").toUpperCase(); if (c) BV_PENDREG[c] = t; }); }
+   function bvInDb(code) {
+     if (!ITEMDB || !ITEMDB.length) return true;
+     var c = String(code || "").toUpperCase();
+     if (!c || oneOffCode(c)) return true;
++    if (BV_PENDREG[c] && BV_PENDREG[c] > Date.now()) return true;
+     if (!bvInDb._m || bvInDb._n !== ITEMDB.length) { bvInDb._m = {}; ITEMDB.forEach(function (it) { if (!it.bom) bvInDb._m[String(it.code || "").toUpperCase()] = 1; }); bvInDb._n = ITEMDB.length; }
+     return !!bvInDb._m[c];
+   }
+@@ -20066,12 +20075,12 @@
+     var cost = bvCalc({ unit: a.unit, fx: a.fx || 1, proc: a.proc, ship: a.ship, qty: a.qty });
+     if (BV.fix || bvGridOn()) {
+       // 정정 표는 칸이 다르다(통화 · 초도 · 종료 · 적용 차수 따로) — 같은 칸 순서로 그려야 열이 밀리지 않는다
+-      return '<tr class="chg"><td class="g-ck">' + (a.ck === false ? "" : '<span title="원가에 넣는 줄">✓</span>') + '</td><td>' + esc(a.type) + '</td><td class="c">' + (a.picked ? '<span class="newc">' + esc(a.want) + ' <small>기존' + (a.reuse ? " · 공용" : "") + "</small></span>" : (a.type === "제품" || a.type === "세트") ? '<span class="newc">' + esc(a.predict) + "</span>" : '<input class="wantcode" data-addwant="' + i + '" data-pred="' + esc(a.predict) + '" value="' + esc(a.want || a.predict) + '" maxlength="20" title="번호 규칙대로 만든 추천 코드 — 바꾸려면 고쳐 적으세요(이미 쓰인 코드면 저장 때 막힘)"><div class="nghelp">새 코드(추천)</div>') + '</td><td>' + esc(a.name) + "</td><td>" + esc(a.vendor) + "</td><td>" + esc(a.buy) +
++      return '<tr class="chg"><td class="g-ck">' + (a.ck === false ? "" : '<span title="원가에 넣는 줄">✓</span>') + '</td><td>' + esc(a.type) + '</td><td class="c">' + (a.picked ? '<span class="newc">' + esc(a.want) + ' <small>기존' + (a.reuse ? " · 공용" : "") + "</small></span>" : (a.type === "제품" || a.type === "세트") ? '<span class="newc">' + esc(a.predict) + "</span>" : '<input class="wantcode" data-addwant="' + i + '" data-pred="' + esc(a.predict) + '" value="' + esc(a.want || a.predict) + '" maxlength="20" title="번호 규칙대로 만든 추천 코드 — 바꾸려면 고쳐 적으세요(이미 쓰인 코드면 저장 때 막힘)"><div class="nghelp" title="BOM [저장]을 누르면 이 코드로 채번 · 품목 DB 등록까지 됩니다 — 따로 [등록]을 누르지 않아도 됩니다">새 코드(추천) · 저장 때 등록</div>') + '</td><td>' + esc(a.name) + "</td><td>" + esc(a.vendor) + "</td><td>" + esc(a.buy) +
+         '</td><td>' + esc(a.spec) + '</td><td class="n">' + bvFmt(a.moq) + '</td><td class="n">' + bvAddFix(i, "qty", a.qty) + '</td><td class="n">' + bvAddFix(i, "unit", a.unit) + '</td><td>' + esc(a.cur || "원화") + '</td><td class="n">' + bvFmt(a.proc) + '</td><td class="n">' + bvFmt(a.ship) +
+         '</td><td class="n">' + bvFmt(Math.round(cost)) + "</td><td>" + bvAddRSel("s", i, a) + '</td><td>' + bvAddRSel("e", i, a) + '</td><td class="mod">자재 추가' + (a.why ? " · " + esc(a.why) : "") +
+         ' (저장 전)</td><td><div class="acts"><button type="button" class="btn btn-sm" data-bomundoadd="' + i + '" title="아직 저장 안 한 줄을 지웁니다">삭제</button></div></td></tr>';
+     }
+-    return '<tr class="chg"><td class="g-ck">' + (a.ck === false ? "" : '<span title="원가에 넣는 줄">✓</span>') + '</td><td>' + esc(a.type) + '</td><td class="c">' + (a.picked ? '<span class="newc">' + esc(a.want) + ' <small>기존' + (a.reuse ? " · 공용" : "") + "</small></span>" : (a.type === "제품" || a.type === "세트") ? '<span class="newc">' + esc(a.predict) + "</span>" : '<input class="wantcode" data-addwant="' + i + '" data-pred="' + esc(a.predict) + '" value="' + esc(a.want || a.predict) + '" maxlength="20" title="번호 규칙대로 만든 추천 코드 — 바꾸려면 고쳐 적으세요(이미 쓰인 코드면 저장 때 막힘)"><div class="nghelp">새 코드(추천)</div>') + '</td><td class="w1">' + esc(a.name) + "</td><td>" + esc(a.vendor) + "</td><td>" + esc(a.buy) +
++    return '<tr class="chg"><td class="g-ck">' + (a.ck === false ? "" : '<span title="원가에 넣는 줄">✓</span>') + '</td><td>' + esc(a.type) + '</td><td class="c">' + (a.picked ? '<span class="newc">' + esc(a.want) + ' <small>기존' + (a.reuse ? " · 공용" : "") + "</small></span>" : (a.type === "제품" || a.type === "세트") ? '<span class="newc">' + esc(a.predict) + "</span>" : '<input class="wantcode" data-addwant="' + i + '" data-pred="' + esc(a.predict) + '" value="' + esc(a.want || a.predict) + '" maxlength="20" title="번호 규칙대로 만든 추천 코드 — 바꾸려면 고쳐 적으세요(이미 쓰인 코드면 저장 때 막힘)"><div class="nghelp" title="BOM [저장]을 누르면 이 코드로 채번 · 품목 DB 등록까지 됩니다 — 따로 [등록]을 누르지 않아도 됩니다">새 코드(추천) · 저장 때 등록</div>') + '</td><td class="w1">' + esc(a.name) + "</td><td>" + esc(a.vendor) + "</td><td>" + esc(a.buy) +
+       '</td><td class="w2">' + esc(a.spec) + '</td><td class="n">' + bvFmt(a.moq) + '</td><td class="n">' + bvAddFix(i, "qty", a.qty) + '</td><td class="n">' + bvAddFix(i, "unit", a.unit) + (a.cur && a.cur !== "원화" ? '<div class="nghelp">' + esc(a.cur) + " ×" + bvFmt(a.fx || 1) + "</div>" : "") + '</td><td class="n">' + bvFmt(a.proc) + '</td><td class="n">' + bvFmt(a.ship) +
+       '</td><td class="n">' + bvFmt(Math.round(cost)) + "</td><td>" + bvAddRSel("s", i, a) + "~" + bvAddRSel("e", i, a) + '</td><td class="w3 mod">' + (BV.newProduct ? "신제품" : "자재 추가") + (a.why ? " · " + esc(a.why) : "") +
+       ' (저장 전)</td><td><div class="acts"><button type="button" class="btn btn-sm" data-bomundoadd="' + i + '" title="아직 저장 안 한 줄을 지웁니다">삭제</button></div></td></tr>';
+@@ -20801,7 +20810,7 @@
+       BV.saving = 0; busy(false);
+       if (!BV.confForce && ordC) BV.confForce = ordC;        // 발주에서 연 BOM 을 [N차부터 바꾸기] 등으로 저장해도 BOM 확인 = 변경 있음
+       if (BV.confForce) { var cfr = rowById(BV.confForce); BV.confForce = null; if (cfr) { bomConfSet(cfr, "Y", bomConfTypes(send)); if (String(cfr.code || "").toUpperCase() === code) setTimeout(function () { bvConfPrice(cfr, ob, code, conf0); }, 400); } }      // 자재 발주(품목 BOM 에서 고침)는 발주 단가를 품목 원가로 바꾸지 않는다      // 발주 1단계 BOM 확인 — 변경 있음(고친 칸으로 종류)
+-      var msg = ob + "차 BOM " + (d.saved || 0) + "건을 실행판 BOM 탭에 저장했습니다" + (d.made && d.made.length ? " · 새 코드 " + d.made.join(", ") : "") + bvExtraMsg(d);
++      var msg = d.already ? code + " BOM은 앞에서 누른 저장으로 이미 들어가 있습니다 — 저장된 내용을 보여 드립니다(다시 쓰지 않음)." : ob + "차 BOM " + (d.saved || 0) + "건을 실행판 BOM 탭에 저장했습니다" + (d.made && d.made.length ? " · 새 코드 " + d.made.join(", ") : "") + bvExtraMsg(d);
+       if (ckL.length && d.code === code) {              // 원가 체크만 바꾼 줄(내용은 그대로) — 같은 사유로
+         BV.saving = code; busy(true);
+         bvCkFlush(code, why0, function (d2, n2) {
