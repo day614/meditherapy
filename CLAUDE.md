@@ -24,6 +24,7 @@
 5. `node --check` 로 고친 .js 검사 → `clasp push -f` → `clasp create-version "<판> <설명>"` →
    `clasp list-versions | tail -1` 로 번호 확인(쉼표가 붙어 나온다: 1,049) →
    `clasp update-deployment AKfycbxDxIa0VfBSUfkBhfSVsLb4S2udMPkWFE8Viu1FpDcolSvL42bHTKwE2d3dnqAvnt_nWw -V <번호> -d "<설명>"`
+   - **버전 한도 200개**: `create-version` 이 "limit of 200 versions" 로 실패하면 API 로는 못 지운다 — 사용자에게 편집기 → 프로젝트 기록(시계 아이콘)에서 오래된 버전 삭제를 부탁한다(배포 중인 번호는 남김). 지운 뒤 반영까지 30초쯤 걸리니 몇 번 다시 시도.
 6. `clasp list-deployments` 로 `@<번호>` 확인. 결과를 시트(Drive 커넥터)로 확인할 수 있으면 확인한다.
 
 ### 개인용(빈 시트판) — 회사판을 고치면 개인용에도 같이 반영 · 배포한다(묻지 말 것)
