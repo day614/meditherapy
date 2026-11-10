@@ -36,5 +36,13 @@
 - 반영: 개인용을 pull → 바꾼 파일마다 `git merge-file -p <개인 파일> <회사 고치기 전> <회사 고친 뒤>`(3-way). 충돌은 개인용 쪽(Supabase 등 없음)으로 푼다.
 - 올리기 전: `node --check` · 회사 ID 검사 `grep -rln "1pmCAw1qqxUOlQGtYJhq672ieg1w0cGJMC\|1krXu_Vf7WahKKgIW6oVK4cDVbpcRX04lTo885\|meditherapy-gwp\|hooks.slack" .` 가 비어야 함.
 
+### 속도 개선 방향 — B: Supabase 직접 저장(2026-11-10 담당자 결정)
+- 이유: Apps Script 는 호출마다 2~4초 고정(코드 2.5MB 다시 띄움) + 시트 읽기/쓰기 · 잠금 줄서기. 화면이 서버를 기다리는 구조로는 2초 안 불가.
+- 원칙: **저장 화면은 '저장됨' 확인까지 기다린다**(먼저 닫고 뒤에서 저장 — 실패하면 다시 들어가야 해서 안 됨). 뒤로 미는 건 시스템이 스스로 다시 하는 뒷정리만.
+- 방식: 실행판이 열릴 때 서버가 로그인 계정으로 세션 토큰(rb_session)을 만들어 화면에 줌 → 화면이 Supabase RPC(security definer · 토큰으로 계정 확인 · 규칙 검사)를 anon 키로 직접 부름. 테이블은 RLS 로 잠금. 시트는 1분 작업이 맞추는 보기용 사본.
+- 순서: ① 메모장(rb_note) ② 발주 등록 ③ 발주 수정 · 지급 줄 ④ BOM. 단계마다 실측 · 시트 맞는지 확인 후 다음.
+- 준비: 이 환경 변수 `SUPABASE_PAT`(Supabase 관리 토큰 · sbp_…). 있으면 https://api.supabase.com/v1/projects/ybtqbxifkqfynrqpbkop/database/query 로 SQL · /api-keys 로 키. 없으면 사용자에게 위 이름으로 환경 변수 추가를 부탁(채팅에 붙이지 않게).
+- 지금 Supabase: sheet_rows(tab,row,cells — 시트 행 사본) · bom_rows · bom_log. 서버만 service_role(스크립트 속성 SB_KEY)로 씀. SQL 이주는 SB_MIGRATIONS(Supabase.js) → 1분 작업 sbMigrate_(SB_PAT).
+
 ## 자재 아카이브 (`index.html`)
 - 별도 앱. GAS 백엔드 URL 은 `index.html` 안의 `GAS_URL`. 시트: "소싱 아카이브 DB".
