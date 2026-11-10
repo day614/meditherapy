@@ -44,6 +44,9 @@
 - 준비: 이 환경 변수 `SUPABASE_PAT`(Supabase 관리 토큰 · sbp_…). 있으면 https://api.supabase.com/v1/projects/ybtqbxifkqfynrqpbkop/database/query 로 SQL · /api-keys 로 키. 없으면 사용자에게 위 이름으로 환경 변수 추가를 부탁(채팅에 붙이지 않게).
 - **진행(2026-11-11 새벽)**: ① 메모장 끝 — f313. SQL m002_rb_core(rb_session · rb_note · rb_me · rb_note_get/save · RLS) · `sbAnon_`(관리 API 로 공개 키 → SB_ANON) · `sbSessionNew_` · `sbRpcAnon_` · 1분 작업 `noteDbSelfTest_`(통과 → rb.noteDb=ok · 시트 메모 옮김) · 화면 `noteSess`/`noteRpc`(직접 · 안 되면 서버 길 apiNoteGet/Save — 둘 다 rb_note). 결과 확인은 '실행판 속도 요약' 파일(Drive 1EpN9IpCC5uQ67z_IzBlP4Ii0qnXvxN9WwDWFvAtAQRM) 'Supabase 상태' 탭 'Supabase 직접(속도 B)' 줄.
 - ② 발주 등록: 서버 안에서 8가지(검사 · 발주 DB 행 80칸 · 지급 줄 · 발주 행 맞추기 · AP · 이력 · 품목 DB · 진행 기록). 방식(접수만 Supabase + 1분 작업 반영 / 전부 Supabase 함수)은 사용자 결정 기다림.
+- **이미 있는 직접 읽기(f92 · 2026-11-11 확인)**: 서버 `apiSbToken`(Supabase.js)이 12시간 JWT(role authenticated · 스크립트 속성 SB_JWT 로 서명 · SB_ANON 공개 키)를 화면에 줌 → 화면 `SB_TOK`/`sbGet`(PageHtml)으로 bom_rows · bom_log 를 직접 읽음(`bvSbLoad`). SB_JWT · SB_ANON 둘 다 '있음'(속도 요약 파일 확인).
+- **BOM 보기가 느린 직접 원인**: `bomLoad` 가 Supabase 사본을 먼저 그리지만 `bvStale(true)`로 고치기를 막고 서버 apiBomGet(가운데값 4.6초)을 기다림. BOM 은 Supabase 먼저 저장이라 bom_rows 가 가장 최신 — 다음 할 일: 고치기에 필요한 것(compBom · semiPin · links · prev)을 Supabase 에서 같이 읽고 바로 고칠 수 있게. 저장은 서버(apiBomSave)가 줄ID · 행 확인으로 지킴.
+- **다음 순서(사용자: 전부 · 당장)**: ① BOM 보기 즉시 고치기 ② 현황 목록 · 이슈 · 품목 정보 · 일일보고 직접 읽기(같은 JWT · RLS authenticated 읽기) ③ 저장(BOM → 발주 수정 → 지급 줄)을 Supabase 함수로 — 그림자 비교 후 새벽 전환. 발주 등록은 이미 화면 먼저 · 뒤에서 저장(pumpCreate) 구조라 마지막.
 - 지금 Supabase: sheet_rows(tab,row,cells — 시트 행 사본) · bom_rows · bom_log. 서버만 service_role(스크립트 속성 SB_KEY)로 씀. SQL 이주는 SB_MIGRATIONS(Supabase.js) → 1분 작업 sbMigrate_(SB_PAT).
 
 ## 자재 아카이브 (`index.html`)
