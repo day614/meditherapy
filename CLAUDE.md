@@ -7,6 +7,7 @@
 - 원본은 저장소에 없다. 최신 원본은 Google Drive 커넥터로 받는다:
   `download_file_content(fileId=위 ID, exportMimeType="application/vnd.google-apps.script+json")` → `content` 를 base64 로 풀면 `{files:[{name,type,source}]}`.
 - 주요 파일: `ItemInfo.gs`(품목 정보 창) · `Bom.gs` · `BomExtra.gs`(BOM 저장 · 1분 작업에 미루는 일 `bomLater_`) · `BomShim.gs`(Supabase 먼저 저장) · `Journal.gs`(1분 · 10분 트리거) · `PageHtml.html`(화면 전체).
+- 내 메모장(f309): 서버 `Notes.js`(숨김 탭 `_실행판_메모장` · 계정마다 한 줄 · 판 번호로 충돌 확인) · 화면은 PageHtml 끝의 `NOTE`/`note*` 함수(블록 편집).
 - 무거운 일은 1분 작업으로 미루는 패턴(`bomLater_({k:...})` → `bomLaterDrainIn_`)을 따른다.
 
 ### 배포 — 고치면 Claude 가 끝까지 배포한다(설명 · 붙여넣기 안내로 끝내지 말 것)
