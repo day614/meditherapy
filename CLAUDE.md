@@ -42,6 +42,8 @@
 - 방식: 실행판이 열릴 때 서버가 로그인 계정으로 세션 토큰(rb_session)을 만들어 화면에 줌 → 화면이 Supabase RPC(security definer · 토큰으로 계정 확인 · 규칙 검사)를 anon 키로 직접 부름. 테이블은 RLS 로 잠금. 시트는 1분 작업이 맞추는 보기용 사본.
 - 순서: ① 메모장(rb_note) ② 발주 등록 ③ 발주 수정 · 지급 줄 ④ BOM. 단계마다 실측 · 시트 맞는지 확인 후 다음.
 - 준비: 이 환경 변수 `SUPABASE_PAT`(Supabase 관리 토큰 · sbp_…). 있으면 https://api.supabase.com/v1/projects/ybtqbxifkqfynrqpbkop/database/query 로 SQL · /api-keys 로 키. 없으면 사용자에게 위 이름으로 환경 변수 추가를 부탁(채팅에 붙이지 않게).
+- **진행(2026-11-11 새벽)**: ① 메모장 끝 — f313. SQL m002_rb_core(rb_session · rb_note · rb_me · rb_note_get/save · RLS) · `sbAnon_`(관리 API 로 공개 키 → SB_ANON) · `sbSessionNew_` · `sbRpcAnon_` · 1분 작업 `noteDbSelfTest_`(통과 → rb.noteDb=ok · 시트 메모 옮김) · 화면 `noteSess`/`noteRpc`(직접 · 안 되면 서버 길 apiNoteGet/Save — 둘 다 rb_note). 결과 확인은 '실행판 속도 요약' 파일(Drive 1EpN9IpCC5uQ67z_IzBlP4Ii0qnXvxN9WwDWFvAtAQRM) 'Supabase 상태' 탭 'Supabase 직접(속도 B)' 줄.
+- ② 발주 등록: 서버 안에서 8가지(검사 · 발주 DB 행 80칸 · 지급 줄 · 발주 행 맞추기 · AP · 이력 · 품목 DB · 진행 기록). 방식(접수만 Supabase + 1분 작업 반영 / 전부 Supabase 함수)은 사용자 결정 기다림.
 - 지금 Supabase: sheet_rows(tab,row,cells — 시트 행 사본) · bom_rows · bom_log. 서버만 service_role(스크립트 속성 SB_KEY)로 씀. SQL 이주는 SB_MIGRATIONS(Supabase.js) → 1분 작업 sbMigrate_(SB_PAT).
 
 ## 자재 아카이브 (`index.html`)
