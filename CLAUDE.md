@@ -29,6 +29,7 @@
 ### 개인용(빈 시트판) — 회사판을 고치면 개인용에도 같이 반영 · 배포한다(묻지 말 것)
 - 스크립트 ID `1Wn8a5OdWSQLAB8EYzOHkkMmzG4gXTXwZm1QC1yP1s8BW4fCs9mbcX8_j` · 배포 ID `AKfycbx8DuktVoqi_Dgx-aztSo9cix_ciXXAok0grG_au9qlRmoeZ8j82dC0spN38_PzC7CUEw` · clasp 는 `-u personal`.
 - 회사판 축소판: `BLANK_SETUP: true` · 시트 ID = 활성 시트(`RB_ACTIVE_ID`) · Setup.js/Custom.js/ShimOff.js 만 있음 · Supabase · 슬랙 · GWP · 재고 · Share · Archive · Audit 없음.
+- `Notify.js`(슬랙 알림)는 회사용만 — 개인용에 넣지 않는다(다른 파일은 `typeof` 로 있을 때만 부름).
 - 판 번호는 회사판 번호 + `p`(예: 회사 `f288` → 개인 `f288p`).
 - 반영: 개인용을 pull → 바꾼 파일마다 `git merge-file -p <개인 파일> <회사 고치기 전> <회사 고친 뒤>`(3-way). 충돌은 개인용 쪽(Supabase 등 없음)으로 푼다.
 - 올리기 전: `node --check` · 회사 ID 검사 `grep -rln "1pmCAw1qqxUOlQGtYJhq672ieg1w0cGJMC\|1krXu_Vf7WahKKgIW6oVK4cDVbpcRX04lTo885\|meditherapy-gwp\|hooks.slack" .` 가 비어야 함.
