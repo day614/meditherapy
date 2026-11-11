@@ -67,6 +67,11 @@
 - **f329(회사 @1090 · 개인 @186)**: ① 마감 저장 · 지우기 Supabase 함수(SQL m010_close_db — rb_close_save/_srv · 계산 칸 closeCalc_ 그대로 · 날짜는 사본 ISO/시트 {d}). 마감 탭에 쓰는 길이 이 둘뿐이라 한꺼번에(저장 길 하나). `tabJobDrainIn_('cl')`(가짜 def — tvDefs_ 에 안 넣음) · `closeSbFullSync_` 는 남은 일 먼저. 화면 `closeDbRun`(**`closeRun` 은 상세 패널 닫기 — 이름 겹치면 덮어씀. 새 화면 함수는 이름 중복 검사**: `grep -o "^ *function X(" | sort | uniq -d`). 자체 시험 rb.closeDb=ok(18:23). ② 슬랙 신규 코드 알림에 바코드(보낼 때 품목 DB G열 · 없으면 '미입력'). ③ BOM 목록 화면에서 품질 · 이슈 이력 칸 비움.
   - **남은 저장은 탭 단위로 그 탭의 모든 쓰기 길을 함께 옮겨야 안전**: 샘플(쓰는 길 ~11개 — 가상 저장이 줄 통째로 올려 한 길만 옮기면 동시 저장이 덮임) · 지급 줄 · 발주 DB(장부 jd) · BOM.
 - **f330(회사 @1091 · 개인 @187)**: 샘플 [+ 샘플 요청] — 그 업체에 그 구성(make) 요청이 없으면 '같은 차수 · 다른 안'을 막음(`sampleHasMake` · 첫 요청 = 1차) · 샘플안이 구성 이름과 같으면 비움(`sampleOptClean` — '펌프 1차 · 펌프' 겹침). 차수는 원래 구성마다 따로(sampleRoundNo).
+- **f331 · f332(회사 @1092 · @1093 · 개인 @188) — 샘플 탭(새벽 2~6시에 스스로 켜짐)**:
+  - SQL m011_sm_commit: `rb_sm_commit(p_set, p_full, p_dels, p_job)` — 샘플 가상 저장 끝맺기(`sampleVirtualCommit_`)가 줄을 안 지웠으면 **바꾼 칸만**(그사이 화면이 직접 저장한 칸을 덮지 않게) · 시트 일은 같은 트랜잭션으로 rb_tab_job(tab=sm, 샘플 일 모양 그대로) · 잠금 rb_tab_sm. 1분 작업 `smDbDrainIn_`(옛 속성 대기열 → 새 대기열 순서대로 `sampleRepDrain_(배열)` · 일의 audits → writeAudits_). `sampleSbFullSync_` · `sampleRepEnsure_` 도 새 대기열을 먼저. 켜기 rb.smDb(자체 시험 · 새벽만).
+  - SQL m012_sm_edit: `rb_sm_edit`(규칙 = apiSampleEditRow0_ · 날짜 KST 자정 ISO · '그사이 다른 사람이 고침' + rb_recent(내가 10분 안에 쓴 값) · 업체 바꾸기 · 샘플ID 없는 줄은 `RB_FALLBACK` → 서버 길). 열 위치 · 목록 · 브랜드 옛 이름은 `smConfPublish_` 가 rb_conf(smK · smLists · brandAlias)에 10분마다. 켜기 rb.smEdit(새벽만) → 세션 `sm`.
+  - **화면 `RB_DIRECT` 표(gsr 안)**: 이름이 표에 있으면 Supabase 함수로(세션이 허락할 때) — 호출하는 곳은 그대로. 다음 저장 직접화도 여기에 더하면 됨. 세션은 받은 지 1시간 넘으면 뒤에서 새로(그사이 켜진 표시를 받게).
+  - acorn 으로 화면 함수 범위 확인: gsr · RB_DIRECT · noteRpc · issRun 등 모두 같은 범위(직접 저장 길이 실제로 닿음).
 - **다음 순서(사용자: 전부 · 당장)**: ① BOM 보기 즉시 고치기 ② 현황 목록 · 이슈 · 품목 정보 · 일일보고 직접 읽기(같은 JWT · RLS authenticated 읽기) ③ 저장(BOM → 발주 수정 → 지급 줄)을 Supabase 함수로 — 그림자 비교 후 새벽 전환. 발주 등록은 이미 화면 먼저 · 뒤에서 저장(pumpCreate) 구조라 마지막.
 - 지금 Supabase: sheet_rows(tab,row,cells — 시트 행 사본) · bom_rows · bom_log. 서버만 service_role(스크립트 속성 SB_KEY)로 씀. SQL 이주는 SB_MIGRATIONS(Supabase.js) → 1분 작업 sbMigrate_(SB_PAT).
 
