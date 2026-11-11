@@ -78,6 +78,10 @@
   ① 샘플처럼 `linesVirtualCommit_` 끝맺기를 칸 단위 Supabase 함수(rb_ln_commit · 잠금 rb_tab_ln · 시트 일 rb_tab_job tab=ln)로 — 새벽 전환.
   ② apiSaveLines 직접 함수(3자 합치기 mergeLines_ · 요청 번호 op 중복 막기 · 발주 DB 칸 값은 계산해 돌려주고 실제 칸 쓰기 · AP · 이력은 1분 작업) + 화면이 저장 뒤 서버에 '지금 맞추기' 신호(기다리지 않음).
   ③ 그 뒤 발주 수정(editOrder_) · 발주 등록 · BOM 저장.
+- **f334 · f335(회사 @1095 · @1096 · 개인 @190) — 지급 줄(새벽 2~6시에 스스로 켜짐)**:
+  - SQL m013_tab_commit: `rb_tab_commit(p_tab, p_kind, p_set, p_full, p_dels, p_job)` — 탭 공통 끝맺기(샘플 rb_sm_commit 과 같은 틀). `linesVirtualCommit_` 가 `lnDbOn_()`(rb.lnDb) 면 바꾼 칸만 + 시트 일 rb_tab_job(tab=ln). 1분 작업 `lnDbDrainIn_`(옛 속성 대기열 → 새 대기열 · `linesRepDrain_(배열)`) · `linesSbFullSync_` · `linesRepEnsure_`(표시 'ln:jobsPend') 도 먼저.
+  - SQL m014_ln_save: `rb_ln_save`(규칙 = saveLinesCore_ · 3자 합치기 rb_ln_merge · 줄 검사 rb_ln_clean(채널 목록 rb_conf lnLists) · 자리 그 건 행 → 빈 행 → 맨 아래 · 남는 행 비움 · 요청 번호(op) 30분 중복 막기 rb_recent · 발주 행 값(입고수량 · 잔량 · 입고일정 · 다 받으면 종결)은 화면이 준 ord 로 계산해 돌려줌). 일의 post → 1분 작업 `lnPostApply_`(실제 `syncOrderFromLines_` · 이력 · AP · 캐시 · bumpVer l). 화면 `RB_DIRECT.apiSaveLines`(rowById 로 ord · 종결/취소 건은 서버 길) · 저장 뒤 `apiLinesKick`(지금 맞추기 · 안 기다림). 켜기 rb.lnSave(새벽) → 세션 `ln`.
+  - **남은 것: 입고 추가(apiAddInbound · apiAddInboundMany) · 발주 수정(editOrder_) · 발주 등록 · BOM 저장** — 지급 줄 쓰는 길 중 입고 추가 · 발주 수정(수량/단가 따라)은 아직 서버 가상 저장(f334 끝맺기 함수로 칸 단위라 직접 저장과 겹쳐도 안전).
 - **다음 순서(사용자: 전부 · 당장)**: ① BOM 보기 즉시 고치기 ② 현황 목록 · 이슈 · 품목 정보 · 일일보고 직접 읽기(같은 JWT · RLS authenticated 읽기) ③ 저장(BOM → 발주 수정 → 지급 줄)을 Supabase 함수로 — 그림자 비교 후 새벽 전환. 발주 등록은 이미 화면 먼저 · 뒤에서 저장(pumpCreate) 구조라 마지막.
 - 지금 Supabase: sheet_rows(tab,row,cells — 시트 행 사본) · bom_rows · bom_log. 서버만 service_role(스크립트 속성 SB_KEY)로 씀. SQL 이주는 SB_MIGRATIONS(Supabase.js) → 1분 작업 sbMigrate_(SB_PAT).
 
