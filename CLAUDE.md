@@ -66,6 +66,7 @@
 - **f328(회사 @1089 · 개인 @185)**: 샘플 업체 견적 비교(.qtab) — 탈락 열 머리칸(`th.qoff`) 배경이 투명이라 아래 줄이 비침 → 배경색. 머리칸 단추 두 줄(`th:not(.qtl)` 230px). 업체(안) 열 4개 이상이면 상세 패널(`--drawer-w`)을 표가 넘치는 만큼 넓힘(화면 폭 −80px 까지 · MutationObserver on #view-run · 닫으면 되돌림) · 넓을 때 메모장 단추는 패널 안(`body.drawer-wide`). Playwright 1920px: 6개 업체 가로 스크롤 0.
 - **f329(회사 @1090 · 개인 @186)**: ① 마감 저장 · 지우기 Supabase 함수(SQL m010_close_db — rb_close_save/_srv · 계산 칸 closeCalc_ 그대로 · 날짜는 사본 ISO/시트 {d}). 마감 탭에 쓰는 길이 이 둘뿐이라 한꺼번에(저장 길 하나). `tabJobDrainIn_('cl')`(가짜 def — tvDefs_ 에 안 넣음) · `closeSbFullSync_` 는 남은 일 먼저. 화면 `closeDbRun`(**`closeRun` 은 상세 패널 닫기 — 이름 겹치면 덮어씀. 새 화면 함수는 이름 중복 검사**: `grep -o "^ *function X(" | sort | uniq -d`). 자체 시험 rb.closeDb=ok(18:23). ② 슬랙 신규 코드 알림에 바코드(보낼 때 품목 DB G열 · 없으면 '미입력'). ③ BOM 목록 화면에서 품질 · 이슈 이력 칸 비움.
   - **남은 저장은 탭 단위로 그 탭의 모든 쓰기 길을 함께 옮겨야 안전**: 샘플(쓰는 길 ~11개 — 가상 저장이 줄 통째로 올려 한 길만 옮기면 동시 저장이 덮임) · 지급 줄 · 발주 DB(장부 jd) · BOM.
+- **f330(회사 @1091 · 개인 @187)**: 샘플 [+ 샘플 요청] — 그 업체에 그 구성(make) 요청이 없으면 '같은 차수 · 다른 안'을 막음(`sampleHasMake` · 첫 요청 = 1차) · 샘플안이 구성 이름과 같으면 비움(`sampleOptClean` — '펌프 1차 · 펌프' 겹침). 차수는 원래 구성마다 따로(sampleRoundNo).
 - **다음 순서(사용자: 전부 · 당장)**: ① BOM 보기 즉시 고치기 ② 현황 목록 · 이슈 · 품목 정보 · 일일보고 직접 읽기(같은 JWT · RLS authenticated 읽기) ③ 저장(BOM → 발주 수정 → 지급 줄)을 Supabase 함수로 — 그림자 비교 후 새벽 전환. 발주 등록은 이미 화면 먼저 · 뒤에서 저장(pumpCreate) 구조라 마지막.
 - 지금 Supabase: sheet_rows(tab,row,cells — 시트 행 사본) · bom_rows · bom_log. 서버만 service_role(스크립트 속성 SB_KEY)로 씀. SQL 이주는 SB_MIGRATIONS(Supabase.js) → 1분 작업 sbMigrate_(SB_PAT).
 
