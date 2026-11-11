@@ -48,6 +48,11 @@
 - **BOM 보기가 느린 직접 원인**: `bomLoad` 가 Supabase 사본을 먼저 그리지만 `bvStale(true)`로 고치기를 막고 서버 apiBomGet(가운데값 4.6초)을 기다림. BOM 은 Supabase 먼저 저장이라 bom_rows 가 가장 최신 — 다음 할 일: 고치기에 필요한 것(compBom · semiPin · links · prev)을 Supabase 에서 같이 읽고 바로 고칠 수 있게. 저장은 서버(apiBomSave)가 줄ID · 행 확인으로 지킴.
 - **f314(2026-11-11 09시 · 회사 @1074 · 개인 f314p @174)**: BOM 보기 즉시 고치기 끝 — `bvSbLoad` 가 구성 완제품 · 반제품 BOM(compBom · compMats)까지 Supabase 에서 읽고, 고치기 막음(bvStale) 없이 바로 그린다. 서버 값은 `bvRowsSame` 으로 비교해 같으면 이력 · 링크만 채움. 링크는 `BV_LINKC`(서버에서 받은 것 기억). 개인용은 Supabase 읽기 블록 없음(그대로).
 - **f315(2026-11-11 12시 · 회사 @1075 · 개인 f315p @175)**: 이슈 · 품목 링크 직접 읽기 — SQL m003_tab_read(sheet_rows 읽기 정책 rb_auth_read_tabs: authenticated · 이슈/품목링크/품질 탭만 · 옛 메모장 사본 지움, 전체 사본도 메모장 탭 안 올림). 1분 작업 `tabReadSelfTest_`(화면 JWT 줄 수 = 서버 줄 수 · 발주/메모장/설정 안 읽힘) 통과 → rb.tabRead=ok. `apiSbToken` 이 `tabs`(통과 + 그 탭 Supabase 먼저일 때 is · lk)를 줌 → 화면 `sbTabOk` · `sbIssAll`(issAllLoad · issLoad) · `sbLinksOf`(bvSbLoad 링크). 안 되면 서버 길. 일일보고 · 품목 목록(apiItems) · 시작(apiBootstrap)은 원본 탭이 Supabase 먼저가 아니라(사본이 늦음) 직접 읽기 못 함 — 저장을 옮겨야 함.
+- **f316 · f317(2026-11-11 12시 · 회사 @1076 · @1077 · 개인 @176 · @177)**: 품목 목록 · BOM 전체 직접 읽기.
+  - 품목 DB(`_실행판_품목`)는 원본이 시트 — `cacheDrop_(RB_ITEM.CACHE)` 가 `sb:itemDirty` 를 켜고 1분 작업 `itemSbSync_` 가 탭을 sheet_rows 로(10분마다도). SQL m004_item_read(읽기 정책에 품목 탭 추가). `sbReadTabsOk_` 는 'it' 를 사본이 15분 안 · 더러움 없음일 때만 줌. 자체 시험 판 `RB_TABREAD_V='ok2'`.
+  - **Supabase 는 한 번에 1000줄까지**(max-rows) — 화면 `sbGetAll`(1000줄씩 3개 동시) · 서버 자체 시험도 1000줄씩. f316 은 이걸 몰라 시험 실패(품목 1500줄) → 서버 길로 돌아감(틀린 값 안 보임) → f317 에서 고침.
+  - 화면: `sbItemsLoad`(loadItemDB — Supabase 먼저 · 서버 apiItems 는 뒤에서 그대로) · `sbBomAll`(bom_rows 전체 → BV_ALL · BOMC; apiBomAllRows · apiBomCodes 대신, 3초 묶음). `apiSbToken` 의 `bom`(BOM Supabase 먼저 · rb.sbdirty 없음)일 때만 → `sbBomOk`.
+  - 일일보고 · 첫 화면 · BOM 목록은 이미 브라우저 기억(localStorage)을 먼저 그림. 남은 느림은 저장(서버 고정 3초 + 시트) — 발주 수정(editOrder_ Keys.js: 발주 DB 80칸 · 지급 줄 따라 고치기 · 이력 · AP · 감사)은 Supabase 함수로 다시 써야 함.
 - **다음 순서(사용자: 전부 · 당장)**: ① BOM 보기 즉시 고치기 ② 현황 목록 · 이슈 · 품목 정보 · 일일보고 직접 읽기(같은 JWT · RLS authenticated 읽기) ③ 저장(BOM → 발주 수정 → 지급 줄)을 Supabase 함수로 — 그림자 비교 후 새벽 전환. 발주 등록은 이미 화면 먼저 · 뒤에서 저장(pumpCreate) 구조라 마지막.
 - 지금 Supabase: sheet_rows(tab,row,cells — 시트 행 사본) · bom_rows · bom_log. 서버만 service_role(스크립트 속성 SB_KEY)로 씀. SQL 이주는 SB_MIGRATIONS(Supabase.js) → 1분 작업 sbMigrate_(SB_PAT).
 
