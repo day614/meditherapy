@@ -58,6 +58,9 @@
 - **f319(회사 @1079 · 개인 @179)**: BOM 메뉴에서 바로 연 BOM 의 보기 막대에 [+ 차수 추가 (다음 발주용)] — `bvChgStart(true)`. 이 품목 발주(취소 빼고 · 종결 포함) 최대 차수 다음부터만(이미 있는 발주 차수에 만들면 그 발주의 BOM 단가 · BOM 확인 기준이 바뀌므로 막음). 저장은 예전 [차수 추가](BV.draft) 그대로.
 - **f320(회사 @1080)**: 이슈 자체 시험의 PostgREST 주소에 `>` 그대로(`cells->>2`) → Apps Script '잘못된 인수' — `encodeURIComponent('cells->>2')`. 시험 통과(rb.issDb=ok 13:06).
 - **f321(회사 @1081 · 개인 @180)**: "메모장이 없어졌다" — 버튼 z-index 25 라 BOM 보기(75) · 일일보고(900) · 건 상세(950) 같은 전체 화면에 가려짐 → `.notefab` 960 · `#ntPop` 9000 · `#ntMenu` 9001. Playwright(목업 google.script.run)로 BOM 화면 위 elementFromPoint 확인. 상태 줄에 '저장된 메모 N명(계정 판)' 추가 — 내용은 그대로였음(day 판3).
+- **f322 · f323(회사 @1082 · @1083 · 개인 @181 · @182)**: 품질 기록 · 품목 링크 저장도 Supabase 함수(SQL m006_qual_db · m007_link_db · `IssueDb.js` 의 qualDb*/linkDb*). 1분 작업 `tabJobDrainIn_(k)`(is · ql · lk 공통 — 탭 열쇠(d.key)로 이미 있는 줄 건너뜀 · 일에 든 hist(저장한 사람 · 때)는 appendHist_ 로). 세션 `ql` · `lk`. 화면 `qualRun` · `linkRun`. 자체 시험 rb.qualDb · rb.linkDb = ok(14:17 · 14:20).
+- **f324(회사 @1084 · @1085 · 개인 @183)**: ① "새 품목코드 저장했는데 품목 등록하라고 함"(H0033AA2) — 서버는 품목 DB 에 넣었음(점검 확인). 화면이 새 품목코드 저장(apiBomSaveNewVersion) 뒤 `bvPendReg` 를 안 해, 다시 받은 품목 목록(f316 Supabase 사본 · 1분 늦음)에 없어 '품목코드 생성 필요'. → 저장 성공 때 `bvPendReg([newCode] + made)` · loadItemDB 가 방금 등록한 코드(BV_PENDREG)를 받은 목록에 남김. ② BOM 화면에 품질 이력 · 이슈 이력(`bvQiShow` · `#bomv-qi` — 변경 이력 위 · 읽기만). ③ BOM 관리에서 연 BOM 과 발주 상세 [BOM 보기]는 같은 모듈(bomOpen → bomLoad → bomShow) — 발주에서 열면 `BV.order` 만 붙음.
+- **트리거(1분 · 10분 작업)는 HEAD 가 아니라 배포된 판으로 돈다**(f324 점검 줄을 push 만 했을 때 안 바뀜 → 버전 올리니 바뀜). 서버 고침은 버전까지 올려야 1분 작업에 반영.
 - **다음 순서(사용자: 전부 · 당장)**: ① BOM 보기 즉시 고치기 ② 현황 목록 · 이슈 · 품목 정보 · 일일보고 직접 읽기(같은 JWT · RLS authenticated 읽기) ③ 저장(BOM → 발주 수정 → 지급 줄)을 Supabase 함수로 — 그림자 비교 후 새벽 전환. 발주 등록은 이미 화면 먼저 · 뒤에서 저장(pumpCreate) 구조라 마지막.
 - 지금 Supabase: sheet_rows(tab,row,cells — 시트 행 사본) · bom_rows · bom_log. 서버만 service_role(스크립트 속성 SB_KEY)로 씀. SQL 이주는 SB_MIGRATIONS(Supabase.js) → 1분 작업 sbMigrate_(SB_PAT).
 
