@@ -72,6 +72,12 @@
   - SQL m012_sm_edit: `rb_sm_edit`(규칙 = apiSampleEditRow0_ · 날짜 KST 자정 ISO · '그사이 다른 사람이 고침' + rb_recent(내가 10분 안에 쓴 값) · 업체 바꾸기 · 샘플ID 없는 줄은 `RB_FALLBACK` → 서버 길). 열 위치 · 목록 · 브랜드 옛 이름은 `smConfPublish_` 가 rb_conf(smK · smLists · brandAlias)에 10분마다. 켜기 rb.smEdit(새벽만) → 세션 `sm`.
   - **화면 `RB_DIRECT` 표(gsr 안)**: 이름이 표에 있으면 Supabase 함수로(세션이 허락할 때) — 호출하는 곳은 그대로. 다음 저장 직접화도 여기에 더하면 됨. 세션은 받은 지 1시간 넘으면 뒤에서 새로(그사이 켜진 표시를 받게).
   - acorn 으로 화면 함수 범위 확인: gsr · RB_DIRECT · noteRpc · issRun 등 모두 같은 범위(직접 저장 길이 실제로 닿음).
+- **f333(회사 @1094 · 개인 @189)**: 단계 항목 [생략] · [생략함 ✕] 단추가 짧은 줄(#ladder 5px)보다 커서 점선에 걸침 → 단추 24px · 위 여백 4px(#ladder 2px).
+- **사용자 지시(2026-11-11 저녁): "UI 전체 확인 + Supabase 다 옮기기 전에는 작업 끊지 말고 말 걸지 말 것."** — 다음 세션도 묻지 말고 이어서.
+- **지급 줄 계획(진행 중)**: 쓰는 길 4개(LinesWrite apiSaveLines · apiAddInbound · Keys editOrder_ 수량/단가 따라 · Keys 발주 등록 283행) 모두 발주 DB 칸(입고수량 · 잔량 · 입고일정 · 입고일 — `syncOrderFromLines_`) · AP(`apRebuildLater_`) 를 같이 고침.
+  ① 샘플처럼 `linesVirtualCommit_` 끝맺기를 칸 단위 Supabase 함수(rb_ln_commit · 잠금 rb_tab_ln · 시트 일 rb_tab_job tab=ln)로 — 새벽 전환.
+  ② apiSaveLines 직접 함수(3자 합치기 mergeLines_ · 요청 번호 op 중복 막기 · 발주 DB 칸 값은 계산해 돌려주고 실제 칸 쓰기 · AP · 이력은 1분 작업) + 화면이 저장 뒤 서버에 '지금 맞추기' 신호(기다리지 않음).
+  ③ 그 뒤 발주 수정(editOrder_) · 발주 등록 · BOM 저장.
 - **다음 순서(사용자: 전부 · 당장)**: ① BOM 보기 즉시 고치기 ② 현황 목록 · 이슈 · 품목 정보 · 일일보고 직접 읽기(같은 JWT · RLS authenticated 읽기) ③ 저장(BOM → 발주 수정 → 지급 줄)을 Supabase 함수로 — 그림자 비교 후 새벽 전환. 발주 등록은 이미 화면 먼저 · 뒤에서 저장(pumpCreate) 구조라 마지막.
 - 지금 Supabase: sheet_rows(tab,row,cells — 시트 행 사본) · bom_rows · bom_log. 서버만 service_role(스크립트 속성 SB_KEY)로 씀. SQL 이주는 SB_MIGRATIONS(Supabase.js) → 1분 작업 sbMigrate_(SB_PAT).
 
