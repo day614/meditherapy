@@ -107,6 +107,7 @@
 - **f358(회사 @1118 · 개인 @209)**: 품의번호에서 제품번호 뺌(담당자) — `약어-yyyymm-순번`(예 HDRUN-202611-01). 묶는 기준(채널 × 제품 BOM × 지급월)은 그대로라 같은 달 다른 제품 품의는 순번으로 나뉨.
 - **f359(회사 @1119 · 개인 @210)**: 샘플 프로젝트 비고(apiSampleProjMemo) · 프로젝트 정보(apiSampleProjInfo — 요청 · 견적 · 검토 · po)도 rb_pj_add 할 일(SQL **m041**_pj_sproj — BOM 에이전트가 m031~ 를 쓰므로 내 것은 m041~). 화면이 서버와 같은 규칙으로 결과(list · obj · __log)를 만들어 돌려줌 · 시각은 `rbNowFmt`(서울 시각). 요청서 · 견적 보기 탭(sampleViewsSync_)은 drain 의 apiSampleProjInfo 가 그대로.
 - **f360(회사 @1120 · 개인 @211)**: 일일보고 보고 제외(apiDailyHide)도 rb_pj_add 할 일(SQL m042_pj_dhide) — 화면이 DLY_HIDE 에 더하고 빼서 목록을 돌려줌.
+- **f361(회사 @1121 · 개인 @212)**: 샘플 새 프로젝트(apiSampleNew) SQL m043_sm_new `rb_sm_new`(같은 품목코드/이름 프로젝트면 그 프로젝트ID · 새 샘플ID · 맨 아래 줄 · 브랜드 옛 이름 · 날짜 · 링크 있으면 RB_FALLBACK) · 세션 sm. 완료 · 드롭 프로젝트에 붙으면 화면이 apiSampleDone(false) 할 일.
 - **BOM 나머지 이주 진행 중(에이전트 · `$S/live_bom2` · f358 기준)**: N차만 정정 → 되돌리기 → 새 품목코드. 받으면 live 와 3-way 병합(base live_f358).
 - **남은 것**: BOM 저장(서버 Bom.js 4천 줄 — 새 코드 · 차수 나누기 · 원가 · 품목 DB) · 발주 등록(apiCreateOrder · 화면은 이미 먼저 그리고 뒤에서 저장) · 일일보고 저장(이미 화면 먼저 · 보고서 수백 KB 라 할 일 길 크기 넘음) · 일괄 발주일/품의번호/결재번호 · 품목코드 등록 · 업체 추가 · 첫 화면/일일보고 직접 읽기.
 - **남은 저장(서버 길)**: 발주 수정 수량 · 단가 · 날짜 · 결재번호 · 발주 등록 · BOM 저장/정정 · apiSampleLog · apiSampleDone · apiSampleAdd · apiSetState 등. 많이 쓰는 것부터.
