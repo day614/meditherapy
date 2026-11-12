@@ -74,6 +74,7 @@
   - acorn 으로 화면 함수 범위 확인: gsr · RB_DIRECT · noteRpc · issRun 등 모두 같은 범위(직접 저장 길이 실제로 닿음).
 - **f333(회사 @1094 · 개인 @189)**: 단계 항목 [생략] · [생략함 ✕] 단추가 짧은 줄(#ladder 5px)보다 커서 점선에 걸침 → 단추 24px · 위 여백 4px(#ladder 2px).
 - **사용자 지시(2026-11-11 저녁): "UI 전체 확인 + Supabase 다 옮기기 전에는 작업 끊지 말고 말 걸지 말 것."** — 다음 세션도 묻지 말고 이어서.
+- **사용자 지시(2026-11-12 낮): 새벽 전환 기다리지 말 것 — 만들고 시험이 끝나면 바로 배포 · 바로 켠다.** 새 자체 시험에 새벽(2~6시) 조건을 넣지 않는다.
 - **지급 줄 계획(진행 중)**: 쓰는 길 4개(LinesWrite apiSaveLines · apiAddInbound · Keys editOrder_ 수량/단가 따라 · Keys 발주 등록 283행) 모두 발주 DB 칸(입고수량 · 잔량 · 입고일정 · 입고일 — `syncOrderFromLines_`) · AP(`apRebuildLater_`) 를 같이 고침.
   ① 샘플처럼 `linesVirtualCommit_` 끝맺기를 칸 단위 Supabase 함수(rb_ln_commit · 잠금 rb_tab_ln · 시트 일 rb_tab_job tab=ln)로 — 새벽 전환.
   ② apiSaveLines 직접 함수(3자 합치기 mergeLines_ · 요청 번호 op 중복 막기 · 발주 DB 칸 값은 계산해 돌려주고 실제 칸 쓰기 · AP · 이력은 1분 작업) + 화면이 저장 뒤 서버에 '지금 맞추기' 신호(기다리지 않음).
@@ -97,6 +98,8 @@
 - **응답이 필요한 저장(할 일 길로 못 옮김 — SQL 로 다시 짜야)**: BOM 저장 · 발주 등록 · 품목코드 넣기(apiSetCode CODE_TAKEN) · 샘플 추가/프로젝트 수정 · 일일보고 저장/제외 · 품목코드 등록 · 업체 추가 · 일괄 발주일/품의번호/결재번호.
 - **f348~f350(회사 @1108~@1110 · 2026-11-12 오전)**: f348 샘플 요청 추가 SQL m024_sm_add `rb_sm_add`(앞 회차 샘플ID 로 이어받기 · 목록 검사 · 날짜 · 새 샘플ID · 맨 아래 줄 {s,w} · 앞 회차 '수신' 닫기 · 감사 · 세션 sm) — 완료 · 드롭 프로젝트면 화면이 apiSampleDone(false) 를 할 일로. f349 `noteRpc` 가 'Could not find the function'(SQL 이주 전)이면 서버 길. f350 품목코드 넣기(apiSetCode) — 같은 코드 다른 이름 검사(CODE_TAKEN)는 화면이 ITEMDB 로 먼저 · 통과하면 rb_pj_add(force) · SQL m025_pj_code. 09:02 상태: m021~m023 적용 · 반영 오류 없음.
 - **f351(회사 @1111 · 개인 @202 — 개인용 버전 정리됨 · f350p @201 먼저)**: "일일보고 피드백 확인이 안 눌림" — 누르면 ✓ 확인으로 바뀌지만 15초마다 도는 `apiDailyFbSync` 가 시트 · 서버 이슈 캐시(issAllCached_ · 30분)를 읽어 '확인 안 됨(0)'으로 답해 되돌림(이슈는 f318 부터 Supabase 직접 저장 · 시트는 1분 뒤). → 이슈 직접 저장이 켜져 있으면 Supabase 사본(sheet_rows 이슈 탭)에서 읽고 바뀜 표시로 건너뛰지 않음 + 화면은 내가 3분 안에 확인한 건 안 되돌림(`done.mine`). Playwright 목업(일일보고 v7 · 이슈 한 줄)으로 확인 클릭 → ✓ 확인 · apiIssueFeedback 호출 확인. **교훈: 직접 저장으로 옮긴 탭을 서버 쪽에서 읽는 곳(캐시 · 시트)도 Supabase 사본으로 바꿔야 한다.**
+- **f352(회사 @1112)**: 일괄 품의번호(apiBulkDoc) · 결재번호(apiBulkApprovalNo) · 발주일(apiBulkOrderDate)도 rb_pj_add 할 일(SQL m026_pj_bulk2) · 화면은 n · skipped · fails 를 센 값으로 + 4초 뒤 다시 읽기.
+- **BOM 저장 Supabase 함수**: 작업 폴더 `$S/sqlbom/`(NOTES.md · m_bom_save.sql · test.sql) — 흔한 길(변경 등록: 값 · 새 코드 · 빼기 · 자재 추가)만 SQL, 나머지는 RB_FALLBACK → 서버 길.
 - **남은 것**: BOM 저장(서버 Bom.js 4천 줄 — 새 코드 · 차수 나누기 · 원가 · 품목 DB) · 발주 등록(apiCreateOrder · 화면은 이미 먼저 그리고 뒤에서 저장) · 일일보고 저장(이미 화면 먼저 · 보고서 수백 KB 라 할 일 길 크기 넘음) · 일괄 발주일/품의번호/결재번호 · 품목코드 등록 · 업체 추가 · 첫 화면/일일보고 직접 읽기.
 - **남은 저장(서버 길)**: 발주 수정 수량 · 단가 · 날짜 · 결재번호 · 발주 등록 · BOM 저장/정정 · apiSampleLog · apiSampleDone · apiSampleAdd · apiSetState 등. 많이 쓰는 것부터.
 - **다음 순서(사용자: 전부 · 당장)**: ① BOM 보기 즉시 고치기 ② 현황 목록 · 이슈 · 품목 정보 · 일일보고 직접 읽기(같은 JWT · RLS authenticated 읽기) ③ 저장(BOM → 발주 수정 → 지급 줄)을 Supabase 함수로 — 그림자 비교 후 새벽 전환. 발주 등록은 이미 화면 먼저 · 뒤에서 저장(pumpCreate) 구조라 마지막.
