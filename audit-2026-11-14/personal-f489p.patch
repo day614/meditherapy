@@ -1,0 +1,86 @@
+diff -ru '--exclude=.clasp.json' v267/Code.js pn/Code.js
+--- v267/Code.js	2026-11-14 14:34:43.544114727 +0000
++++ pn/Code.js	2026-11-14 14:34:52.010234267 +0000
+@@ -1964,7 +1964,9 @@
+   // 저장이 끝난 뒤에 부른다(그 전에 올리면 남의 화면이 저장 전 값을 읽고 지나간다). 쓴 값을 먼저 시트에 내려 보낸다.
+   try { SpreadsheetApp.flush(); } catch (e) { /* 넘어간다 */ }
+   // 일일보고 미리 계산한 것도 '바뀜' 표시 — 예전엔 이슈 · 샘플만 표시해, 입고일정 · 지급 줄 · 비고를 고쳐도 최대 5분 옛 보고서가 떴다
+-  try { var m0 = {}; m0['rb:ver:' + (kind || 'r')] = String(Date.now()) + ':' + me_(); m0['daily:dirty'] = m0['daily:datadirty'] = String(new Date().getTime()); CacheService.getScriptCache().putAll(m0, 21600); } catch (e) { /* 넘어간다 */ }
++  var v0 = String(Date.now()) + ':' + me_();
++  if (typeof sbVerPut_ === 'function') sbVerPut_([kind || 'r'], v0);      // f489
++  try { var m0 = {}; m0['rb:ver:' + (kind || 'r')] = v0; m0['daily:dirty'] = m0['daily:datadirty'] = String(new Date().getTime()); CacheService.getScriptCache().putAll(m0, 21600); } catch (e) { /* 넘어간다 */ }
+ }
+ /** 잠금 안의 저장 묶음 시작: 변경 번호를 모은다. 이미 묶음 안이면(바깥 저장이 부른 경우) 바깥이 반영한다. */
+ function deferVer_() {
+@@ -1980,12 +1982,13 @@
+   if (!kinds.length) return;
+   var v = String(Date.now()) + ':' + me_(), m = {};
+   kinds.forEach(function (k) { m['rb:ver:' + k] = v; });
++  if (typeof sbVerPut_ === 'function') sbVerPut_(kinds, v);      // f489
+   m['daily:dirty'] = String(new Date().getTime());          // 일일보고 미리 계산한 것도 바뀜(bumpVer_ 와 같게)
+   try { CacheService.getScriptCache().putAll(m, 21600); } catch (e) { /* 넘어간다 */ }
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-14f488p';
++var RB_BUILD = '2026-11-14f489p';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+diff -ru '--exclude=.clasp.json' v267/PageHtml.html pn/PageHtml.html
+--- v267/PageHtml.html	2026-11-14 14:34:43.560114728 +0000
++++ pn/PageHtml.html	2026-11-14 14:34:43.626218618 +0000
+@@ -4041,8 +4041,22 @@
+   }
+   function checkVer(force) {
+     if (!force && typeof navPageOpen === "function" && navPageOpen()) return;      // force = 일일보고 위에서 건 상세를 열 때(멈춰 있던 동안 남이 바꾼 걸 바로 받는다)      // 메뉴 페이지를 보는 동안은 쉬었다가 닫으면 이어서(바뀐 번호는 그때 한꺼번에)
++    // f489: 변경 번호는 Supabase(rb_ver)에서 바로(0.2초 · 직접 저장도 바로 보임) — Apps Script(apiVer · 3.8초)는 새 판 확인만 5분마다
++    var sbOk = typeof SB_TOK !== "undefined" && SB_TOK && SB_TOK.token && Date.now() < SB_TOK.exp - 60000 && typeof sbGet === "function" && !(checkVer.sbOff && Date.now() - checkVer.sbOff < 600000);
++    if (sbOk) {
++      if (!(checkVer.sbBusy && Date.now() - (checkVer.sbAt || 0) < 30000)) {
++        checkVer.sbBusy = true; checkVer.sbAt = Date.now();
++        sbGet("/rest/v1/rb_ver?select=k,v").then(function (rows) {
++          checkVer.sbBusy = false; bgResult(true);
++          var v = {}; (rows || []).forEach(function (x) { if (x && x.k) v[x.k] = x.v; });
++          verApply(v, "sb");
++        }).catch(function (e) { checkVer.sbBusy = false; if (/sb 4\d\d/.test(String((e && e.message) || ""))) checkVer.sbOff = Date.now(); });      // 표가 아직 없음(이주 전) 등 — 10분 동안 예전 길
++      }
++      if (!force && Date.now() - (checkVer.srvAt || 0) < 300000) return;      // 새 판 확인은 5분마다
++    }
+     if (verBusy && Date.now() - (checkVer.at || 0) < 60000) return;      // 1분 넘게 답이 없으면 끊긴 것 — 다시 묻는다
+-    verBusy = true; checkVer.at = Date.now();
++    verBusy = true; checkVer.at = Date.now(); checkVer.srvAt = Date.now();
++    var srvOnlyBuild = sbOk;
+     gsr().withSuccessHandler(function (v) {
+       verBusy = false;
+       bgResult(true);
+@@ -4052,17 +4066,24 @@
+       if (v.sv === "2" && mode === "po" && DATA && DATA.steps && DATA.steps.length && !bomConfItem()) showNewBuild();      // 서버가 발주 단계를 새 순서로 옮겼는데 이 화면은 옛 단계 — 새로고침 안내
+       if (v.b && window.__BUILD && v.b !== window.__BUILD) noteNewBuild(v.age);
+       else if (v.bc && window.__BUILD && buildCmp(v.bc, window.__BUILD) > 0) noteNewBuild(v.age);      // 열어 둔 화면이 옛 서버 코드에 붙어 있어도 최신 판 번호(1분 작업이 적음)로
+-      if (lastVer === null) { lastVer = v; return; }
+-      var chR = v.r !== lastVer.r && verWho(v.r) !== DATA.me;   // 시트 쪽은 무거우니 내가 바꾼 건 건너뜀
+-      var chP = v.p !== lastVer.p, chL = v.l !== lastVer.l, chN = v.n !== lastVer.n && verWho(v.n) !== DATA.me;
+-      lastVer = v;
++      if (srvOnlyBuild) return;      // f489: 변경 번호는 Supabase 쪽이 본다
++      verApply(v, "srv");
++    }).withFailureHandler(function () { verBusy = false; bgResult(false); }).apiVer();
++  }
++  /** f489: 변경 번호를 받아 바뀐 것만 다시 읽는다(Supabase · 서버 어느 쪽이든 — 쪽마다 따로 비교) */
++  var LASTVER_BY = {};
++  function verApply(v, src) {
++      if (!LASTVER_BY[src]) { LASTVER_BY[src] = v; lastVer = v; return; }
++      var lv0 = LASTVER_BY[src];
++      var chR = v.r !== lv0.r && verWho(v.r) !== DATA.me;   // 시트 쪽은 무거우니 내가 바꾼 건 건너뜀
++      var chP = v.p !== lv0.p, chL = v.l !== lv0.l, chN = v.n !== lv0.n && verWho(v.n) !== DATA.me;
++      LASTVER_BY[src] = v; lastVer = v;
+       if (chN) loadNotice();
+       // 남이 발주 DB 를 바꿨다 — 모든 화면이 같은 순간에 다시 읽으면 서버 캐시가 빈 채로 다 같이 시트를 읽는다.
+       // 사람마다 0~6초 흩어 부르면 먼저 읽은 한 사람이 캐시를 채우고 나머지는 캐시로 받는다
+       if (chR) { clearTimeout(checkVer._rj); checkVer._rj = setTimeout(revalidate, Math.floor(Math.random() * 6000)); return; }
+       if (chP) refreshProgress();
+       if (chL) refreshLines();
+-    }).withFailureHandler(function () { verBusy = false; bgResult(false); }).apiVer();
+   }
+   /** 남이 바꾼 체크 · 날짜 · 메모만 다시 받아 붙인다(1초 안팎) */
+   var progRetry = null, linesRetry = null;   // 3초 뒤 다시 — 타이머는 하나만(겹쳐 쌓이지 않게)
