@@ -1,0 +1,67 @@
+diff -ru '--exclude=.clasp.json' v1241/Code.js cn/Code.js
+--- v1241/Code.js	2026-11-14 12:51:34.966853949 +0000
++++ cn/Code.js	2026-11-14 12:51:31.436695371 +0000
+@@ -1980,7 +1980,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-14f486';
++var RB_BUILD = '2026-11-14f487';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+diff -ru '--exclude=.clasp.json' v1241/LinesWrite.js cn/LinesWrite.js
+--- v1241/LinesWrite.js	2026-11-14 12:51:34.966853949 +0000
++++ cn/LinesWrite.js	2026-11-14 12:50:59.804304585 +0000
+@@ -311,16 +311,18 @@
+     var lock = typeof pdLock_ === 'function' ? pdLock_() : LockService.getScriptLock(); if (!lock.tryLock(10000)) { c.remove('cl:leftAt'); return; } lockWhoMark_('closeLeftSweep_');
+     var lv = typeof linesVirtualBegin_ === 'function' ? linesVirtualBegin_() : null, cerr = null;
+     try {
+-      var sh = statusSheet_(), C = sheetCols_(sh), kc = statusKeyCols_(sh, C.hr), lr = sh.getLastRow(), cRem = S_remainCol_(C);
++      var sh = statusSheet_(), C = sheetCols_(sh), kc = statusKeyCols_(sh, C.hr), lr = sh.getLastRow(), cRem = S_remainCol_(C), cQty = statusFieldCols_(C).qty;
+       if (kc.id < 0 || kc.state < 0 || cRem < 0 || lr <= C.hr) return;
+       var all = readLinesAll_(), by = {};
+       all.rows.forEach(function (r) { var id = str_(r[0]); if (id) (by[id] = by[id] || []).push(rowToLine_(r)); });
+-      var vals = sh.getRange(C.hr + 1, 1, lr - C.hr, Math.max(kc.id, kc.state, cRem) + 1).getValues(), H = [];
++      var vals = sh.getRange(C.hr + 1, 1, lr - C.hr, Math.max(kc.id, kc.state, cRem, cQty) + 1).getValues(), H = [];
+       vals.forEach(function (v, i) {
+         var id = str_(v[kc.id]);
+         if (!id || str_(v[kc.state]) !== '종결') return;
+-        if (str_(v[cRem]) === '' || !(Number(v[cRem]) <= 0)) return;      // 잔량이 0 으로 확실한 것만(잔량이 남았거나 빈 칸이면 그대로)
+         var L = by[id] || [], rm = L.filter(function (x) { return x.kind === '예정'; });
++        var ordQ = cQty >= 0 ? num_(v[cQty]) : 0, inQ = L.filter(function (x) { return x.kind === '입고'; }).reduce(function (a, x) { return a + (num_(x.qty) || 0); }, 0);
++        var remZero = str_(v[cRem]) !== '' && Number(v[cRem]) <= 0, allIn = ordQ > 0 && inQ >= ordQ;
++        if (!remZero && !allIn) return;      // 잔량 칸이 0 이거나 지급 줄 입고 합계가 발주수량 이상인 것만(덜 받고 닫은 건은 그대로 — 점검 탭에 따로)
+         if (!rm.length) return;
+         if (done.length >= 40) { left++; return; }
+         replaceLinesFor_(id, L.filter(function (x) { return x.kind !== '예정'; }).map(cleanLine_), '자동 종결 — 남은 예정 줄 정리', all);
+diff -ru '--exclude=.clasp.json' v1241/PerfRun.js cn/PerfRun.js
+--- v1241/PerfRun.js	2026-11-14 12:51:34.966853949 +0000
++++ cn/PerfRun.js	2026-11-14 12:51:17.128648493 +0000
+@@ -341,18 +341,20 @@
+   } catch (eF) { rows.push([now, 'Supabase → 시트 반영 실패(3일)', '읽기 실패 ' + String(eF && eF.message || eF).slice(0, 200), '', '', '']); }
+   // f441: 잔량 마감 · 종결한 발주에 예정 지급 줄이 남았는지(남으면 AP 에 들어간다) — 요약 파일 '잔량 마감 점검' 탭(읽기만)
+   try {
+-    var shS = statusSheet_(), CS = sheetCols_(shS), kcS = statusKeyCols_(shS, CS.hr), cCl = colIdx_(CS.idx, ['종결']), cNm = colIdx_(CS.idx, ['품목명']), cCd = colIdx_(CS.idx, ['품목코드']), cBt = colIdx_(CS.idx, ['발주차수']);
++    var shS = statusSheet_(), CS = sheetCols_(shS), kcS = statusKeyCols_(shS, CS.hr), cCl = colIdx_(CS.idx, ['종결']), cNm = colIdx_(CS.idx, ['품목명']), cCd = colIdx_(CS.idx, ['품목코드']), cBt = colIdx_(CS.idx, ['발주차수']), FS = statusFieldCols_(CS);
+     var lrS = shS.getLastRow(), vS = lrS > CS.hr ? shS.getRange(CS.hr + 1, 1, lrS - CS.hr, Math.max(CS.lc || 1, shS.getLastColumn())).getValues() : [];
+     var closedOf = {};
+     vS.forEach(function (r) { var id = kcS.id >= 0 ? str_(r[kcS.id]) : ''; if (!id) return; var st = kcS.state >= 0 ? str_(r[kcS.state]) : '', cl = cCl >= 0 ? str_(r[cCl]) : '';
+-      if (st === '종결' || /^잔량 마감/.test(cl)) closedOf[id] = { st: st, cl: cl, name: cNm >= 0 ? str_(r[cNm]) : '', code: cCd >= 0 ? str_(r[cCd]) : '', batch: cBt >= 0 ? str_(r[cBt]) : '' }; });
++      if (st === '종결' || /^잔량 마감/.test(cl)) closedOf[id] = { st: st, cl: cl, name: cNm >= 0 ? str_(r[cNm]) : '', code: cCd >= 0 ? str_(r[cCd]) : '', batch: cBt >= 0 ? str_(r[cBt]) : '', q: FS.qty >= 0 ? num_(r[FS.qty]) : 0, rem: FS.remain >= 0 ? str_(r[FS.remain]) : '', inQ: 0 }; });
+     var LA = readLinesAll_(), bad = {};
++    LA.rows.forEach(function (r) { var L = rowToLine_(r); if (L.kind === '입고' && closedOf[L.id]) closedOf[L.id].inQ += num_(L.qty) || 0; });      // f486: 지급 줄 입고 합계
+     LA.rows.forEach(function (r) { var L = rowToLine_(r); if (L.kind !== '예정' || !closedOf[L.id]) return; var b = bad[L.id] || (bad[L.id] = { n: 0, qty: 0, amt: 0, ym: [] }); b.n++; b.qty += num_(L.qty) || 0; b.amt += num_(L.amt) || 0; if (L.payYm) b.ym.push(L.payYm); });
+-    var ids = Object.keys(bad), out = [['실행판ID', '품목코드', '품목명 · 차수', '진행상태 · 종결 칸', '남은 예정 줄', '예정 수량', '예정 금액 · 지급월']];
+-    ids.forEach(function (id) { var o = closedOf[id], b = bad[id]; out.push([id, o.code, o.name + ' ' + o.batch, o.st + ' · ' + o.cl, b.n, b.qty, b.amt + ' · ' + b.ym.join(',')]); });
+-    if (!ids.length) out.push(['— 종결 건에 남은 예정 줄 없음 —', '', '', '', '', '', '']);
++    var ids = Object.keys(bad), out = [['실행판ID', '품목코드', '품목명 · 차수', '진행상태 · 종결 칸', '남은 예정 줄', '예정 수량', '예정 금액 · 지급월', '발주수량', '입고 합계(지급 줄)', '잔량 칸', '판정(f486)']];
++    ids.forEach(function (id) { var o = closedOf[id], b = bad[id]; var dz = (o.rem !== '' && Number(o.rem) <= 0) || (o.q > 0 && o.inQ >= o.q); out.push([id, o.code, o.name + ' ' + o.batch, o.st + ' · ' + o.cl, b.n, b.qty, b.amt + ' · ' + b.ym.join(','), o.q, o.inQ, o.rem, o.st !== '종결' ? '잔량 마감 칸만(진행상태 종결 아님)' : dz ? '다 받음 — 1분 작업이 지움' : '덜 받고 종결 — 손대지 않음(결정 필요)']); });
++    if (!ids.length) out.push(['— 종결 건에 남은 예정 줄 없음 —', '', '', '', '', '', '', '', '', '', '']);
+     var tR = SpreadsheetApp.openById(id), shR = tR.getSheetByName('잔량 마감 점검') || tR.insertSheet('잔량 마감 점검');
+-    shR.clear(); shR.getRange(1, 1, out.length, 7).setValues(out);
++    shR.clear(); shR.getRange(1, 1, out.length, 11).setValues(out);
++    rows.push([now, '종결 건 예정 줄 정리(f486)', str_(P.getProperty('rb.closeLeft')) || '-', str_(P.getProperty('rb.closeLeftErr')) || '오류 -', '', '']);
+     rows.push([now, '종결 건에 남은 예정 줄(f443부터 AP 에서 뺌)', ids.length + '건', '요약 파일 [잔량 마감 점검] 탭', '', '']);
+   } catch (eR) { rows.push([now, '종결 건에 남은 예정 줄', '점검 실패 ' + String(eR && eR.message || eR).slice(0, 200), '', '', '']); }
+   try {      // f455: 1분 작업 시간 · 샘플 작업 단계 — 따로 탭(요약 표가 길어 잘렸다)
