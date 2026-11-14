@@ -1,0 +1,44 @@
+diff -ru '--exclude=.clasp.json' v266/Code.js pn/Code.js
+--- v266/Code.js	2026-11-14 14:29:17.944095372 +0000
++++ pn/Code.js	2026-11-14 14:29:09.198775365 +0000
+@@ -1985,7 +1985,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-14f487p';
++var RB_BUILD = '2026-11-14f488p';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+diff -ru '--exclude=.clasp.json' v266/LinesWrite.js pn/LinesWrite.js
+--- v266/LinesWrite.js	2026-11-14 14:29:17.944095372 +0000
++++ pn/LinesWrite.js	2026-11-14 14:28:50.251551487 +0000
+@@ -310,23 +310,20 @@
+     var lock = typeof pdLock_ === 'function' ? pdLock_() : LockService.getScriptLock(); if (!lock.tryLock(10000)) { c.remove('cl:leftAt'); return; } lockWhoMark_('closeLeftSweep_');
+     var lv = typeof linesVirtualBegin_ === 'function' ? linesVirtualBegin_() : null, cerr = null;
+     try {
+-      var sh = statusSheet_(), C = sheetCols_(sh), kc = statusKeyCols_(sh, C.hr), lr = sh.getLastRow(), cRem = S_remainCol_(C), cQty = statusFieldCols_(C).qty;
++      var sh = statusSheet_(), C = sheetCols_(sh), kc = statusKeyCols_(sh, C.hr), lr = sh.getLastRow(), cRem = S_remainCol_(C), cQty = statusFieldCols_(C).qty, cCl = colIdx_(C.idx, ['종결']);
+       if (kc.id < 0 || kc.state < 0 || cRem < 0 || lr <= C.hr) return;
+       var all = readLinesAll_(), by = {};
+       all.rows.forEach(function (r) { var id = str_(r[0]); if (id) (by[id] = by[id] || []).push(rowToLine_(r)); });
+-      var vals = sh.getRange(C.hr + 1, 1, lr - C.hr, Math.max(kc.id, kc.state, cRem, cQty) + 1).getValues(), H = [];
++      var vals = sh.getRange(C.hr + 1, 1, lr - C.hr, Math.max(kc.id, kc.state, cRem, cQty, cCl) + 1).getValues(), H = [];
+       vals.forEach(function (v, i) {
+         var id = str_(v[kc.id]);
+-        if (!id || str_(v[kc.state]) !== '종결') return;
++        if (!id || !(str_(v[kc.state]) === '종결' || (cCl >= 0 && /^잔량 마감/.test(str_(v[cCl]))))) return;      // f488: 종결 · 잔량 마감 건은 더 안 받는다 — 덜 받고 닫았어도 남은 예정 줄은 줄 돈이 아니다(담당자)
+         var L = by[id] || [], rm = L.filter(function (x) { return x.kind === '예정'; });
+-        var ordQ = cQty >= 0 ? num_(v[cQty]) : 0, inQ = L.filter(function (x) { return x.kind === '입고'; }).reduce(function (a, x) { return a + (num_(x.qty) || 0); }, 0);
+-        var remZero = str_(v[cRem]) !== '' && Number(v[cRem]) <= 0, allIn = ordQ > 0 && inQ >= ordQ;
+-        if (!remZero && !allIn) return;      // 잔량 칸이 0 이거나 지급 줄 입고 합계가 발주수량 이상인 것만(덜 받고 닫은 건은 그대로 — 점검 탭에 따로)
+         if (!rm.length) return;
+         if (done.length >= 40) { left++; return; }
+-        replaceLinesFor_(id, L.filter(function (x) { return x.kind !== '예정'; }).map(cleanLine_), '자동 종결 — 남은 예정 줄 정리', all);
++        replaceLinesFor_(id, L.filter(function (x) { return x.kind !== '예정'; }).map(cleanLine_), '종결 — 남은 예정 줄 정리', all);
+         done.push(id + ' ' + rm.length + '줄');
+-        H.push({ kind: '입고', id: id, item: '자동 종결 — 남은 예정 줄 정리', after: '예정 줄 ' + rm.length + '개 지움(' + linesSummary_(rm).slice(0, 300) + ')', where: RB.STATUS_TAB + ' ' + (C.hr + 1 + i) + '행' });
++        H.push({ kind: '입고', id: id, item: '종결 — 남은 예정 줄 정리', after: '예정 줄 ' + rm.length + '개 지움(' + linesSummary_(rm).slice(0, 300) + ')', where: RB.STATUS_TAB + ' ' + (C.hr + 1 + i) + '행' });
+       });
+       if (H.length) { try { appendHist_(H); } catch (eH) { /* 이력은 저장을 막지 않는다 */ } }
+     } finally {
