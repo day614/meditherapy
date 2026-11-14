@@ -1,0 +1,119 @@
+diff -ru '--exclude=.clasp.json' v269/Code.js pn/Code.js
+--- v269/Code.js	2026-11-14 15:18:28.836980318 +0000
++++ pn/Code.js	2026-11-14 15:18:29.066819851 +0000
+@@ -1988,7 +1988,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-14f490p';
++var RB_BUILD = '2026-11-14f491p';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+diff -ru '--exclude=.clasp.json' v269/Journal.js pn/Journal.js
+--- v269/Journal.js	2026-11-14 15:18:28.836980318 +0000
++++ pn/Journal.js	2026-11-14 15:18:37.365696732 +0000
+@@ -57,6 +57,8 @@
+   var s = JSON.stringify(op);
+   if (s.length > 8000) return false;                           // 속성 한 칸은 9KB 까지
+   if (!journalRoom_(all, s.length + 40)) return false;        // 장부가 너무 커졌으면 바로 시트에(부르는 쪽 예전 방식)
++  // f491: 상태 올리기 · 내리기가 붙은 줄은 적기 전에 Supabase 에 알린다(rb_conf 'pdJ') — 직접 진행상태 저장(rb_od_state)이 그 건은 할 일 길로(차례). 못 알리면 장부에 안 적음(예전 방식)
++  if ((op.bump || op.down) && op.mode !== 'sample' && typeof pdJournalPublish_ === 'function') { try { pdJournalPublish_(op.id); } catch (ePj) { return false; } }
+   // 같은 1/1000초에 적힌 줄은 꼬리(무작위)로 정렬돼 순서가 뒤집힐 수 있었다 — 한 실행 안에서는 순번을 붙여 적은 순서대로
+   RB_J_SEQ = (RB_J_SEQ + 1) % 10000;
+   var key = RB_J + op.at + ':' + ('000' + RB_J_SEQ).slice(-4) + Utilities.getUuid().slice(0, 4);
+@@ -379,6 +381,7 @@
+   }
+   SpreadsheetApp.flush();                 // 시트에 확실히 들어간 뒤에 남은 장부(모드가 po · sample 이 아닌 줄)를 지운다
+   list.forEach(function (x) { if (gone[x.key]) return; try { props.deleteProperty(x.key); } catch (e) { /* 다음에 다시 옮겨도 결과는 같다 */ } });
++  if (list.some(function (x) { return x.op.bump || x.op.down; }) && typeof pdJournalPublish_ === 'function') { try { pdJournalPublish_(); } catch (ePj) { /* 1분 작업이 다시 */ } }      // f491: 남은 상태 올리기 건만
+   if (modeErr) throw modeErr;          // 남겨 둔 장부는 다음 판에
+   return list.length;
+ }
+diff -ru '--exclude=.clasp.json' v269/Keys.js pn/Keys.js
+--- v269/Keys.js	2026-11-14 15:18:28.836980318 +0000
++++ pn/Keys.js	2026-11-14 15:18:28.982328615 +0000
+@@ -1396,25 +1396,13 @@
+       out.n++;
+     });
+     if (audits.length) writeAudits_(audits);
+-    var q = docQueueRead_(), qch = false;
+-    ids.forEach(function (w) { if (q['id:' + w.id]) { delete q['id:' + w.id]; qch = true; } if (w.doc && q[norm_(w.doc)]) { delete q[norm_(w.doc)]; qch = true; } });
+-    if (qch) docQueueWrite_(q);
++    poCancelDocq_(ids);      // f491: PdDirect.js(직접 품의 취소 뒷정리와 같은 규칙)
+   } finally {
+     try { endVer_(outer); } catch (e) { /* 넘어간다 */ }
+     lock.releaseLock();
+   }
+   cacheDrop_(rowsCacheKey_('po'));
+-  if (ids.length) {
+-    try {
+-      var M = metaFast_('po'), slots = dateSlots_(M.steps, M.cfg, 'po');
+-      bulkEditProgress_(ids, 'po', function (st) {
+-        var ch = false;
+-        ['submitted', 'approved'].forEach(function (f) { if (st.dates[f]) { delete st.dates[f]; ch = true; } if (checkByDate_(st.checks, slots, f, false).length) ch = true; });
+-        if (st.dates.__docAuto) { delete st.dates.__docAuto; ch = true; }
+-        return ch ? undefined : false;
+-      });
+-    } catch (eP) { out.skipped.push('진행 기록(상신일 · 체크)은 못 지움: ' + eP.message); }
+-  }
++  if (ids.length) { var mP = poCancelProg_(ids); if (mP) out.skipped.push(mP); }      // f491: PdDirect.js
+   try { bumpVer_('r'); apRefreshSoon_(); } catch (eV) { /* 넘어간다 */ }
+   return out;
+ }
+diff -ru '--exclude=.clasp.json' v269/PageHtml.html pn/PageHtml.html
+--- v269/PageHtml.html	2026-11-14 15:18:28.848980318 +0000
++++ pn/PageHtml.html	2026-11-14 15:18:37.348980824 +0000
+@@ -14409,7 +14409,7 @@
+       }
+       pjDirect("apiSetCode", [args[0], ex, code, bc, true], function () { ok({ ok: true, code: code, direct: 1 }); }, fail, gas);
+     },
+-    apiSetState: function (args, ok, fail, gas) { if (!(Number(args[0]) >= 2) || !(args[1] && args[1].id)) { gas(); return; } pjDirect("apiSetState", args, ok, fail, gas); },
++    apiSetState: function (args, ok, fail, gas) { if (!(Number(args[0]) >= 2) || !(args[1] && args[1].id)) { gas(); return; } pdDirect("rb_od_state", "apiSetState", args, ok, fail, gas); },      // f491: Supabase 가 바로 바꿈(할 일 대기열 아님)
+     apiSetCur: function (args, ok, fail, gas) { pjDirect("apiSetCur", args, ok, fail, gas); },
+     apiSetFlag: function (args, ok, fail, gas) { pjDirect("apiSetFlag", args, ok, fail, gas); },
+     apiSampleStatus: function (args, ok, fail, gas) { if (!(args[3] && args[3].sid)) { gas(); return; } pjDirect("apiSampleStatus", args, ok, fail, gas); },
+@@ -14671,6 +14671,33 @@
+         function (e, useGas) { if (useGas || !e || /RB_FALLBACK/.test(String(e.message || ""))) gas(); else fail(e); });
+     });
+   }
++  /** f491: 진행상태 · 품의 취소 — Supabase 함수가 바로 바꾸고 진짜 결과(before · n · skipped · skippedIds)를 준다. 시트 · 이력 · AP 는 서버가 뒤에서.
++   *  RB_FALLBACK(꺼짐 · 같은 건의 앞선 저장이 아직 반영 전 등 — 아무것도 안 들어감)이면 예전 할 일 길로(차례 지킴) */
++  function pdDirect(rpc, fn, args, ok, fail, gas) {
++    var viaPj = function (why) {
++      if (why) rbWhy(fn, why);
++      pjDirect(fn, args, fn === "apiPoCancel" ? function () { ok({ direct: 1, skippedIds: [], skipped: [] }); } : ok, fail, gas);
++    };
++    if (typeof noteRpc !== "function" || typeof noteSess !== "function") { gas(); return; }
++    noteSess(function (ss) {
++      if (!ss || !ss.pds) { viaPj(); return; }
++      noteRpc(rpc, { p_args: args }, function (r) { ok(r || {}); pdKick(); },
++        function (e, useGas) {
++          var m = String((e && e.message) || "");
++          if (/RB_FALLBACK/.test(m)) { viaPj(m); return; }
++          if (useGas || !e) gas(); else fail(e);
++        });
++    });
++  }
++  /** 직접 저장 뒤 시트 · 캐시 맞추기 — 그동안 다시 읽기가 옛 목록 캐시를 받지 않게 '저장 중'을 짧게, 끝나면 새로 읽기 */
++  var PDK = { on: false, again: false };
++  function pdKick() {
++    if (PDK.on) { PDK.again = true; return; }
++    PDK.on = true; busy(true, true);
++    var end = function () { if (!PDK.on) return; PDK.on = false; busy(false); if (PDK.again) { PDK.again = false; pdKick(); return; } lastSync = 0; setTimeout(revalidate, 300); };
++    setTimeout(end, 30000);
++    try { gsr().withSuccessHandler(end).withFailureHandler(end).apiPdKick(); } catch (e) { end(); }
++  }
+   /** 진행 기록 '지금 맞추기' — 연달아 누르면 한 번으로(1.2초 모았다가) · 그동안 다시 읽기가 옛 값으로 덮지 않게 저장 중 표시 */
+   var PJK = { t: null, on: false, again: false };
+   function pjKick() {
+@@ -24777,7 +24804,7 @@
+    * 그래도 안 되면 서버 길로 다시 하지 않고 '저장됐는지 알 수 없음'으로 알린다. ok · fail 은 promise 밖에서(화면 처리 오류가 '저장 실패'로 바뀌지 않게). */
+   /** f486: 직접 저장을 안 하고 서버 길로 간 까닭(속도 기록 → 요약 파일) — 조용히 넘어가던 것 */
+   function rbWhy(fn, why) { try { PERF_Q.push({ n: "직접→서버(조건) " + String(fn).slice(0, 20) + " " + String(why).slice(0, 30), ms: 99999, ok: true, at: new Date().toISOString().slice(0, 19), t: String(why).slice(0, 200) }); } catch (e) { /* 넘어간다 */ } }
+-  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_edit|pj_add|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
++  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_(edit|state)|pj_add|po_cancel|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
+   function noteRpc(fn, args, ok, fail, again, rq, tries) {
+     noteSess(function (ss) {
+       if (!ss) { fail(null, true); return; }
+Only in pn: PoCancelHelp.js

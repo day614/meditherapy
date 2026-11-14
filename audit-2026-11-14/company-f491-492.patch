@@ -1,0 +1,256 @@
+diff -ru '--exclude=.clasp.json' v1245/Code.js cn491/Code.js
+--- v1245/Code.js	2026-11-14 15:18:26.272980165 +0000
++++ cn491/Code.js	2026-11-14 15:20:21.173985254 +0000
+@@ -1983,7 +1983,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-14f490';
++var RB_BUILD = '2026-11-14f492';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+diff -ru '--exclude=.clasp.json' v1245/IssueDb.js cn491/IssueDb.js
+--- v1245/IssueDb.js	2026-11-14 15:18:26.272980165 +0000
++++ cn491/IssueDb.js	2026-11-14 15:16:45.115333263 +0000
+@@ -483,7 +483,7 @@
+       var got = sbFetch_('patch', '/rest/v1/rb_tab_job?id=eq.' + J.id + '&done_at=is.null', { done_at: new Date().toISOString() }, { Prefer: 'return=representation' }) || [];
+       if (!got.length) continue;
+       if (str_(j.who) === 'selftest@rb.local') { n++; continue; }
+-      var fnMap = { apiSaveNotice: apiSaveNotice, apiDailySaveRep: apiDailySaveRep, apiSampleRemap: apiSampleRemap, apiSampleViewsRebuild: function () { return apiSampleViewsRebuild(); }, apiSaveSteps: apiSaveSteps, apiSaveLinks: apiSaveLinks, apiSetChoices: apiSetChoices, apiSetSampleChoices: apiSetSampleChoices, apiItemDelete: apiItemDelete, apiCloseRemain: apiCloseRemain, apiBulkItems: apiBulkItems, apiBulkItemsUndo: apiBulkItemsUndo, apiDailyUnlock: apiDailyUnlock, apiNegoPick: apiNegoPick, apiBomReviewRegAll: apiBomReviewRegAll, apiBomReviewFix: apiBomReviewFix, apiPoPendAdd: apiPoPendAdd, apiPoRedraft: apiPoRedraft, apiWaitReply: apiWaitReply, apiPoSubmit: apiPoSubmit, apiSampleDeleteRow: apiSampleDeleteRow, apiSampleProjEdit: apiSampleProjEdit, apiSetChecks: apiSetChecks, apiSetNote: apiSetNote, apiSetChange: apiSetChange, apiSetDate: apiSetDate, apiSampleLog: apiSampleLog, apiSampleDone: apiSampleDone, apiSampleWaitDone: apiSampleWaitDone, apiSetState: apiSetState, apiSetCur: apiSetCur, apiSetFlag: apiSetFlag, apiSampleStatus: apiSampleStatus, apiBulkHide: apiBulkHide, apiBulkOwner: apiBulkOwner, apiBulkDate: apiBulkDate, apiBulkStep: apiBulkStep, apiPoCancel: apiPoCancel, apiSetCode: apiSetCode, apiBulkDoc: apiBulkDoc, apiBulkApprovalNo: apiBulkApprovalNo, apiBulkOrderDate: apiBulkOrderDate, apiItemRegister: apiItemRegister, apiVendorAdd: apiVendorAdd, apiCreateOrder: apiCreateOrder, apiSampleProjMemo: apiSampleProjMemo, apiSampleProjInfo: apiSampleProjInfo, apiDailyHide: apiDailyHide, apiSampleProject: apiSampleProject, apiCloseExpSet: apiCloseExpSet, apiOldAck: apiOldAck, apiNegoQtySet: apiNegoQtySet, apiPoPendDrop: apiPoPendDrop, apiDailyIssues: apiDailyIssues, apiHfSet: apiHfSet, apiBomSetCompOff: apiBomSetCompOff, apiBomAddType: apiBomAddType, apiSemiPin: apiSemiPin }, fn = fnMap[str_(j.fn)];
++      var fnMap = { apiSaveNotice: apiSaveNotice, apiDailySaveRep: apiDailySaveRep, apiSampleRemap: apiSampleRemap, apiSampleViewsRebuild: function () { return apiSampleViewsRebuild(); }, apiSaveSteps: apiSaveSteps, apiSaveLinks: apiSaveLinks, apiSetChoices: apiSetChoices, apiSetSampleChoices: apiSetSampleChoices, apiItemDelete: apiItemDelete, apiCloseRemain: apiCloseRemain, apiBulkItems: apiBulkItems, apiBulkItemsUndo: apiBulkItemsUndo, apiDailyUnlock: apiDailyUnlock, apiNegoPick: apiNegoPick, apiBomReviewRegAll: apiBomReviewRegAll, apiBomReviewFix: apiBomReviewFix, apiPoPendAdd: apiPoPendAdd, apiPoRedraft: apiPoRedraft, apiWaitReply: apiWaitReply, apiPoSubmit: apiPoSubmit, apiSampleDeleteRow: apiSampleDeleteRow, apiSampleProjEdit: apiSampleProjEdit, apiSetChecks: apiSetChecks, apiSetNote: apiSetNote, apiSetChange: apiSetChange, apiSetDate: apiSetDate, apiSampleLog: apiSampleLog, apiSampleDone: apiSampleDone, apiSampleWaitDone: apiSampleWaitDone, apiSetState: apiSetState, apiSetCur: apiSetCur, apiSetFlag: apiSetFlag, apiSampleStatus: apiSampleStatus, apiBulkHide: apiBulkHide, apiBulkOwner: apiBulkOwner, apiBulkDate: apiBulkDate, apiBulkStep: apiBulkStep, apiPoCancel: apiPoCancel, apiSetCode: apiSetCode, apiBulkDoc: apiBulkDoc, apiBulkApprovalNo: apiBulkApprovalNo, apiBulkOrderDate: apiBulkOrderDate, apiItemRegister: apiItemRegister, apiVendorAdd: apiVendorAdd, apiCreateOrder: apiCreateOrder, apiSampleProjMemo: apiSampleProjMemo, apiSampleProjInfo: apiSampleProjInfo, apiDailyHide: apiDailyHide, apiSampleProject: apiSampleProject, apiCloseExpSet: apiCloseExpSet, apiOldAck: apiOldAck, apiNegoQtySet: apiNegoQtySet, apiPoPendDrop: apiPoPendDrop, apiDailyIssues: apiDailyIssues, apiHfSet: apiHfSet, apiBomSetCompOff: apiBomSetCompOff, apiBomAddType: apiBomAddType, apiSemiPin: apiSemiPin, _pdPost: pdDirectPost_ }, fn = fnMap[str_(j.fn)];      // f491: _pdPost = 직접 진행상태 · 품의 취소 뒷정리
+       var prevMe = RB_ME_AS, prevAt = RB_J_AT; RB_ME_AS = str_(j.who); RB_J_AT = Number(j.at) || 0;
+       try { if (!fn) throw new Error('모르는 저장 ' + j.fn); var rvJ = fn.apply(null, j.args || []); n++; try { pjNotePut_(j, rvJ); } catch (eNt) { /* 넘어간다 */ } }
+       catch (e) {
+diff -ru '--exclude=.clasp.json' v1245/Journal.js cn491/Journal.js
+--- v1245/Journal.js	2026-11-14 15:18:26.272980165 +0000
++++ cn491/Journal.js	2026-11-14 15:17:28.038167496 +0000
+@@ -57,6 +57,8 @@
+   var s = JSON.stringify(op);
+   if (s.length > 8000) return false;                           // 속성 한 칸은 9KB 까지
+   if (!journalRoom_(all, s.length + 40)) return false;        // 장부가 너무 커졌으면 바로 시트에(부르는 쪽 예전 방식)
++  // f491: 상태 올리기 · 내리기가 붙은 줄은 적기 전에 Supabase 에 알린다(rb_conf 'pdJ') — 직접 진행상태 저장(rb_od_state)이 그 건은 할 일 길로(차례). 못 알리면 장부에 안 적음(예전 방식)
++  if ((op.bump || op.down) && op.mode !== 'sample' && typeof pdJournalPublish_ === 'function') { try { pdJournalPublish_(op.id); } catch (ePj) { return false; } }
+   // 같은 1/1000초에 적힌 줄은 꼬리(무작위)로 정렬돼 순서가 뒤집힐 수 있었다 — 한 실행 안에서는 순번을 붙여 적은 순서대로
+   RB_J_SEQ = (RB_J_SEQ + 1) % 10000;
+   var key = RB_J + op.at + ':' + ('000' + RB_J_SEQ).slice(-4) + Utilities.getUuid().slice(0, 4);
+@@ -381,6 +383,7 @@
+   }
+   SpreadsheetApp.flush();                 // 시트에 확실히 들어간 뒤에 남은 장부(모드가 po · sample 이 아닌 줄)를 지운다
+   list.forEach(function (x) { if (gone[x.key]) return; try { props.deleteProperty(x.key); } catch (e) { /* 다음에 다시 옮겨도 결과는 같다 */ } });
++  if (list.some(function (x) { return x.op.bump || x.op.down; }) && typeof pdJournalPublish_ === 'function') { try { pdJournalPublish_(); } catch (ePj) { /* 1분 작업이 다시 */ } }      // f491: 남은 상태 올리기 건만
+   if (modeErr) throw modeErr;          // 남겨 둔 장부는 다음 판에
+   return list.length;
+ }
+@@ -566,6 +569,8 @@
+   try { if (typeof pjDrainIn_ === 'function') pjDrainIn_(true, true); } catch (ePj2) { /* 다음 1분에 */ }      // f434: 장부 옮기기로 잠금을 놓은 바로 뒤에 한 번 더(상신 완료 등)
+   jdm('pjDrainIn_');
+   try { if (typeof lnGatePublish_ === 'function') lnGatePublish_(false); } catch (eLg) { /* 다음 1분에 */ }      // f485
++  try { if (typeof pdConfPublish_ === 'function') { pdConfPublish_(false); pdJournalPublish_(); pdxDrainIn_(); pdDirectSelfTest_(); } } catch (ePdx) { try { console.log('발주 DB 직접 저장 맞추기 실패: ' + ePdx.message); } catch (ePdx2) { /* 다음 1분에 */ } }      // f491
++  jdm('pdxDrainIn_');
+   // 2026-11-02 담당자(전체가 느리다): 첫 화면 목록 · 오늘 보고서 미리 준비를 10분 작업에서 1분 작업으로도 —
+   // 누가 저장하면 캐시가 비고, 10분 작업이 돌 때까지 다음에 여는 사람이 첫 화면 6초 · 보고서 20초를 기다렸다.
+   // 근무 시간(7~21시) · 배포판과 같은 코드일 때만, 비어 있을 때만 한다(차 있으면 캐시 칸 수만 보고 끝 — 1초 안).
+diff -ru '--exclude=.clasp.json' v1245/Keys.js cn491/Keys.js
+--- v1245/Keys.js	2026-11-14 15:18:26.272980165 +0000
++++ cn491/Keys.js	2026-11-14 15:16:45.115489296 +0000
+@@ -1419,25 +1419,13 @@
+       out.n++;
+     });
+     if (audits.length) writeAudits_(audits);
+-    var q = docQueueRead_(), qch = false;
+-    ids.forEach(function (w) { if (q['id:' + w.id]) { delete q['id:' + w.id]; qch = true; } if (w.doc && q[norm_(w.doc)]) { delete q[norm_(w.doc)]; qch = true; } });
+-    if (qch) docQueueWrite_(q);
++    poCancelDocq_(ids);      // f491: PdDirect.js(직접 품의 취소 뒷정리와 같은 규칙)
+   } finally {
+     try { endVer_(outer); } catch (e) { /* 넘어간다 */ }
+     lock.releaseLock();
+   }
+   cacheDrop_(rowsCacheKey_('po'));
+-  if (ids.length) {
+-    try {
+-      var M = metaFast_('po'), slots = dateSlots_(M.steps, M.cfg, 'po');
+-      bulkEditProgress_(ids, 'po', function (st) {
+-        var ch = false;
+-        ['submitted', 'approved'].forEach(function (f) { if (st.dates[f]) { delete st.dates[f]; ch = true; } if (checkByDate_(st.checks, slots, f, false).length) ch = true; });
+-        if (st.dates.__docAuto) { delete st.dates.__docAuto; ch = true; }
+-        return ch ? undefined : false;
+-      });
+-    } catch (eP) { out.skipped.push('진행 기록(상신일 · 체크)은 못 지움: ' + eP.message); }
+-  }
++  if (ids.length) { var mP = poCancelProg_(ids); if (mP) out.skipped.push(mP); }      // f491: PdDirect.js
+   try { bumpVer_('r'); apRefreshSoon_(); } catch (eV) { /* 넘어간다 */ }
+   return out;
+ }
+diff -ru '--exclude=.clasp.json' v1245/Notes.js cn491/Notes.js
+--- v1245/Notes.js	2026-11-14 15:18:26.272980165 +0000
++++ cn491/Notes.js	2026-11-14 15:16:45.115594961 +0000
+@@ -146,6 +146,7 @@
+   var pj = 0; try { pj = typeof pjDbOn_ === 'function' && pjDbOn_() ? 1 : 0; } catch (ePj) { pj = 0; }      // f338: 진행 기록도 직접
+   var li = 0; try { li = typeof lnInbOn_ === 'function' && lnInbOn_() ? 1 : 0; } catch (eLi) { li = 0; }      // f337: 입고 추가도 직접
+   var bom = 0; try { bom = typeof bomDbOn_ === 'function' && bomDbOn_() ? 1 : 0; } catch (eBo) { bom = 0; }      // f355: BOM 차수 변경 저장도 직접(rb.bomDb ok · 켜짐 표시)
++  var pds = 0; try { pds = typeof pdDirectMig_ === 'function' && pdDirectMig_() && /^ok/.test(str_(PropertiesService.getScriptProperties().getProperty('rb.pdDirectTest'))) ? 1 : 0; } catch (ePds) { pds = 0; }      // f491: 진행상태 · 품의 취소 직접(켜짐은 SQL 이 pdConf 로 다시 봄)
+   var bp = function (k) { try { return typeof bomPathOn_ === 'function' && bomPathOn_(k) ? 1 : 0; } catch (eBp) { return 0; } };      // f359: BOM 길마다(N차만 정정 · 되돌리기 · 새 품목코드)
+-  return { direct: 1, url: sbUrl_(), anon: anon, token: t.token, exp: t.exp, me: me, iss: iss, ql: ql, lk: lk, it: it, cl: cl, sm: sm, ln: ln, od: od, li: li, pj: pj, bom: bom, bomfx: bp('fx'), bomun: bp('un'), bomnv: bp('nv'), bomfm: bp('fm'), bomord: bp('ord'), bomck: bp('ck'), bomcs: bp('cs'), bomcm: bp('cm'), bomhf: bp('hf') };
++  return { direct: 1, url: sbUrl_(), anon: anon, token: t.token, exp: t.exp, me: me, pds: pds, iss: iss, ql: ql, lk: lk, it: it, cl: cl, sm: sm, ln: ln, od: od, li: li, pj: pj, bom: bom, bomfx: bp('fx'), bomun: bp('un'), bomnv: bp('nv'), bomfm: bp('fm'), bomord: bp('ord'), bomck: bp('ck'), bomcs: bp('cs'), bomcm: bp('cm'), bomhf: bp('hf') };
+ }
+diff -ru '--exclude=.clasp.json' v1245/PageHtml.html cn491/PageHtml.html
+--- v1245/PageHtml.html	2026-11-14 15:18:26.280980166 +0000
++++ cn491/PageHtml.html	2026-11-14 15:17:45.532977744 +0000
+@@ -14790,7 +14790,7 @@
+       }
+       pjDirect("apiSetCode", [args[0], ex, code, bc, true], function () { ok({ ok: true, code: code, direct: 1 }); }, fail, gas);
+     },
+-    apiSetState: function (args, ok, fail, gas) { if (!(Number(args[0]) >= 2) || !(args[1] && args[1].id)) { gas(); return; } pjDirect("apiSetState", args, ok, fail, gas); },
++    apiSetState: function (args, ok, fail, gas) { if (!(Number(args[0]) >= 2) || !(args[1] && args[1].id)) { gas(); return; } pdDirect("rb_od_state", "apiSetState", args, ok, fail, gas); },      // f491: Supabase 가 바로 바꿈(할 일 대기열 아님)
+     apiSetCur: function (args, ok, fail, gas) { pjDirect("apiSetCur", args, ok, fail, gas); },
+     apiSetFlag: function (args, ok, fail, gas) { pjDirect("apiSetFlag", args, ok, fail, gas); },
+     apiSampleStatus: function (args, ok, fail, gas) { if (!(args[3] && args[3].sid)) { gas(); return; } pjDirect("apiSampleStatus", args, ok, fail, gas); },
+@@ -15084,7 +15084,7 @@
+     // f418: 샘플 시트 값 정리(목록 밖 구성 · 사양 · 구분) · 요청서/견적 탭 다시 만들기 — 할 일 길(1분 안에)
+     apiSampleRemap: function (args, ok, fail, gas) { if (!args[0]) { gas(); return; } pjDirect("apiSampleRemap", args, function () { ok({ n: -1, direct: 1 }); }, fail, gas); },
+     apiSampleViewsRebuild: function (args, ok, fail, gas) { pjDirect("apiSampleViewsRebuild", ["rebuild"], function () { ok({ direct: 1 }); }, fail, gas); },
+-    apiPoCancel: function (args, ok, fail, gas) { pjDirect("apiPoCancel", args, function () { ok({ direct: 1, skippedIds: [], skipped: [] }); }, fail, gas); },
++    apiPoCancel: function (args, ok, fail, gas) { pdDirect("rb_po_cancel", "apiPoCancel", args, ok, fail, gas); },      // f491
+     apiBulkOwner: function (args, ok, fail, gas) { pjDirect("apiBulkOwner", args, function () { ok({ direct: 1, n: (args[0] || []).length }); }, fail, gas); },
+     apiSampleDone: function (args, ok, fail, gas) { pjDirect("apiSampleDone", args, ok, fail, gas); },
+     apiSampleWaitDone: function (args, ok, fail, gas) {
+@@ -15252,6 +15252,33 @@
+         function (e, useGas) { if (useGas || !e || /RB_FALLBACK/.test(String(e.message || ""))) gas(); else fail(e); });
+     });
+   }
++  /** f491: 진행상태 · 품의 취소 — Supabase 함수가 바로 바꾸고 진짜 결과(before · n · skipped · skippedIds)를 준다. 시트 · 이력 · AP 는 서버가 뒤에서.
++   *  RB_FALLBACK(꺼짐 · 같은 건의 앞선 저장이 아직 반영 전 등 — 아무것도 안 들어감)이면 예전 할 일 길로(차례 지킴) */
++  function pdDirect(rpc, fn, args, ok, fail, gas) {
++    var viaPj = function (why) {
++      if (why) rbWhy(fn, why);
++      pjDirect(fn, args, fn === "apiPoCancel" ? function () { ok({ direct: 1, skippedIds: [], skipped: [] }); } : ok, fail, gas);
++    };
++    if (typeof noteRpc !== "function" || typeof noteSess !== "function") { gas(); return; }
++    noteSess(function (ss) {
++      if (!ss || !ss.pds) { viaPj(); return; }
++      noteRpc(rpc, { p_args: args }, function (r) { ok(r || {}); pdKick(); },
++        function (e, useGas) {
++          var m = String((e && e.message) || "");
++          if (/RB_FALLBACK/.test(m)) { viaPj(m); return; }
++          if (useGas || !e) gas(); else fail(e);
++        });
++    });
++  }
++  /** 직접 저장 뒤 시트 · 캐시 맞추기 — 그동안 다시 읽기가 옛 목록 캐시를 받지 않게 '저장 중'을 짧게, 끝나면 새로 읽기 */
++  var PDK = { on: false, again: false };
++  function pdKick() {
++    if (PDK.on) { PDK.again = true; return; }
++    PDK.on = true; busy(true, true);
++    var end = function () { if (!PDK.on) return; PDK.on = false; busy(false); if (PDK.again) { PDK.again = false; pdKick(); return; } lastSync = 0; setTimeout(revalidate, 300); };
++    setTimeout(end, 30000);
++    try { gsr().withSuccessHandler(end).withFailureHandler(end).apiPdKick(); } catch (e) { end(); }
++  }
+   /** 진행 기록 '지금 맞추기' — 연달아 누르면 한 번으로(1.2초 모았다가) · 그동안 다시 읽기가 옛 값으로 덮지 않게 저장 중 표시 */
+   var PJK = { t: null, on: false, again: false };
+   function pjKick() {
+@@ -25454,7 +25481,7 @@
+    * 그래도 안 되면 서버 길로 다시 하지 않고 '저장됐는지 알 수 없음'으로 알린다. ok · fail 은 promise 밖에서(화면 처리 오류가 '저장 실패'로 바뀌지 않게). */
+   /** f486: 직접 저장을 안 하고 서버 길로 간 까닭(속도 기록 → 요약 파일) — 조용히 넘어가던 것 */
+   function rbWhy(fn, why) { try { PERF_Q.push({ n: "직접→서버(조건) " + String(fn).slice(0, 20) + " " + String(why).slice(0, 30), ms: 99999, ok: true, at: new Date().toISOString().slice(0, 19), t: String(why).slice(0, 200) }); } catch (e) { /* 넘어간다 */ } }
+-  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_edit|pj_add|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
++  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_(edit|state)|pj_add|po_cancel|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
+   function noteRpc(fn, args, ok, fail, again, rq, tries) {
+     noteSess(function (ss) {
+       if (!ss) { fail(null, true); return; }
+Only in cn491: PdDirect.js
+diff -ru '--exclude=.clasp.json' v1245/PerfRun.js cn491/PerfRun.js
+--- v1245/PerfRun.js	2026-11-14 15:18:26.272980165 +0000
++++ cn491/PerfRun.js	2026-11-14 15:20:21.126825652 +0000
+@@ -354,6 +354,7 @@
+     if (!ids.length) out.push(['— 종결 건에 남은 예정 줄 없음 —', '', '', '', '', '', '', '', '', '', '']);
+     var tR = SpreadsheetApp.openById(id), shR = tR.getSheetByName('잔량 마감 점검') || tR.insertSheet('잔량 마감 점검');
+     shR.clear(); shR.getRange(1, 1, out.length, 11).setValues(out);
++    try { var pcf = typeof pdConfBuild_ === 'function' ? pdConfBuild_() : null; rows.push([now, '진행상태 · 품의 취소 직접(f491)', pcf ? (pcf.on === '1' ? '켜짐' : '꺼짐 · ' + pcf.why) : '-', '자체 시험 ' + (str_(P.getProperty('rb.pdDirectTest')) || '-'), '', '']); } catch (ePd) { rows.push([now, '진행상태 · 품의 취소 직접(f491)', '읽기 실패 ' + String(ePd.message).slice(0, 120), '', '', '']); }
+     rows.push([now, '종결 건 예정 줄 정리(f486)', str_(P.getProperty('rb.closeLeft')) || '-', str_(P.getProperty('rb.closeLeftErr')) || '오류 -', '', '']);
+     rows.push([now, '종결 건에 남은 예정 줄(f443부터 AP 에서 뺌)', ids.length + '건', '요약 파일 [잔량 마감 점검] 탭', '', '']);
+   } catch (eR) { rows.push([now, '종결 건에 남은 예정 줄', '점검 실패 ' + String(eR && eR.message || eR).slice(0, 200), '', '', '']); }
+diff -ru '--exclude=.clasp.json' v1245/Supabase.js cn491/Supabase.js
+--- v1245/Supabase.js	2026-11-14 15:18:26.276980165 +0000
++++ cn491/Supabase.js	2026-11-14 15:16:45.115710725 +0000
+@@ -888,3 +888,7 @@
+   }
+   return ran.length ? '실행 ' + ran.join(', ') : '할 것 없음';
+ }
++
++// f491: 진행상태 바꾸기 · 품의 취소 Supabase 직접(rb_od_state · rb_po_cancel) — PdDirect.js
++SB_MIGRATIONS.push({ id: 'm081_pd_direct', sql: "-- m081_pd_direct — 진행상태 바꾸기(apiSetState) · 품의 취소(apiPoCancel) 를 Supabase 함수로 바로(할 일 대기열 아님)\n-- 규칙 = Keys.js apiSetState0_ · poCancel_(withOrdered = null). 발주 DB 사본 = sheet_rows(tab '_실행판_발주').\n-- 열 위치 · 머리글 줄 · 켜짐은 서버가 올린 rb_conf 'pdConf'(pdConfPublish_). 머리글 줄 글자가 다르면 RB_FALLBACK.\n-- 잠금 = rb_tab_commit('pd') 와 같은 advisory lock(hashtext('rb_tab_pd')) — 서버 길 끝맺기(tvVirtualCommit_ pd)도 이 잠금 + p_chk 로 바꿈(JS 패치).\n-- 시트 맞추기 일: rb_tab_job tab='pdx' {rows:[{id,row,cols}]} — 서버가 그 칸의 '지금 Supabase 값'을 시트에(차례가 뒤바뀌어도 사본과 같아짐).\n-- 뒷정리 일: rb_tab_job tab='pj' fn '_pdPost'(이력 · 품의번호 대기열 · 진행 기록 상신일/승인일 지움 · 캐시 · AP) — pj 대기열 차례 그대로.\n-- 앞선 저장(pj · od · ln 대기열에 그 건이 남음 · 진행 장부에 상태 올리기/내리기가 남음 rb_conf 'pdJ')이 있으면 RB_FALLBACK '앞선 저장'(화면은 예전 할 일 길로).\n\ncreate or replace function rb_pd_num(v jsonb) returns numeric language sql immutable as $f$\n  select case when v is null or jsonb_typeof(v) = 'null' then 0\n              when jsonb_typeof(v) = 'number' then (v #>> '{}')::numeric\n              when jsonb_typeof(v) = 'string' and btrim(v #>> '{}') ~ '^-?\\d+(\\.\\d+)?$' then btrim(v #>> '{}')::numeric\n              else 0 end\n$f$;\n\ncreate or replace function rb_pd_ready(p_fn text) returns jsonb language plpgsql security definer set search_path = public as $f$\ndeclare conf jsonb; hc jsonb; ck text; want text; hr int;\nbegin\n  select c.v into conf from rb_conf c where c.k = 'pdConf';\n  if conf is null or coalesce(conf->>'on', '') <> '1' then raise exception 'RB_FALLBACK 발주 DB 직접 저장 꺼짐(%)', coalesce(conf->>'why', '설정 없음'); end if;\n  if exists (select 1 from rb_conf g where g.k = 'gate:' || p_fn and coalesce(g.v->>'on', '') = '1') then raise exception 'RB_FALLBACK 시트 맞추기 중(%)', p_fn; end if;\n  hr := coalesce((conf->>'hr')::int, 1);\n  select cells into hc from sheet_rows where tab = conf->>'tab' and \"row\" = hr;\n  if hc is null then raise exception 'RB_FALLBACK 발주 DB 머리글 줄 없음'; end if;\n  for ck, want in select * from jsonb_each_text(coalesce(conf->'names', '{}'::jsonb)) loop\n    if regexp_replace(rb_t(hc->(ck::int)), '\\s', '', 'g') <> regexp_replace(want, '\\s', '', 'g') then\n      raise exception 'RB_FALLBACK 발주 DB 머리글이 다름(% 열)', ck::int + 1;\n    end if;\n  end loop;\n  return conf;\nend $f$;\n\n-- 그 건에 아직 시트에 안 옮긴 앞선 저장이 있는지 — 있으면 예전 할 일 길(차례 지킴)\ncreate or replace function rb_pd_busy(p_id text) returns void language plpgsql security definer set search_path = public as $f$\ndeclare j record;\nbegin\n  if p_id = '' then return; end if;\n  select id, tab, job->>'fn' as fn into j from rb_tab_job\n   where tab in ('pj', 'od', 'ln') and done_at is null and coalesce(job->>'fn', '') <> '_pdPost'\n     and coalesce(job->>'who', '') <> 'selftest@rb.local' and strpos(job::text, p_id) > 0\n   order by id limit 1;\n  if found then raise exception 'RB_FALLBACK 앞선 저장 반영 전(% #% %)', j.tab, j.id, coalesce(j.fn, ''); end if;\n  if exists (select 1 from rb_conf c where c.k = 'pdJ' and jsonb_typeof(c.v->'ids') = 'object' and (c.v->'ids') ? p_id) then\n    raise exception 'RB_FALLBACK 앞선 저장 반영 전(진행 장부 상태 올리기)';\n  end if;\nend $f$;\n\n-- 행 찾기 = findStatusRow_ / checkStatusRow_ 의 실행판ID 길. given_first = checkStatusRow_(기억한 행 먼저)\n-- 돌려줌 { row } | { err } | { fb }(예전 열쇠 · 서버 길)\ncreate or replace function rb_pd_find(conf jsonb, p_id text, p_row int, given_first boolean) returns jsonb language plpgsql security definer set search_path = public as $f$\ndeclare T text := conf->>'tab'; hr int := coalesce((conf->>'hr')::int, 1); idc int := (conf->>'idc')::int; hits int[];\nbegin\n  if p_id = '' then return jsonb_build_object('fb', 'ID 없는 건(예전 열쇠)'); end if;\n  if given_first and p_row > hr and exists (select 1 from sheet_rows where tab = T and \"row\" = p_row and rb_t(cells->idc) = p_id) then\n    return jsonb_build_object('row', p_row);\n  end if;\n  select coalesce(array_agg(\"row\" order by \"row\"), '{}') into hits from sheet_rows where tab = T and \"row\" > hr and rb_t(cells->idc) = p_id;\n  if array_length(hits, 1) = 1 then return jsonb_build_object('row', hits[1]); end if;\n  if coalesce(array_length(hits, 1), 0) > 1 then\n    return jsonb_build_object('err', '발주 DB에 실행판ID ' || p_id || ' 가 ' || array_length(hits, 1) || '행 있습니다. 관리자에게 알려주세요.');\n  end if;\n  if strpos(p_id, '|') > 0 then return jsonb_build_object('fb', '예전 열쇠(품의번호 · 코드 · 차수)'); end if;\n  return jsonb_build_object('err', '발주 DB에서 이 건(실행판ID ' || p_id || ')을 찾지 못했습니다. 줄이 지워졌거나 ID 칸이 바뀌었을 수 있습니다. 새로고침 후 확인해 주세요.');\nend $f$;\n\ncreate or replace function rb_pd_cell(conf jsonb, p_row int, p_col int) returns text language sql security definer set search_path = public stable as $f$\n  select coalesce((select rb_t(cells->p_col) from sheet_rows where tab = conf->>'tab' and \"row\" = p_row), '')\n$f$;\n\ncreate or replace function rb_pd_put(conf jsonb, p_row int, p_col int, p_val text) returns void language plpgsql security definer set search_path = public as $f$\nbegin\n  update sheet_rows set cells = jsonb_set(rb_pad(cells, p_col + 1), array[p_col::text], case when p_val = '' then 'null'::jsonb else to_jsonb(p_val) end), synced_at = now()\n   where tab = conf->>'tab' and \"row\" = p_row;\nend $f$;\n\ncreate or replace function rb_pd_ver(e text) returns void language plpgsql security definer set search_path = public as $f$\nbegin\n  insert into rb_ver (k, v, at) values ('r', (floor(extract(epoch from clock_timestamp()) * 1000))::bigint::text || ':' || e, now())\n    on conflict (k) do update set v = excluded.v, at = excluded.at;\nend $f$;\n\n-- ---------- 진행상태 바꾸기 — p_args = [statusRow, expect, state](apiSetState 인자 그대로) ----------\ncreate or replace function rb_od_state_do(e text, a jsonb) returns jsonb language plpgsql security definer set search_path = public as $f$\ndeclare\n  states constant text[] := array['계획', '상신', '승인', '발주', '종결', '취소'];\n  st text := rb_t(a->2); ex jsonb := case when jsonb_typeof(a->1) = 'object' then a->1 else '{}'::jsonb end;\n  rw int; conf jsonb; f jsonb; sc int; before text; id text := rb_t(ex->'id'); ms bigint := (extract(epoch from clock_timestamp()) * 1000)::bigint;\nbegin\n  if jsonb_typeof(a) <> 'array' then raise exception 'RB_FALLBACK 인자 모양'; end if;\n  if not (st = any(states)) then raise exception '알 수 없는 진행상태입니다: %', st; end if;\n  rw := case when jsonb_typeof(a->0) = 'number' then floor((a->>0)::numeric)::int\n             when rb_t(a->0) ~ '^\\d+(\\.\\d+)?$' then floor(rb_t(a->0)::numeric)::int else 0 end;\n  if rw < 2 then raise exception '발주 DB에 없는 건입니다.'; end if;\n  perform pg_advisory_xact_lock(hashtext('rb_tab_pd'));\n  conf := rb_pd_ready('rb_od_state');\n  sc := (conf->>'state')::int;\n  if sc is null or sc < 0 then raise exception '[진행상태] 열이 없습니다. 관리자에게 알려 주세요.'; end if;\n  perform rb_pd_busy(id);\n  f := rb_pd_find(conf, id, rw, true);\n  if f ? 'fb' then raise exception 'RB_FALLBACK %', f->>'fb'; end if;\n  if f ? 'err' then raise exception '%', f->>'err'; end if;\n  rw := (f->>'row')::int;\n  before := rb_pd_cell(conf, rw, sc);\n  if before = st then return jsonb_build_object('ok', true, 'state', st, 'before', before); end if;\n  perform rb_pd_put(conf, rw, sc, st);\n  insert into rb_tab_job(tab, job) values ('pdx', jsonb_build_object('k', 'pd', 'at', ms, 'who', e, 'rows', jsonb_build_array(jsonb_build_object('id', id, 'row', rw, 'cols', jsonb_build_array(sc)))));\n  insert into rb_tab_job(tab, job) values ('pj', jsonb_build_object('fn', '_pdPost', 'who', e, 'at', ms, 'args', jsonb_build_array(jsonb_build_object(\n    'kind', 'state', 'ap', true,\n    'audits', jsonb_build_array(jsonb_build_object('row', rw, 'col', sc + 1, 'what', '진행상태', 'before', before, 'after', st, 'item', rb_t(ex->'name'),\n      'id', id, 'doc', rb_t(ex->'doc'), 'code', rb_t(ex->'code')))))));\n  perform rb_pd_ver(e);\n  return jsonb_build_object('ok', true, 'state', st, 'before', before, 'direct', 1);\nend $f$;\n\ncreate or replace function rb_od_state(p_token text, p_args jsonb) returns jsonb language plpgsql security definer set search_path = public as $f$\ndeclare e text := rb_me(p_token); ed boolean;\nbegin\n  if e is null then raise exception 'RB_SESSION'; end if;\n  select editor into ed from rb_session where token = p_token;\n  if not coalesce(ed, false) then raise exception 'RB_SESSION 저장 권한 확인'; end if;\n  return rb_od_state_do(e, coalesce(p_args, '[]'::jsonb));\nend $f$;\n\n-- ---------- 품의 취소 — p_args = [items, why](apiPoCancel 인자 그대로 · withOrdered 없음) ----------\ncreate or replace function rb_po_cancel_do(e text, a jsonb) returns jsonb language plpgsql security definer set search_path = public as $f$\ndeclare\n  why text := rb_t(a->1); x jsonb; ex jsonb; nm text; xid text; id text; rw int; f jsonb; conf jsonb;\n  sc int; dc int; apc int; cc int; st0 text; doc text; apv text;\n  n int := 0; skipped jsonb := '[]'; skippedIds jsonb := '[]'; audits jsonb := '[]'; ids jsonb := '[]'; prow jsonb := '[]'; cols jsonb;\n  ms bigint := (extract(epoch from clock_timestamp()) * 1000)::bigint; any_items boolean := false;\nbegin\n  if jsonb_typeof(a) <> 'array' then raise exception 'RB_FALLBACK 인자 모양'; end if;\n  if why = '' then raise exception '취소 사유를 적어 주세요.'; end if;\n  for x in select v from jsonb_array_elements(case when jsonb_typeof(a->0) = 'array' then a->0 else '[]'::jsonb end) v loop\n    if jsonb_typeof(x) = 'object' and rb_pd_num(x->'statusRow') >= 2 then any_items := true; end if;\n  end loop;\n  if not any_items then return jsonb_build_object('n', 0); end if;\n  perform pg_advisory_xact_lock(hashtext('rb_tab_pd'));\n  conf := rb_pd_ready('rb_po_cancel');\n  sc := coalesce((conf->>'state')::int, -1); dc := coalesce((conf->>'doc')::int, -1); apc := coalesce((conf->>'apNo')::int, -1); cc := coalesce((conf->>'code')::int, -1);\n  -- 먼저 모든 건의 앞선 저장 · 예전 열쇠를 본다(중간에 RB_FALLBACK 이면 통째로 되돌리지만, 먼저 보면 헛일이 없다)\n  for x in select v from jsonb_array_elements(a->0) v loop\n    if not (jsonb_typeof(x) = 'object' and rb_pd_num(x->'statusRow') >= 2) then continue; end if;\n    ex := case when jsonb_typeof(x->'expect') = 'object' then x->'expect' else '{}'::jsonb end;\n    perform rb_pd_busy(case when rb_t(ex->'id') <> '' then rb_t(ex->'id') else rb_t(x->'id') end);\n  end loop;\n  for x in select v from jsonb_array_elements(a->0) v loop\n    if not (jsonb_typeof(x) = 'object' and rb_pd_num(x->'statusRow') >= 2) then continue; end if;\n    ex := case when jsonb_typeof(x->'expect') = 'object' then x->'expect' else '{}'::jsonb end;\n    nm := rb_t(ex->'name');\n    xid := case when rb_t(ex->'id') <> '' then rb_t(ex->'id') else rb_t(x->'id') end;\n    f := rb_pd_find(conf, rb_t(ex->'id'), floor(rb_pd_num(x->'statusRow'))::int, false);\n    if f ? 'fb' then raise exception 'RB_FALLBACK %', f->>'fb'; end if;\n    if f ? 'err' then skipped := skipped || to_jsonb(nm || ' — 행을 찾지 못함'); skippedIds := skippedIds || to_jsonb(xid); continue; end if;\n    rw := (f->>'row')::int;\n    st0 := case when sc >= 0 then rb_pd_cell(conf, rw, sc) else '' end;\n    if not (st0 = any(array['', '계획', '상신', '승인'])) then\n      skipped := skipped || to_jsonb(nm || ' — 진행상태 ' || st0 || '(계획 · 상신 · 승인만 취소)'); skippedIds := skippedIds || to_jsonb(xid); continue;\n    end if;\n    cols := '[]';\n    doc := case when dc >= 0 then rb_pd_cell(conf, rw, dc) else '' end;\n    if doc <> '' then\n      perform rb_pd_put(conf, rw, dc, ''); cols := cols || to_jsonb(dc);\n      audits := audits || jsonb_build_object('row', rw, 'col', dc + 1, 'what', '품의번호(품의 취소)', 'before', doc, 'after', '', 'item', nm || ' — ' || why);\n    end if;\n    if apc >= 0 then\n      apv := rb_pd_cell(conf, rw, apc);\n      if apv <> '' then\n        perform rb_pd_put(conf, rw, apc, ''); cols := cols || to_jsonb(apc);\n        audits := audits || jsonb_build_object('row', rw, 'col', apc + 1, 'what', '결재문서번호(품의 취소)', 'before', apv, 'after', '', 'item', nm);\n      end if;\n    end if;\n    if sc >= 0 and st0 in ('상신', '승인') then\n      perform rb_pd_put(conf, rw, sc, '계획'); cols := cols || to_jsonb(sc);\n      audits := audits || jsonb_build_object('row', rw, 'col', sc + 1, 'what', '진행상태(품의 취소)', 'before', st0, 'after', '계획', 'item', nm);\n    end if;\n    -- 이력 줄의 건 열쇠 = writeAudits_ 가 RB_ROWKEY(rowKeyNote_ — 화면이 준 expect)로 붙이는 값: 품의번호 칸 변경은 바꾼 뒤 값(빈칸), 나머지는 expect.doc\n    audits := (select coalesce(jsonb_agg(case when (q->>'row')::int = rw and not (q ? 'id') then q || jsonb_build_object('id', rb_t(ex->'id'),\n                 'doc', case when q->>'what' like '%품의번호%' then q->>'after' else rb_t(ex->'doc') end, 'code', rb_t(ex->'code')) else q end), '[]') from jsonb_array_elements(audits) q);\n    if jsonb_array_length(cols) > 0 then prow := prow || jsonb_build_object('id', rb_t(ex->'id'), 'row', rw, 'cols', cols); end if;\n    id := case when rb_t(ex->'id') <> '' then rb_t(ex->'id') else rb_t(x->'id') end;\n    if id <> '' then ids := ids || jsonb_build_object('id', id, 'meta', jsonb_build_object('doc', '', 'name', nm, 'batch', rb_t(ex->'batch'), 'code', rb_t(ex->'code')), 'doc', doc); end if;\n    n := n + 1;\n  end loop;\n  if jsonb_array_length(prow) > 0 then\n    insert into rb_tab_job(tab, job) values ('pdx', jsonb_build_object('k', 'pd', 'at', ms, 'who', e, 'rows', prow));\n  end if;\n  -- 뒷정리(이력 · 품의번호 대기열 · 진행 기록 상신일/승인일 · 캐시 · AP)는 건너뛴 것만 있어도(예전처럼 AP 다시) — 할 일 하나\n  insert into rb_tab_job(tab, job) values ('pj', jsonb_build_object('fn', '_pdPost', 'who', e, 'at', ms, 'args', jsonb_build_array(jsonb_build_object(\n    'kind', 'poCancel', 'ap', true, 'audits', audits, 'ids', ids))));\n  if jsonb_array_length(prow) > 0 then perform rb_pd_ver(e); end if;\n  return jsonb_build_object('n', n, 'skipped', skipped, 'skippedIds', skippedIds, 'direct', 1);\nend $f$;\n\n\ncreate or replace function rb_po_cancel(p_token text, p_args jsonb) returns jsonb language plpgsql security definer set search_path = public as $f$\ndeclare e text := rb_me(p_token); ed boolean;\nbegin\n  if e is null then raise exception 'RB_SESSION'; end if;\n  select editor into ed from rb_session where token = p_token;\n  if not coalesce(ed, false) then raise exception 'RB_SESSION 저장 권한 확인'; end if;\n  return rb_po_cancel_do(e, coalesce(p_args, '[]'::jsonb));\nend $f$;\n\nrevoke all on function rb_pd_ready(text) from public, anon, authenticated;\nrevoke all on function rb_pd_busy(text) from public, anon, authenticated;\nrevoke all on function rb_pd_find(jsonb, text, int, boolean) from public, anon, authenticated;\nrevoke all on function rb_pd_cell(jsonb, int, int) from public, anon, authenticated;\nrevoke all on function rb_pd_put(jsonb, int, int, text) from public, anon, authenticated;\nrevoke all on function rb_pd_ver(text) from public, anon, authenticated;\nrevoke all on function rb_pd_num(jsonb) from public, anon, authenticated;\nrevoke all on function rb_od_state_do(text, jsonb) from public, anon, authenticated;\nrevoke all on function rb_po_cancel_do(text, jsonb) from public, anon, authenticated;\nrevoke all on function rb_od_state(text, jsonb) from public;\nrevoke all on function rb_po_cancel(text, jsonb) from public;\ngrant execute on function rb_od_state(text, jsonb) to anon, authenticated;\ngrant execute on function rb_po_cancel(text, jsonb) to anon, authenticated;\n\n-- 서버(서비스 키)만: 켜짐 · 열 위치 올리기 — 같은 잠금이라 진행 중인 직접 저장이 끝난 뒤 바뀐다(끄면 그 뒤 직접 저장은 없음)\ncreate or replace function rb_pd_conf_put(p_conf jsonb) returns jsonb language plpgsql security definer set search_path = public as $f$\nbegin\n  perform pg_advisory_xact_lock(hashtext('rb_tab_pd'));\n  insert into rb_conf (k, v, at) values ('pdConf', p_conf, now()) on conflict (k) do update set v = excluded.v, at = excluded.at;\n  return jsonb_build_object('ok', true, 'on', p_conf->>'on');\nend $f$;\nrevoke all on function rb_pd_conf_put(jsonb) from public, anon, authenticated;\n" });
++SB_MIGRATIONS.push({ id: 'm082_once_pd', sql: SB_MIGRATIONS.filter(function (m) { return m.id === 'm079_rb_once2'; })[0].sql.replace("'rb_od_edit',", "'rb_od_edit','rb_od_state','rb_po_cancel',") });
+diff -ru '--exclude=.clasp.json' v1245/TabShim.js cn491/TabShim.js
+--- v1245/TabShim.js	2026-11-14 15:18:26.276980165 +0000
++++ cn491/TabShim.js	2026-11-14 15:16:45.116005335 +0000
+@@ -65,6 +65,7 @@
+   var s = tvSt_(k);
+   if (s.dirtyDone) return;
+   try { PropertiesService.getScriptProperties().setProperty(tvP_(k, 'dirty'), new Date().toISOString() + ' ' + str_(why).slice(0, 80)); s.dirtyDone = true; } catch (e) { /* 넘어간다 */ }
++  if (k === 'pd') { try { if (typeof pdConfPublish_ === 'function') pdConfPublish_(true); } catch (eG) { /* 1분 작업이 다시 */ } }      // f491: 시트가 앞서면 직접 저장(rb_od_state · rb_po_cancel)을 바로 막는다
+ }
+ function tvRepKeys_(k) {
+   var pre = tvP_(k, 'rep');
+@@ -257,11 +258,11 @@
+   var hri = (d.hr || 1) - 1;
+   var h = sh.R.length > hri ? sh.R[hri].v.slice(0, d.head.length).map(function (x) { return String(x == null ? '' : x).trim(); }) : [];
+   if (h.join('|') !== d.head.map(function (x) { return String(x == null ? '' : x).trim(); }).join('|')) return { off: 'Supabase ' + d.label + ' 탭 머리글이 예상과 다름' };
+-  var snap = {};
+-  rows.forEach(function (x) { var c = lnCells_((x.cells || []).map(lnDec_), nc); if (c) snap[Number(x.row)] = JSON.stringify(c); });
++  var snap = {}, rawS = {};
++  rows.forEach(function (x) { rawS[Number(x.row)] = x.cells; var c = lnCells_((x.cells || []).map(lnDec_), nc); if (c) snap[Number(x.row)] = JSON.stringify(c); });      // f491: rawS = 읽은 그대로(끝맺기 '그사이 바뀌었나' 비교)
+   var ids0 = {};
+   sh.R.forEach(function (o, i) { if (i >= (d.hr || 1)) { var key = tvKey_(d, o.v); if (tvKeyOk_(d, key)) ids0[key] = 1; } });
+-  return { sh: sh, snap: snap, ids0: ids0, n: rows.length, ms: Date.now() - t0, h0: sampleSidHash_(sh.R.map(function (o) { return tvKey_(d, o.v); })) };
++  return { sh: sh, snap: snap, raw: rawS, ids0: ids0, n: rows.length, ms: Date.now() - t0, h0: sampleSidHash_(sh.R.map(function (o) { return tvKey_(d, o.v); })) };
+ }
+ 
+ /**
+@@ -318,6 +319,23 @@
+   if (!nPut && !job.add.length && !job.del.length && !ups.length && !dels.length) return { msg: '바뀐 행 없음' };
+   var keys = [], sbErr = null;
+   if (nPut || job.add.length || job.del.length) { try { keys = tvRepPut_(k, job); } catch (eQ) { sbErr = eQ; } }
++  if (!sbErr && k === 'pd' && typeof pdDirectMig_ === 'function' && pdDirectMig_()) {
++    // f491: 발주 DB 는 직접 저장(rb_od_state · rb_po_cancel)과 같은 잠금(rb_tab_pd) 안에서 · 읽어 둔 줄 그대로일 때만 올린다(그사이 직접 저장한 칸을 통째로 덮지 않게)
++    try {
++      var chk = {};
++      ups.forEach(function (u) { chk[u.row] = (sv.raw && sv.raw[u.row]) || null; });
++      dels.forEach(function (r0) { chk[r0] = (sv.raw && sv.raw[r0]) || null; });
++      sbRpc_('rb_tab_commit', { p_tab: d.tab, p_kind: 'pd', p_set: [], p_full: ups.map(function (u) { return { row: u.row, cells: u.cells }; }), p_dels: dels, p_job: null, p_chk: sv.raw ? chk : null });
++      if (keys.length) { try { journalTriggerEnsure_(true); } catch (eJ0) { /* 10분 작업이 만든다 */ } }
++      return { msg: 'Supabase 함수 ' + ups.length + '행 올림 · ' + dels.length + '행 지움 · 맞추기 대기(고침 ' + nPut + ' · 새 ' + job.add.length + ' · 지움 ' + job.del.length + ') · ' + (Date.now() - t0) + 'ms' };
++    } catch (eR) {
++      if (/RB_ROW_TAKEN/.test(String(eR && eR.message || eR))) {
++        keys.forEach(function (x) { try { PropertiesService.getScriptProperties().deleteProperty(x); } catch (eDk) { /* 넘어간다 */ } });      // 시트에도 쓰지 않는다(쓰면 남의 칸을 덮음)
++        throw new Error('발주 DB: 그사이 다른 사람이 같은 줄에 저장했습니다 — 덮어쓰지 않고 멈췄습니다. 새로고침한 뒤 다시 해 주세요.');
++      }
++      sbErr = eR;
++    }
++  }
+   if (!sbErr) {
+     try {
+       var Q = [];
+@@ -489,9 +507,13 @@
+     if ((k === 'is' || k === 'ql' || k === 'lk') && typeof tabJobDrainIn_ === 'function') tabJobDrainIn_(k);
+     if (k === 'pd') {      // f466: 발주 DB — 남은 칸 장부(PodbLater) · 발주 수정 대기열부터 시트에, 머리글 · 실행판ID 열을 적어 둔다
+       if (typeof podbDrainNow_ === 'function') { try { podbDrainNow_(); } catch (ePd) { return '발주 DB 장부를 먼저 못 옮김: ' + String(ePd.message).slice(0, 120); } }
++      // f491: 직접 저장을 먼저 막고(같은 잠금 — 진행 중인 것은 끝난 뒤) 그 시트 맞추기(pdx)를 옮긴 뒤 시트를 읽는다 — 안 그러면 아래 시트 → Supabase 가 직접 저장한 칸을 옛 값으로 덮는다
++      if (typeof pdConfPublish_ === 'function' && pdDirectMig_()) {
++        try { pdConfPublish_(true, '전체 맞추기 중'); RB_PDX_NONE_SKIP = true; pdxDrainIn_(true); } catch (ePx) { return '발주 DB 직접 저장 시트 맞추기를 먼저 못 옮김: ' + String(ePx.message).slice(0, 120); } finally { RB_PDX_NONE_SKIP = false; }
++      }
+       var rs0 = ss_().getSheetByName(d.tab), C0 = sheetCols_(rs0), kc0 = statusKeyCols_(rs0, C0.hr), S0 = statusFieldCols_(C0);
+       var head0 = rs0.getRange(C0.hr, 1, 1, Math.min(rs0.getLastColumn(), RB.STATUS_COLS)).getValues()[0].map(function (x) { return x == null ? '' : String(x); });
+-      PropertiesService.getScriptProperties().setProperty('rb.pdHead', JSON.stringify({ hr: C0.hr, head: head0, idc: kc0.id, amt: S0.amt >= 0 ? S0.amt : colIdx_(C0.idx, ['발주금액']), qty: S0.qty, price: S0.price, name: S0.name }));
++      PropertiesService.getScriptProperties().setProperty('rb.pdHead', JSON.stringify({ hr: C0.hr, head: head0, idc: kc0.id, st: kc0.state, amt: S0.amt >= 0 ? S0.amt : colIdx_(C0.idx, ['발주금액']), qty: S0.qty, price: S0.price, name: S0.name }));      // f491: st = 진행상태 열(직접 저장)
+       RB_TV_DEFS = null; d = tvDefs_()[k]; st.on = null;
+     }      // f318: Supabase 함수로 저장한 이슈를 먼저 시트에(안 그러면 아래 시트 → Supabase 가 지운다) — 실패하면 맞추기를 멈춘다
+     dirty0 = P.getProperty(dk) || dirty0;
+@@ -508,6 +530,7 @@
+     sbFetchMany_([['delete', '/rest/v1/sheet_rows?tab=eq.' + encodeURIComponent(d.tab) + '&synced_at=lt.' + encodeURIComponent(now), undefined, { Prefer: 'return=minimal' }]]);
+     P.setProperty(tvP_(k, 'mirror'), now + ' ' + rows.length + ' ' + RB_BUILD);
+     if (dirty0 && P.getProperty(dk) === dirty0) { P.deleteProperty(dk); st.dirtyDone = false; }
++    if (k === 'pd' && typeof pdConfPublish_ === 'function') { try { pdConfPublish_(true); } catch (ePc) { /* 1분 작업이 */ } }      // f491: 다시 켬(조건이 맞으면)
+     return d.label + ' 탭 ' + rows.length + '행 · ' + (Date.now() - t0) + 'ms';
+   } finally { if (lk) { lk.releaseLock(); RB_LOCK_OBJ = prev; } }
+ }
