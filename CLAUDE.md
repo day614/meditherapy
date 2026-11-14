@@ -137,6 +137,11 @@
   - 1분 작업 실패 알림: pj · od 일 실패를 `pjNotePut_(…{jobErr})` 로 사람마다 → 다음 kick 때 '저장하지 못했습니다' alert. od 일이 남으면 pj 일은 다음에(`RB_OD_LEFT`). 상신 완료 '이미 끝냄'은 발주 건에 품의번호 · 결재번호가 실제로 있을 때만. BOM 일은 ① 시트 맞추기 전에 실패하면 다시(5번).
   - 그 밖: kick(pj · od · BOM) '저장 중' 2~3분 뒤 저절로 풂 · noteSess 30초 · journalSave_ 안 pjDrainIn_ 8초(`RB_PJ_BUDGET`) · lnPostApply_ 를 tabVirtualHeld_('pd') 안에서 · etaResync_ 실제로 바뀐 것만 · AP 실패 다시(5번) · apiBatch 날짜 객체 칸만 null · 샘플 전체 맞추기는 일을 다 옮긴 뒤에만 · 새 발주 PROV_KEEP 15분 · 일일보고 잠금 풀기는 서버 길 · BOM 정정(모든 차수) 저장 뒤 고침 표시 지움.
   - **남은 것(보고만)**: 진행 기록 겹친 줄 10줄 정리 · 품목 링크 M0246AA1 겹침 · 자동 종결 때 남은 예정 줄(73건 — 업무 규칙 결정 필요) · 샘플 직접/서버 규칙 차이(브랜드 brandFix_ · 최근 값 열쇠) · 샘플 1분 작업 h0 순서 검사(직접 일) · BOM SQL 줄 당기기 한 번에 · 자체 시험 실패 시 시험 줄 정리 · 새 발주 일 실패 시 입력 되살리기.
+- **f486(2026-11-14 · 회사 @1241 · 개인 f486p @265) — 담당자: "잔량 0 자동 종결에 예정 줄이 남으면 안 됨 · 샘플/발주/지급 줄 저장 실패 허용 안 됨"**:
+  - `closeLeftSweep_`(LinesWrite.js): 종결 · 잔량 0(빈 칸 제외) 건의 예정 줄을 잔량 마감과 같은 방식으로 지움(입고 · 취소 줄 그대로 · 이력) — 1분 작업 15분마다 · 자동 종결이 생기면 다음 1분(`cl:leftAt` 지움) · 한 번에 40건. 결과 속성 rb.closeLeft · 오류 rb.closeLeftErr.
+  - 연결이 끊겨 결과를 모르는 직접 저장: 실패로 끝내지 않고 `apiOnceCheck(rq)` — 들어갔으면 그 결과, 아니면 rb_recent 에 tomb 표시 후 서버 길로(같은 요청이 늦게 오면 SQL m079 `rb_once` 가 RB_ONCE_LATE 로 통째로 되돌림). 인터넷이 아예 끊긴 경우만 오류.
+  - 서버 길 '그사이 다른 사람이 같은 줄에 저장'(RB_ROW_TAKEN)도 gsr 이 1.5초 뒤 저절로 다시(잠금 몰림 15초 · 둘 다 10번까지).
+  - 샘플 직접 저장을 안 하고 서버 길로 간 까닭을 속도 기록에 '직접→서버(조건) …'(rbWhy).
 - **비교(2026-11-12 f388 · f388p)**: 회사 · 개인 기능 같음 — 차이는 회사 전용(Supabase · GWP · 슬랙 · 재고 · 공유 · 보관 · 감사 · 덤프) · 회사 고유 값 · 개인용 회사 맞춤뿐. 개인용 화면에 일일보고 슬랙 처리 흔적(동작 안 함)만 남음.
 - **남은 서버 길(f369 뒤)**: 읽기 — 첫 화면 · 일일보고(브라우저 기억 · 5분 미리 받기가 있어 체감은 작음) · BOM 목록 등. 쓰기 — apiSampleProjEdit/Rename/DeleteRow/Remap · apiDailySaveRep · apiPoPendAdd(번호 겹침) · apiPoSubmit · apiHfSet · apiItemDelete · apiSemiPin · apiBomFixMany · apiBomCodeSet · apiBomReorder · apiBomCostSetMany · apiSemiBomLink · 신제품 BOM · apiSaveNotice.
 - **남은 것**: BOM 저장(서버 Bom.js 4천 줄 — 새 코드 · 차수 나누기 · 원가 · 품목 DB) · 발주 등록(apiCreateOrder · 화면은 이미 먼저 그리고 뒤에서 저장) · 일일보고 저장(이미 화면 먼저 · 보고서 수백 KB 라 할 일 길 크기 넘음) · 일괄 발주일/품의번호/결재번호 · 품목코드 등록 · 업체 추가 · 첫 화면/일일보고 직접 읽기.

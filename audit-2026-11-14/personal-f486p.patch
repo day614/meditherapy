@@ -1,0 +1,160 @@
+diff -ru '--exclude=.clasp.json' v264/Code.js pn/Code.js
+--- v264/Code.js	2026-11-14 03:55:47.154352542 +0000
++++ pn/Code.js	2026-11-14 03:56:04.902352870 +0000
+@@ -1985,7 +1985,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-14f485p';
++var RB_BUILD = '2026-11-14f486p';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+diff -ru '--exclude=.clasp.json' v264/Journal.js pn/Journal.js
+--- v264/Journal.js	2026-11-14 03:55:47.154352542 +0000
++++ pn/Journal.js	2026-11-14 03:56:04.903045713 +0000
+@@ -394,6 +394,7 @@
+ }
+ function journalDrainRun_(e) {
+   RB_IS_BG = true;
++  try { if (typeof closeLeftSweep_ === 'function' && !userWaiting_()) closeLeftSweep_(); } catch (eCls) { /* 다음에 */ }      // f486 종결 건 남은 예정 줄
+   requireTriggerOrAdmin_(e, RB_J_TRIGGER);
+   try { if (typeof pjDbSelfTest_ === 'function') pjDbSelfTest_(); } catch (ePt) { /* 다음 1분에 */ }      // f338 진행 기록 직접
+   try { if (typeof pjDrainIn_ === 'function') pjDrainIn_(true); } catch (ePj) { /* 다음 1분에 */ }
+diff -ru '--exclude=.clasp.json' v264/LinesWrite.js pn/LinesWrite.js
+--- v264/LinesWrite.js	2026-11-14 03:55:47.154352542 +0000
++++ pn/LinesWrite.js	2026-11-14 03:56:31.566481295 +0000
+@@ -231,6 +231,7 @@
+   if (autoTo) {
+     var stWas = str_(cell(cState));
+     put(cState, autoTo); autoClosed = true; if (autoTo === '종결') closedNow = true;
++    if (lines.some(function (L) { return L.kind === '예정'; })) { try { CacheService.getScriptCache().remove('cl:leftAt'); } catch (eCl) { /* 15분 안에 */ } }      // f486: 남은 예정 줄은 다음 1분에 정리(closeLeftSweep_)
+     try { writeAudits_([{ tab: RB.STATUS_TAB, row: row, col: cState + 1, what: autoTo === '종결' ? '진행상태(자동 · 다 받음)' : '진행상태(자동 · 남은 수량 취소 줄로 취소)', before: stWas, after: autoTo }]); } catch (eA) { /* 넘어간다 */ }
+   }
+   put(S.inQty, inQty);
+@@ -297,6 +298,47 @@
+   return out;
+ }
+ function S_remainCol_(C) { return statusFieldCols_(C).remain; }
++/**
++ * f486(2026-11-14 담당자): 잔량이 0 이라 종결된 건에는 예정 줄이 없어야 한다 — 자동 종결(syncOrderFromLines_)은 진행상태만 바꾸고 남은 예정 줄을 두었다(73건).
++ * [입고 완료 처리(잔량 마감)]와 같은 방식으로 예정 줄만 지운다(입고 · 취소 줄은 그대로 · 이력에 남김). 1분 작업이 15분마다, 자동 종결이 생기면 다음 1분에.
++ * 한 번에 40건까지(남으면 다음에). 잔량이 남은 종결 건은 손대지 않는다.
++ */
++function closeLeftSweep_(force) {
++  var c = CacheService.getScriptCache(); if (!force && c.get('cl:leftAt')) return; c.put('cl:leftAt', '1', 900);
++  var done = [], left = 0;
++  var run = function () {
++    var lock = typeof pdLock_ === 'function' ? pdLock_() : LockService.getScriptLock(); if (!lock.tryLock(10000)) { c.remove('cl:leftAt'); return; } lockWhoMark_('closeLeftSweep_');
++    var lv = typeof linesVirtualBegin_ === 'function' ? linesVirtualBegin_() : null, cerr = null;
++    try {
++      var sh = statusSheet_(), C = sheetCols_(sh), kc = statusKeyCols_(sh, C.hr), lr = sh.getLastRow(), cRem = S_remainCol_(C);
++      if (kc.id < 0 || kc.state < 0 || cRem < 0 || lr <= C.hr) return;
++      var all = readLinesAll_(), by = {};
++      all.rows.forEach(function (r) { var id = str_(r[0]); if (id) (by[id] = by[id] || []).push(rowToLine_(r)); });
++      var vals = sh.getRange(C.hr + 1, 1, lr - C.hr, Math.max(kc.id, kc.state, cRem) + 1).getValues(), H = [];
++      vals.forEach(function (v, i) {
++        var id = str_(v[kc.id]);
++        if (!id || str_(v[kc.state]) !== '종결') return;
++        if (str_(v[cRem]) === '' || !(Number(v[cRem]) <= 0)) return;      // 잔량이 0 으로 확실한 것만(잔량이 남았거나 빈 칸이면 그대로)
++        var L = by[id] || [], rm = L.filter(function (x) { return x.kind === '예정'; });
++        if (!rm.length) return;
++        if (done.length >= 40) { left++; return; }
++        replaceLinesFor_(id, L.filter(function (x) { return x.kind !== '예정'; }).map(cleanLine_), '자동 종결 — 남은 예정 줄 정리', all);
++        done.push(id + ' ' + rm.length + '줄');
++        H.push({ kind: '입고', id: id, item: '자동 종결 — 남은 예정 줄 정리', after: '예정 줄 ' + rm.length + '개 지움(' + linesSummary_(rm).slice(0, 300) + ')', where: RB.STATUS_TAB + ' ' + (C.hr + 1 + i) + '행' });
++      });
++      if (H.length) { try { appendHist_(H); } catch (eH) { /* 이력은 저장을 막지 않는다 */ } }
++    } finally {
++      if (lv && lv.sh) { try { linesVirtualCommit_(lv); } catch (eCm) { cerr = eCm; } finally { RB_LV = null; } }
++      lock.releaseLock();
++    }
++    if (cerr) throw cerr;
++  };
++  try { if (typeof pdVirtual_ === 'function') pdVirtual_(run); else run(); }
++  catch (e) { c.remove('cl:leftAt'); try { PropertiesService.getScriptProperties().setProperty('rb.closeLeftErr', new Date().toISOString() + ' ' + String(e.message).slice(0, 200)); } catch (e2) { /* 넘어간다 */ } return; }
++  if (done.length) { try { cacheDrop_(rowsCacheKey_('po')); apRefreshSoon_(); } catch (eC) { /* 넘어간다 */ } }
++  if (left) c.remove('cl:leftAt');      // 남은 건은 다음 1분에
++  try { PropertiesService.getScriptProperties().setProperty('rb.closeLeft', Utilities.formatDate(new Date(), 'Asia/Seoul', 'MM/dd HH:mm') + ' ' + done.length + '건 정리' + (left ? ' · 남음 ' + left : '') + ' ' + done.join(' | ').slice(0, 400)); } catch (eP) { /* 넘어간다 */ }
++}
+ 
+ function cleanLine_(L) {
+   var kind = str_(L.kind);
+diff -ru '--exclude=.clasp.json' v264/PageHtml.html pn/PageHtml.html
+--- v264/PageHtml.html	2026-11-14 03:55:47.170352542 +0000
++++ pn/PageHtml.html	2026-11-14 03:55:54.818076913 +0000
+@@ -2779,10 +2779,11 @@
+         var onFail = function (err) {
+           // f461: 잠금 대기로 실패한 저장은 화면이 같은 값으로 저절로 다시 보낸다
+           var em = String((err && err.message) || err || "");
+-          if (/저장이 몰려 .*기다렸습니다/.test(em) && !/^api(Ver|Bootstrap|Get|Daily|Bom(Get|Load)|Read|List|Sb)/.test(name) && (gsrRetry[name + "#" + t0] || 0) < 5) {
++          var rowTaken = /그사이 다른 사람이 같은 줄에 저장했습니다/.test(em);      // f486: 서버 길 끝맺기가 남의 새 줄과 겹쳐 아무것도 안 쓰고 멈춤 — 새로 읽어 바로 다시
++          if ((rowTaken || /저장이 몰려 .*기다렸습니다/.test(em)) && !/^api(Ver|Bootstrap|Get|Daily|Bom(Get|Load)|Read|List|Sb)/.test(name) && (gsrRetry[name + "#" + t0] || 0) < 10) {
+             gsrRetry[name + "#" + t0] = (gsrRetry[name + "#" + t0] || 0) + 1;
+             if (gsrRetry[name + "#" + t0] === 1) toast("저장이 몰려 늦어지고 있습니다 — 입력한 값 그대로 저절로 다시 저장합니다(다시 입력하지 마세요)", 6000);
+-            setTimeout(direct, 15000); return;
++            setTimeout(direct, rowTaken ? 1500 : 15000); return;
+           }
+           if (saveQueue > 0) savePill._fail = String((err && err.message) || err || "").replace(/^Error:\s*/, "");   // 저장 중 실패 → 표시를 '저장 안 됨'으로
+           fin(); perfLog(name, performance.now() - t0, false, { timing: { 오류: String((err && err.message) || err || "응답 없음").slice(0, 300) } }); if (failF) failF(err, uo); else console.error(name, err);
+@@ -14538,9 +14539,9 @@
+     // f348: 샘플 요청 추가(rb_sm_add · 세션 sm). 완료 · 드롭한 프로젝트면 다시 열기(apiSampleDone false)를 할 일로
+     apiSampleAdd: function (args, ok, fail, gas) {
+       var pa = args[2] || {};
+-      if (typeof noteRpc !== "function" || typeof noteSess !== "function" || !(pa.srcExp && pa.srcExp.sid) || (Number(args[1]) >= 2 && !(pa.closeExp && pa.closeExp.sid))) { gas(); return; }
++      if (typeof noteRpc !== "function" || typeof noteSess !== "function" || !(pa.srcExp && pa.srcExp.sid) || (Number(args[1]) >= 2 && !(pa.closeExp && pa.closeExp.sid))) { rbWhy("rb_sm_add", !(pa.srcExp && pa.srcExp.sid) ? "앞 회차 샘플ID 없음" : "닫을 회차 샘플ID 없음"); gas(); return; }
+       noteSess(function (ss) {
+-        if (!ss || !ss.sm) { gas(); return; }
++        if (!ss || !ss.sm) { rbWhy("rb_sm_add", !ss ? "세션 없음" : "세션 sm 꺼짐"); gas(); return; }
+         noteRpc("rb_sm_add", { p_args: { srcRow: Number(args[0]) || 0, closeRow: Number(args[1]) || 0, patch: pa } }, function (v) {
+           var r0 = pa.meta && pa.meta.id ? rowById(pa.meta.id) : null;
+           if (r0 && r0.checks && r0.checks._done) { v.reopened = r0.checks._drop ? "드롭" : "완료"; try { pjDirect("apiSampleDone", [r0.id, pa.meta, false], function () {}, function () {}, function () { gsr().withSuccessHandler(function () {}).withFailureHandler(function () {}).apiSampleDone(r0.id, pa.meta, false); }); } catch (eR) { /* 다음 읽기 때 */ } }
+@@ -14553,7 +14554,7 @@
+       var p0 = args[0] || {};
+       if (typeof noteRpc !== "function" || typeof noteSess !== "function" || String(p0.link || "").trim()) { gas(); return; }
+       noteSess(function (ss) {
+-        if (!ss || !ss.sm) { gas(); return; }
++        if (!ss || !ss.sm) { rbWhy("rb_sm_new", !ss ? "세션 없음" : "세션 sm 꺼짐"); gas(); return; }
+         var send = {}; Object.keys(p0).forEach(function (k) { if (k !== "req") send[k] = p0[k]; });
+         noteRpc("rb_sm_new", { p_args: { p: send } }, function (v) {
+           var r0 = (DATA.rows || []).filter(function (x) { return x.projKey === v.projKey && !x.pending; })[0];
+@@ -14565,7 +14566,7 @@
+     apiSampleEditRow: function (args, ok, fail, gas) {
+       if (typeof noteRpc !== "function" || typeof noteSess !== "function") { gas(); return; }
+       noteSess(function (ss) {
+-        if (!ss || !ss.sm) { gas(); return; }
++        if (!ss || !ss.sm) { rbWhy("rb_sm_edit", !ss ? "세션 없음" : "세션 sm 꺼짐"); gas(); return; }
+         noteRpc("rb_sm_edit", { p_args: { sheetRow: args[0], projKey: args[1], fields: args[2] || {}, meta: args[3] || null, exp: args[4] || {} } },
+           function (v) { ok(v); },
+           function (e, useGas) { if (useGas || !e || /RB_FALLBACK/.test(String(e.message || ""))) gas(); else fail(e); });
+@@ -24748,6 +24749,8 @@
+   /* f485: 직접 저장은 요청 번호(rq)를 붙여 rb_once 로 — 같은 번호가 다시 오면 저장하지 않고 처음 결과를 돌려준다(SQL m077).
+    * 예전엔 응답만 잃은 저장(연결 끊김)을 서버 길로 한 번 더 해 샘플 · 이슈 · 링크 · 진행 메모가 두 번 들어갔다. 연결이 끊기면 같은 번호로 두 번 더 묻고,
+    * 그래도 안 되면 서버 길로 다시 하지 않고 '저장됐는지 알 수 없음'으로 알린다. ok · fail 은 promise 밖에서(화면 처리 오류가 '저장 실패'로 바뀌지 않게). */
++  /** f486: 직접 저장을 안 하고 서버 길로 간 까닭(속도 기록 → 요약 파일) — 조용히 넘어가던 것 */
++  function rbWhy(fn, why) { try { PERF_Q.push({ n: "직접→서버(조건) " + String(fn).slice(0, 20) + " " + String(why).slice(0, 30), ms: 99999, ok: true, at: new Date().toISOString().slice(0, 19), t: String(why).slice(0, 200) }); } catch (e) { /* 넘어간다 */ } }
+   var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_edit|pj_add|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
+   function noteRpc(fn, args, ok, fail, again, rq, tries) {
+     noteSess(function (ss) {
+@@ -24770,7 +24773,20 @@
+         .catch(function (e) {
+           if (fin) return;
+           if (once && (tries || 0) < 2) { out(function () { setTimeout(function () { noteRpc(fn, args, ok, fail, again, rq, (tries || 0) + 1); }, 2000 * ((tries || 0) + 1)); }); return; }      // 같은 요청 번호로 다시 — 이미 들어갔으면 처음 결과가 온다
+-          if (once) { try { PERF_Q.push({ n: "직접 연결 끊김 " + String(fn).slice(0, 24), ms: 99999, ok: false, at: new Date().toISOString().slice(0, 19), t: String((e && e.message) || e).slice(0, 200) }); } catch (eP) { /* 넘어간다 */ } out(function () { fail(new Error("연결이 끊겨 저장됐는지 확인하지 못했습니다 — 새로고침해서 확인한 뒤 필요하면 다시 해 주세요."), false); }); return; }
++          if (once) {
++            try { PERF_Q.push({ n: "직접 연결 끊김 " + String(fn).slice(0, 24), ms: 99999, ok: false, at: new Date().toISOString().slice(0, 19), t: String((e && e.message) || e).slice(0, 200) }); } catch (eP) { /* 넘어간다 */ }
++            // f486: 실패로 끝내지 않는다 — 서버가 Supabase 를 보고 들어갔으면 그 결과, 아니면 늦게 온 같은 요청을 막아 두고(tomb) 서버 길로 같은 저장(두 번 들어가지 않음)
++            out(function () {
++              var giveUp = function () { fail(new Error("연결이 끊겨 저장하지 못했습니다 — 인터넷 연결을 확인한 뒤 다시 해 주세요."), false); };
++              try {
++                gsr().withSuccessHandler(function (c) {
++                  if (c && c.found) { ok(c.v); return; }
++                  fail(new Error("RB_FALLBACK 연결 끊김 — 서버 길로"), true);
++                }).withFailureHandler(giveUp).apiOnceCheck(rq);
++              } catch (eC) { giveUp(); }
++            });
++            return;
++          }
+           out(function () { fail(e, true); });      // 읽기 — 서버 길로
+         });
+     }, again);
