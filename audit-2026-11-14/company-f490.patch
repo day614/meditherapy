@@ -1,0 +1,41 @@
+diff -ru '--exclude=.clasp.json' v1244/Code.js cn/Code.js
+--- v1244/Code.js	2026-11-14 14:44:06.900148214 +0000
++++ cn/Code.js	2026-11-14 14:44:03.595315889 +0000
+@@ -1983,7 +1983,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-14f489';
++var RB_BUILD = '2026-11-14f490';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+diff -ru '--exclude=.clasp.json' v1244/IssueDb.js cn/IssueDb.js
+--- v1244/IssueDb.js	2026-11-14 14:44:06.900148214 +0000
++++ cn/IssueDb.js	2026-11-14 14:43:53.452920809 +0000
+@@ -531,7 +531,9 @@
+   var me = me_(), n = 0;
+   try { n = pjDrainIn_(true); } catch (e) { return { n: 0 }; }
+   var notes = []; try { notes = pjNoteTake_(me); } catch (eN) { notes = []; }
+-  return { n: n, errs: [], notes: notes };      // f485: 이번 실패도 notes(jobErr)에 들어 있다 — 두 번 알리지 않게
++  // f490: 내 할 일이 아직 남았으면(잠금 · 시간 한도로 다음 차례) 화면이 '저장 중'을 유지하고 다시 밀어 넣는다 — 풀리자마자 다시 읽어 옛 값(취소 전 등)이 보이던 것
++  var left = 0; try { var meL = str_(me).toLowerCase(); left = (sbFetch_('get', '/rest/v1/rb_tab_job?select=id,job&tab=eq.pj&done_at=is.null&order=id&limit=200') || []).filter(function (J) { return str_((J.job || {}).who).toLowerCase() === meL; }).length; } catch (eL) { left = 0; }
++  return { n: n, errs: [], notes: notes, left: left };      // f485: 이번 실패도 notes(jobErr)에 들어 있다 — 두 번 알리지 않게
+ }
+ function pjDbSelfTest_() {
+   var P = PropertiesService.getScriptProperties();
+diff -ru '--exclude=.clasp.json' v1244/PageHtml.html cn/PageHtml.html
+--- v1244/PageHtml.html	2026-11-14 14:44:06.916148215 +0000
++++ cn/PageHtml.html	2026-11-14 14:43:53.476147416 +0000
+@@ -15288,6 +15288,11 @@
+           if (bad.length) alert("저장하지 못한 것이 있습니다:" + String.fromCharCode(10) + bad.join(String.fromCharCode(10)));
+           if (hard.length) alert("저장은 됐지만 확인할 것이 있습니다:" + String.fromCharCode(10) + hard.join(String.fromCharCode(10)));
+           soft.forEach(function (m) { toast(m); });
++          if (k && k.left > 0 && (PJK.tries || 0) < 12) {      // f490: 내 저장이 아직 반영 전 — '저장 중'을 그대로 두고 8초 뒤 다시 밀어 넣는다(풀면 다시 읽기가 옛 값을 보여 '저장 안 됨'처럼 보였다)
++            PJK.tries = (PJK.tries || 0) + 1; if (PJK.tries === 1) toast("저장을 받았습니다 — 반영하는 중입니다(다른 저장이 몰려 조금 걸립니다)", 4000);
++            setTimeout(function () { endOk = true; PJK.on = false; busy(false); pjKick(); }, 8000); return;
++          }
++          PJK.tries = 0;
+           if (errs.length || notes.length || (k && k.n > 0)) { lastSync = 0; setTimeout(revalidate, 300); }      // f448: 옮긴 일이 있으면 화면 값도 서버 값으로(종결 · 잔량 · 새 ID 등)
+           end();
+         }).withFailureHandler(end).apiProgKick();
