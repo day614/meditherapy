@@ -1,0 +1,258 @@
+diff -ru '--exclude=.clasp.json' v263/Bom.js pn/Bom.js
+--- v263/Bom.js	2026-11-14 02:58:14.542773788 +0000
++++ pn/Bom.js	2026-11-14 03:23:35.920237414 +0000
+@@ -137,6 +137,7 @@
+   // 읽는 사이 누가 BOM 을 저장했으면(세대 표시가 바뀜) 캐시에 쓰지 않는다 — 방금 저장한 품목이 옛 값으로 덮이지 않게
+   var gen1 = ''; try { gen1 = CacheService.getScriptCache().get('bom4:gen') || ''; } catch (eG2) { /* 넘어간다 */ }
+   if (gen1 !== gen0) return { list: list, byP: byP, stale: true };
++  try { if (typeof bomRepKeys_ === 'function' && bomRepKeys_().length) return { list: list, byP: byP, stale: true }; } catch (eRk) { /* 넘어간다 */ }      // f485: 시트 맞추기가 밀려 있으면(잠금을 못 잡아 건너뜀) 이 시트는 옛 값 — 6시간 캐시에 담지 않는다('그사이 바뀌었습니다' 오류의 원인)
+   var put = {};
+   Object.keys(byP).forEach(function (k) { put['bom4:p:' + k] = JSON.stringify(byP[k]); });
+   try {
+diff -ru '--exclude=.clasp.json' v263/Code.js pn/Code.js
+--- v263/Code.js	2026-11-14 02:58:14.542773788 +0000
++++ pn/Code.js	2026-11-14 03:23:54.043308933 +0000
+@@ -1985,7 +1985,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-14f484p';
++var RB_BUILD = '2026-11-14f485p';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+@@ -2086,6 +2086,14 @@
+     apiOldAcks: [function () { return apiOldAcks(); }, any]
+   };
+ }
++/** f485: 응답 안에 Date 가 있나(깊이 6 · 큰 배열은 앞 300개만 — 같은 모양 줄이 이어진다) */
++function batchHasDate_(v, d) {
++  if (v instanceof Date) return true;
++  if (!v || typeof v !== 'object' || d > 6) return false;
++  if (Array.isArray(v)) { for (var i = 0; i < v.length && i < 300; i++) if (batchHasDate_(v[i], d + 1)) return true; return false; }
++  for (var k in v) if (Object.prototype.hasOwnProperty.call(v, k) && batchHasDate_(v[k], d + 1)) return true;
++  return false;
++}
+ function apiBatch(list) {
+   if (!Array.isArray(list)) throw new Error('묶음 호출 모양이 아닙니다.');
+   if (list.length > RB_BATCH_MAX) throw new Error('묶음 호출은 한 번에 ' + RB_BATCH_MAX + '개까지입니다.');
+@@ -2096,6 +2104,7 @@
+     if (!m || !m[1](args)) return { deny: 1, e: '묶음 호출에 넣을 수 없습니다: ' + fn };
+     try {
+       var v = m[0].apply(null, args);
++      if (batchHasDate_(v, 0)) { try { console.log('apiBatch: ' + fn + ' 응답에 날짜 객체 — 하나만 빈 값으로'); } catch (eL) { /* 넘어간다 */ } return { v: null, dt: 1 }; }      // f485: 날짜 객체가 하나라도 있으면 google.script.run 이 묶음 전체를 null 로 보내 16초 뒤 전부 하나씩 다시 읽었다(하나씩 부를 때와 같게 그 칸만 null)
+       return { v: v === undefined ? null : v };
+     } catch (e) {
+       return { e: String((e && e.message) || e || '오류') };
+@@ -2909,6 +2918,8 @@
+   var deep = lvl >= 2;
+ 
+   // ── 빠른 길: 설정 · 발주건 · 진행이 모두 캐시에 있으면 스프레드시트를 한 번도 열지 않는다.
++  // f485: 화면이 Supabase 에 직접 저장한 샘플(시트 · 캐시는 1분 작업 뒤)이 있으면 캐시를 건너뛰고 Supabase 사본에서 읽는다 — 예전엔 방금 넣은 샘플이 다시 읽기에서 사라져 두 번 넣었다
++  if (!lvl && mode === 'sample' && typeof smDbJobs_ === 'function') { try { if (smDbJobs_(false).length) { dropSampleCache_(); t.smPend = 1; } } catch (eSp) { /* 캐시로 */ } }
+   if (!lvl) {
+     var fast = cachedBoot_(mode);
+     if (fast) return fast;
+diff -ru '--exclude=.clasp.json' v263/Issues.js pn/Issues.js
+--- v263/Issues.js	2026-11-14 02:58:14.542773788 +0000
++++ pn/Issues.js	2026-11-14 03:23:35.932398814 +0000
+@@ -26,7 +26,10 @@
+ /** 읽기용 — 이슈 탭 전부(캐시 30분 · 이슈 쓰기마다 버림). 쓰기는 줄 번호가 필요해 issAll_ 로 새로 읽는다 */
+ var RB_ISS_CACHE = 'iss:v3';      // v3: 2026-10-30 '.' 피드백 = 팀장 패스(확인) — v2 의 '기호만은 확인 아님'을 되돌림
+ function issAllCached_() {
+-  var c = null; try { c = cacheGet_(RB_ISS_CACHE); } catch (e) { c = null; }
++  var c = null;
++  // f485: 직접 저장(rb_iss_save)한 이슈 · 피드백이 시트에 아직 안 옮겨졌으면 옮기고 캐시를 버린다 — 일일보고가 방금 넣은 이슈를 빼거나 ✓ 확인을 되돌렸다(f351 과 같은 원인)
++  try { if (typeof issDbOn_ === 'function' && issDbOn_() && (sbFetch_('get', '/rest/v1/rb_tab_job?select=id&tab=eq.is&done_at=is.null&limit=1') || []).length) { cacheDrop_(RB_ISS_CACHE); if (typeof issJobDrain_ === 'function') issJobDrain_(); } } catch (eIp) { /* 캐시로 */ }
++  try { c = cacheGet_(RB_ISS_CACHE); } catch (e) { c = null; }
+   if (c) return c;
+   var L = issAll_().map(issPub_);
+   try { cachePut_(RB_ISS_CACHE, L, 1800); } catch (e2) { /* 넘어간다 */ }
+diff -ru '--exclude=.clasp.json' v263/Journal.js pn/Journal.js
+--- v263/Journal.js	2026-11-14 02:58:14.542773788 +0000
++++ pn/Journal.js	2026-11-14 03:23:54.044079154 +0000
+@@ -222,7 +222,8 @@
+  */
+ function journalSave_(op, shape, fallback) {
+   requireEditor_();
+-  try { if (typeof pjDrainIn_ === 'function') pjDrainIn_(); } catch (ePj) { /* 1분 작업이 */ }      // f338: 화면이 직접 넣은 진행 기록이 남았으면 먼저(차례)
++  var pjB0 = typeof RB_PJ_BUDGET !== 'undefined' ? RB_PJ_BUDGET : 0; RB_PJ_BUDGET = 8000;      // f485: 사람 저장 안에서는 8초까지만(잠금을 쥔 채 남의 일까지 40초 처리하던 것)
++  try { if (typeof pjDrainIn_ === 'function') pjDrainIn_(); } catch (ePj) { /* 1분 작업이 */ } finally { RB_PJ_BUDGET = pjB0; }      // f338: 화면이 직접 넣은 진행 기록이 남았으면 먼저(차례)
+   if (!op.id) throw new Error('건ID가 비어 있습니다.');
+   op.mode = op.mode === 'sample' ? 'sample' : 'po';
+   op.id = sampleProgIdFix_(op.id, op.mode);
+diff -ru '--exclude=.clasp.json' v263/Keys.js pn/Keys.js
+--- v263/Keys.js	2026-11-14 02:58:14.542773788 +0000
++++ pn/Keys.js	2026-11-14 03:23:54.045292806 +0000
+@@ -517,6 +517,13 @@
+ 
+ /** 화면: 새 발주 검색용 품목 목록 */
+ function apiItems() {
++  // f485: 화면이 직접 저장한 품목 정보(rb_item_save)가 시트에 아직 안 옮겨졌으면 먼저 옮긴다(5초 안에 잠금을 못 잡으면 그냥 읽음) — 예전엔 1분 넘게 옛 이름 · 업체가 화면 목록을 덮었다
++  try {
++    if (typeof itemDbOn_ === 'function' && itemDbOn_() && (sbFetch_('get', '/rest/v1/rb_tab_job?select=id&tab=eq.it&done_at=is.null&limit=1') || []).length) {
++      if (bomHoldsLock_()) itemJobDrainIn_();
++      else { var lI = pdLock_(); if (lI.tryLock(5000)) { var pvI = RB_LOCK_OBJ; RB_LOCK_OBJ = lI; try { itemJobDrainIn_(); } finally { lI.releaseLock(); RB_LOCK_OBJ = pvI; } } }
++    }
++  } catch (eIt) { /* 캐시로 */ }
+   var list = readItems_().slice(), have = {};
+   list.forEach(function (it) { have[it.code] = 1; });
+   try { bomIndex_().forEach(function (x) { if (x.code && !have[x.code]) { have[x.code] = 1; list.push({ code: x.code, name: x.name || x.code, brand: x.brand || '', channel: '', vendor: '', price: '', bom: 1 }); } }); } catch (e) { /* BOM 없이 */ }
+diff -ru '--exclude=.clasp.json' v263/LinesWrite.js pn/LinesWrite.js
+--- v263/LinesWrite.js	2026-11-14 02:58:14.546773788 +0000
++++ pn/LinesWrite.js	2026-11-14 03:23:54.046207665 +0000
+@@ -780,6 +780,7 @@
+     res.rows = lr.rows; res.anomaly = lr.anomaly;
+   } catch (err) {
+     res.error = err.message;
++    try { var nE = Number(cache.get('ap:errN') || 0) + 1; cache.put('ap:errN', String(nE), 3600); if (nE <= 5) again(); } catch (eAg) { /* 넘어간다 */ }      // f485: 실패한 AP 다시 쓰기를 버리지 않는다(5번까지 · 예전엔 다음 저장이나 저녁 8시까지 옛 AP)
+   } finally {
+     cache.remove('ap:running');
+     res.timing = T.done();
+diff -ru '--exclude=.clasp.json' v263/PageHtml.html pn/PageHtml.html
+--- v263/PageHtml.html	2026-11-14 02:58:14.558773789 +0000
++++ pn/PageHtml.html	2026-11-14 03:23:54.090865303 +0000
+@@ -14417,9 +14417,9 @@
+       var p0 = args[0] || {};
+       if (!p0.id || !p0.name) { gas(); return; }
+       pjDirect("apiCreateOrder", [p0], function () {
+-        var rq = rowById(p0.id); if (rq) PROV_KEEP[p0.id] = { row: rq, until: Date.now() + 180000 };
++        var rq = rowById(p0.id); if (rq) PROV_KEEP[p0.id] = { row: rq, until: Date.now() + 900000 };      // f485: 3분 → 15분(1분 작업이 밀리면 3분 넘게 걸려 목록에서 사라졌고, 다시 등록해 두 건이 됐다) — 시트에 들어오면 바로 진짜 행으로
+         ok({ queued: 1, statusRow: 0 });
+-        [8000, 20000, 45000].forEach(function (ms) { setTimeout(function () { if (PROV_KEEP[p0.id]) { lastSync = 0; revalidate(); } }, ms); });
++        [8000, 20000, 45000, 90000, 180000, 300000].forEach(function (ms) { setTimeout(function () { if (PROV_KEEP[p0.id]) { lastSync = 0; revalidate(); } }, ms); });
+       }, fail, gas);
+     },
+     // f359: 샘플 프로젝트 비고 · 프로젝트 정보 — 서버(Samples.js apiSampleProjMemo · apiSampleProjInfo)와 같은 규칙으로 화면이 결과를 만들고 저장은 할 일로
+@@ -14597,7 +14597,8 @@
+   function bomKick() {
+     if (BKK.on) { BKK.again = true; return; }
+     BKK.on = true; busy(true, true);
+-    var end = function () { BKK.on = false; busy(false); if (BKK.again) { BKK.again = false; bomKick(); } };
++    var endOk = false, end = function () { if (endOk) return; endOk = true; BKK.on = false; busy(false); if (BKK.again) { BKK.again = false; bomKick(); } };
++    setTimeout(end, 120000);      // f485
+     try {
+       gsr().withSuccessHandler(function (k) {
+         ((k && k.errs) || []).forEach(function (x) { toast("[" + x.product + "] BOM 저장은 됐지만 시트에 옮기지 못했습니다(1분 작업이 다시): " + x.err); });
+@@ -14656,7 +14657,8 @@
+     busy(true, true);
+     PJK.t = setTimeout(function () {
+       PJK.t = null; PJK.on = true;
+-      var end = function () { PJK.on = false; busy(false); if (PJK.again) { PJK.again = false; pjKick(); } };
++      var endOk = false, end = function () { if (endOk) return; endOk = true; PJK.on = false; busy(false); if (PJK.again) { PJK.again = false; pjKick(); } };
++      setTimeout(end, 120000);      // f485: 답이 끝내 없어도 2분 뒤 '저장 중'을 푼다(11/13 105분 멈춤 · 그동안 다시 읽기도 막힘)
+       try {
+         gsr().withSuccessHandler(function (k) {
+           var errs = (k && k.errs) || [];
+@@ -14664,9 +14666,10 @@
+           // f448: 할 일 길 결과 중 예전에 화면이 알려 주던 것(건너뛴 건 · 경고 · 못 한 건 · 메모 · 다시 연 회차)을 이제 알린다 — 저장 순간엔 '완료'만 받았다
+           var notes = (k && k.notes) || [], NN = { apiPoSubmit: "상신 완료", apiPoPendAdd: "상신 대기", apiBulkDoc: "품의번호 넣기", apiBulkApprovalNo: "결재문서번호", apiSetState: "진행상태", apiWriteSheet: "발주 정보", apiCreateOrder: "발주 등록", apiBulkItems: "항목 처리", apiBulkItemsUndo: "항목 처리 되돌리기", apiSampleAdd: "샘플 추가", apiSampleNew: "샘플 등록", apiSampleEditRow: "샘플 수정", apiSampleDeleteRow: "샘플 회차 지우기", apiCloseRemain: "잔량 마감", apiItemDelete: "품목 지우기" };
+           var sh = function (v) { return (Array.isArray(v) ? v : [v]).map(function (x) { return x && typeof x === "object" ? (x.name || x.code || x.id || x.why || JSON.stringify(x)).toString().slice(0, 80) + (x.why && (x.name || x.code) ? " (" + x.why + ")" : "") : String(x).slice(0, 120); }).join(", "); };
+-          var hard = [], soft = [];
++          var hard = [], soft = [], bad = [];
+           notes.forEach(function (o) {
+             var lab = "[" + (NN[o.fn] || o.fn) + (o.at ? " " + o.at : "") + "] ", parts = [];
++            if (o.jobErr) parts.push("저장하지 못했습니다 — " + sh(o.jobErr) + " (다시 해 주세요)");      // f485: 1분 작업이 옮기다 실패한 저장
+             if (o.skipped) parts.push("건너뛴 건: " + sh(o.skipped));
+             if (o.fails) parts.push("못 한 건: " + sh(o.fails));
+             if (o.linesError) parts.push("지급 줄 못 고침: " + sh(o.linesError));
+@@ -14677,8 +14680,9 @@
+             if (o.reopened) parts.push("마감했던 회차를 다시 열었습니다");
+             if (o.notes && !Array.isArray(o.notes)) parts.push(sh(o.notes));
+             if (!parts.length) return;
+-            (o.skipped || o.fails || o.linesError || o.linesQtyNeed || o.need ? hard : soft).push(lab + parts.join(" · "));
++            (o.jobErr ? bad : o.skipped || o.fails || o.linesError || o.linesQtyNeed || o.need ? hard : soft).push(lab + parts.join(" · "));
+           });
++          if (bad.length) alert("저장하지 못한 것이 있습니다:" + String.fromCharCode(10) + bad.join(String.fromCharCode(10)));
+           if (hard.length) alert("저장은 됐지만 확인할 것이 있습니다:" + String.fromCharCode(10) + hard.join(String.fromCharCode(10)));
+           soft.forEach(function (m) { toast(m); });
+           if (errs.length || notes.length || (k && k.n > 0)) { lastSync = 0; setTimeout(revalidate, 300); }      // f448: 옮긴 일이 있으면 화면 값도 서버 값으로(종결 · 잔량 · 새 ID 등)
+@@ -21937,6 +21941,7 @@
+     if (BV.saving) { $("bomv-msg").textContent = "앞 저장을 마무리하는 중입니다 — 잠시 뒤 다시 눌러 주세요."; return; }
+     // 화면에 바로 반영(신제품 · 품목코드가 바뀌는 저장 · 최종 차수 이어 쓰기는 서버 응답으로)
+     var code = BV.code, local = (!BV.newProduct && !Object.keys(BV.mods).some(function (k) { var m = BV.mods[k]; return (m.predict && m.predict.indexOf("품목코드") > -1) || m.fixAll; })) ? bvSaveLocalData(ob, send) : null;   // 정정(모든 차수)은 서버 응답으로 그린다
++    var modSig = local ? null : JSON.stringify([BV.mods, BV.adds, BV.ckPend || {}]);      // f485: 화면에 먼저 못 그린 저장(정정 모든 차수 · 코드 바뀜)이 보낸 고침
+     var conf0 = bvQuoteNow(BV.rows || [], code, ob);      // 저장 전(화면 반영 전) 이 차수 BOM 발주 단가 — 저장으로 안 바뀌면 발주 단가도 그대로(bvConfPrice)
+     var b = $("bomv-save"); if (b) b.disabled = true;
+     BV.saving = code; busy(true);          // 그리기 전에 — 저장하는 동안 그 품목 표 칸은 잠긴다(임시 줄에 고친 값이 응답에 덮여 사라졌다)
+@@ -21947,6 +21952,8 @@
+       BV.saving = 0; busy(false);
+       // f437: 신제품 BOM 은 BV.newProduct 때문에 bvUserBusy() 가 늘 '바쁨' — 저장이 끝나도 화면이 '저장 전' 표에 남았다. 이 저장 자체면 바쁨으로 보지 않는다
+       var npSaved = !!BV.newProduct && BV.code === code && !BV.edit && !BV.fix;
++      // f485: 정정(모든 차수) 등 화면에 먼저 못 그린 저장 — 보낸 고침이 그대로 남아 '바쁨'으로 보여 저장 전 표에 머물렀다(다시 누르면 '그사이 바뀌었습니다'). 그사이 더 안 고쳤으면 이 저장으로 끝난 것
++      if (modSig && BV.code === code && !BV.edit && !BV.fix && JSON.stringify([BV.mods, BV.adds, BV.ckPend || {}]) === modSig) { BV.mods = {}; BV.adds = []; BV.ckPend = {}; npSaved = true; }
+       if (!BV.confForce && ordC) BV.confForce = ordC;        // 발주에서 연 BOM 을 [N차부터 바꾸기] 등으로 저장해도 BOM 확인 = 변경 있음
+       if (BV.confForce) { var cfr = rowById(BV.confForce); BV.confForce = null; if (cfr) { bomConfSet(cfr, "Y", bomConfTypes(send)); if (String(cfr.code || "").toUpperCase() === code) setTimeout(function () { bvConfPrice(cfr, ob, code, conf0); }, 400); } }      // 자재 발주(품목 BOM 에서 고침)는 발주 단가를 품목 원가로 바꾸지 않는다      // 발주 1단계 BOM 확인 — 변경 있음(고친 칸으로 종류)
+       var msg = d.already ? code + " BOM은 앞에서 누른 저장으로 이미 들어가 있습니다 — 저장된 내용을 보여 드립니다(다시 쓰지 않음)." : ob + "차 BOM " + (d.saved || 0) + "건을 실행판 BOM 탭에 저장했습니다" + (d.made && d.made.length ? " · 새 코드 " + d.made.join(", ") : "") + bvExtraMsg(d);
+@@ -24723,32 +24730,49 @@
+     if (!renew) { try { s = JSON.parse(localStorage.getItem(NOTE_SS) || "null"); } catch (e) { s = null; } }
+     if (s && s.direct && s.exp && Date.parse(s.exp) - Date.now() > 600000 && (!me || !s.me || s.me === me)) {
+       // f332: 받은 지 1시간 넘은 세션은 뒤에서 새로(그사이 켜진 직접 저장 표시 — sm · cl … — 를 받게). 이번 저장은 지금 세션으로
+-      if (Date.parse(s.exp) - Date.now() < 11 * 3600000 && !noteSess._bg) {
+-        noteSess._bg = 1;
++      if (Date.parse(s.exp) - Date.now() < 11 * 3600000 && (!noteSess._bg || Date.now() - noteSess._bg > 120000)) {
++        noteSess._bg = Date.now();      // f485: 답 없는 새로 받기가 표시를 영원히 막지 않게(2분)
+         gsr().withSuccessHandler(function (r) { noteSess._bg = 0; if (r && r.direct) { try { localStorage.setItem(NOTE_SS, JSON.stringify(r)); } catch (e2) { /* 넘어간다 */ } } }).withFailureHandler(function () { noteSess._bg = 0; }).apiNoteSession();
+       }
+       cb(s); return;
+     }
+     if (s && s.direct === 0 && s.at && Date.now() - s.at < 300000) { cb(null); return; }      // 아직 준비 안 됨 — 5분 뒤 다시 묻는다
++    var sDone = false, sOnce = function (v) { if (sDone) return; sDone = true; cb(v); };      // f485: 세션 받기가 답이 없으면 30초 뒤 서버 길로(저장이 '저장 중'에 멈추지 않게)
++    setTimeout(function () { sOnce(null); }, 30000);
+     gsr().withSuccessHandler(function (r) {
+       var v = r && r.direct ? r : { direct: 0, at: Date.now(), why: r && r.why };
+       try { localStorage.setItem(NOTE_SS, JSON.stringify(v)); } catch (e) { /* 넘어간다 */ }
+-      cb(r && r.direct ? r : null);
+-    }).withFailureHandler(function () { cb(null); }).apiNoteSession();
++      sOnce(r && r.direct ? r : null);
++    }).withFailureHandler(function () { sOnce(null); }).apiNoteSession();
+   }
+-  function noteRpc(fn, args, ok, fail, again) {
++  /* f485: 직접 저장은 요청 번호(rq)를 붙여 rb_once 로 — 같은 번호가 다시 오면 저장하지 않고 처음 결과를 돌려준다(SQL m077).
++   * 예전엔 응답만 잃은 저장(연결 끊김)을 서버 길로 한 번 더 해 샘플 · 이슈 · 링크 · 진행 메모가 두 번 들어갔다. 연결이 끊기면 같은 번호로 두 번 더 묻고,
++   * 그래도 안 되면 서버 길로 다시 하지 않고 '저장됐는지 알 수 없음'으로 알린다. ok · fail 은 promise 밖에서(화면 처리 오류가 '저장 실패'로 바뀌지 않게). */
++  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_edit|pj_add|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
++  function noteRpc(fn, args, ok, fail, again, rq, tries) {
+     noteSess(function (ss) {
+       if (!ss) { fail(null, true); return; }
+-      var body = Object.assign({ p_token: ss.token }, args);
+-      fetch(ss.url + "/rest/v1/rpc/" + fn, { method: "POST", headers: { apikey: ss.anon, Authorization: "Bearer " + ss.anon, "Content-Type": "application/json" }, body: JSON.stringify(body) })
+-        .then(function (res) { return res.text().then(function (t) { return { ok: res.ok, t: t }; }); })
++      var once = RB_ONCE_FN.test(fn) && !RB_ONCE_OFF;
++      if (once && !rq) rq = "q" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
++      var body = once ? { p_token: ss.token, p_rq: rq, p_call: fn, p_body: args || {} } : Object.assign({ p_token: ss.token }, args);
++      var fin = false, wd = null, ac = null;
++      var out = function (f) { if (fin) return; fin = true; if (wd) clearTimeout(wd); setTimeout(f, 0); };
++      try { ac = typeof AbortController !== "undefined" ? new AbortController() : null; } catch (eA) { ac = null; }
++      wd = setTimeout(function () { try { if (ac) ac.abort(); } catch (eAb) { /* 넘어간다 */ } }, 45000);      // 45초 답 없음 = 연결 끊김으로
++      fetch(ss.url + "/rest/v1/rpc/" + (once ? "rb_once" : fn), { method: "POST", headers: { apikey: ss.anon, Authorization: "Bearer " + ss.anon, "Content-Type": "application/json" }, body: JSON.stringify(body), signal: ac ? ac.signal : undefined })
++        .then(function (res) { return res.text().then(function (t) { return { ok: res.ok, t: t, st: res.status }; }); })
+         .then(function (x) {
+-          if (x.ok) { var o = null; try { o = x.t ? JSON.parse(x.t) : null; } catch (eJ) { o = null; } ok(o); return; }
++          if (x.ok) { var o = null; try { o = x.t ? JSON.parse(x.t) : null; } catch (eJ) { o = null; } out(function () { ok(o); }); return; }
+           var m = ""; try { m = (JSON.parse(x.t) || {}).message || x.t; } catch (eM) { m = x.t; }
+           if (/RB_SESSION/.test(m) && !again) { try { localStorage.removeItem(NOTE_SS); } catch (eR) { /* 넘어간다 */ } noteRpc(fn, args, ok, fail, true); return; }      // 세션 끝남 — 새로 받아 한 번 더
+           fail(new Error(String(m || "Supabase 오류").slice(0, 200)), /RB_SESSION|Could not find the function|schema cache/.test(m));      // f349: 함수가 아직 안 올라갔으면(SQL 이주 1분 전) 서버 길
+         })
+-        .catch(function (e) { fail(e, true); });      // 연결 · 차단 — 서버 길로
++        .catch(function (e) {
++          if (fin) return;
++          if (once && (tries || 0) < 2) { out(function () { setTimeout(function () { noteRpc(fn, args, ok, fail, again, rq, (tries || 0) + 1); }, 2000 * ((tries || 0) + 1)); }); return; }      // 같은 요청 번호로 다시 — 이미 들어갔으면 처음 결과가 온다
++          if (once) { try { PERF_Q.push({ n: "직접 연결 끊김 " + String(fn).slice(0, 24), ms: 99999, ok: false, at: new Date().toISOString().slice(0, 19), t: String((e && e.message) || e).slice(0, 200) }); } catch (eP) { /* 넘어간다 */ } out(function () { fail(new Error("연결이 끊겨 저장됐는지 확인하지 못했습니다 — 새로고침해서 확인한 뒤 필요하면 다시 해 주세요."), false); }); return; }
++          out(function () { fail(e, true); });      // 읽기 — 서버 길로
++        });
+     }, again);
+   }
+   function noteFetch(cb) {
+diff -ru '--exclude=.clasp.json' v263/Quality.js pn/Quality.js
+--- v263/Quality.js	2026-11-14 02:58:14.550773789 +0000
++++ pn/Quality.js	2026-11-14 03:23:35.987309416 +0000
+@@ -53,6 +53,8 @@
+ /** 화면: 품질 기록 전부(캐시 6시간 — 쓰기 때 버림). 기록은 많아야 수백 줄이라 화면이 한 번 받아 자재코드로 나눠 본다 */
+ function apiQualityAll() {
+   var c = null;
++  // f485: 직접 저장(rb_qual_save)한 품질 기록이 시트에 아직 안 옮겨졌으면 캐시를 버리고 다시 읽는다(시트 맞추기부터 — tvRepEnsure_). 예전엔 6시간 캐시가 방금 넣은 기록을 감춰 두 번 넣었다
++  try { if (typeof qualDbOn_ === 'function' && qualDbOn_() && (sbFetch_('get', '/rest/v1/rb_tab_job?select=id&tab=eq.ql&done_at=is.null&limit=1') || []).length) { cacheDrop_(RB_QUAL.CACHE); if (typeof issJobDrain_ === 'function') issJobDrain_(); } } catch (eQp) { /* 캐시로 */ }
+   try { c = cacheGet_(RB_QUAL.CACHE); } catch (e) { c = null; }
+   if (c) return c;
+   var L = qualAll_(false);
