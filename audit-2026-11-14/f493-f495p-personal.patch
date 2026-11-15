@@ -1,0 +1,316 @@
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/Code.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/Code.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/Code.js	2026-11-15 01:38:04.972549248 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/Code.js	2026-11-15 10:28:59.861306057 +0000
+@@ -1857,6 +1857,8 @@
+   return { map: map, alt: alt, sh: sh, raw: v };
+ }
+ 
++/** f493: 진행 기록 가상 탭 열쇠(TabShim.js pg · sp) */
++function progTvKey_(mode) { return mode === 'sample' ? 'sp' : 'pg'; }
+ function progHintKey_(mode) { return 'progrow:v1:' + ((mode === 'sample') ? 'sample' : 'po'); }
+ 
+ /** 진행 기록 한 줄 → 기록 */
+@@ -1988,7 +1990,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-14f491p';
++var RB_BUILD = '2026-11-15f495p';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+@@ -2275,6 +2277,7 @@
+     // 장부에 먼저 적힌 이 건의 변경부터(순서 유지). 다른 건 장부는 1분 작업이 옮긴다(예전엔 여기서 장부 전체를 옮겨 저장마다 몇 초 더 걸렸다).
+     // 못 읽었으면 여기서 멈춘다 — 그대로 쓰면 장부의 옛 변경이 나중에 옮겨지며 이 저장을 덮었다
+     try { own = journalTakeOne_(mode, id); } catch (eJ) { throw new Error('앞서 저장한 변경을 시트로 옮기지 못해 이번 저장을 멈췄습니다. 잠시 뒤 다시 해 주세요. (' + eJ.message + ')'); }
++    return tabVirtualHeld_(progTvKey_(mode), function () {      // f493: 진행 기록 Supabase 먼저면 사본에 쓰고(끝맺기 p_chk — 그사이 직접 저장한 줄은 덮지 않음) 시트는 맞추기로(장부 옮기기는 위 — 두 모드를 각자 가상 탭으로)
+     var p = readProgressOne_(mode, id);
+     var rec = findProg_(p, id);
+     var st = progState_(rec);
+@@ -2296,6 +2299,7 @@
+     bumpVer_('p');
+     wrote = true;
+     return res;
++    });
+   } finally {
+     try { endVer_(outer); } catch (e) { /* 넘어간다 */ }          // 반영(flush)한 뒤에
+     if (wrote && own) { try { if (outer) SpreadsheetApp.flush(); journalDropOwn_(own); } catch (eD) { /* 넘어간다 */ } }   // 이 저장에 넣은 장부 줄만 지운다
+@@ -2313,7 +2317,9 @@
+   waitLock_(lock);
+   var n = 0;
+   try {
+-    try { drainJournal_(); } catch (eJ) { /* 다음에 */ }
++    try { drainJournal_(); } catch (eJ) { /* 다음에 */ }      // 장부부터(두 모드를 각자 가상 탭으로 — 아래 한 모드 가상 탭 안에서 부르면 다른 모드는 시트에 바로 씀)
++    n = tabVirtualHeld_(progTvKey_(mode), function () {      // f493: 진행 기록 Supabase 먼저면 사본에(끝맺기 p_chk) — 시트는 맞추기로
++    var n = 0;
+     var p = readProgress_(mode);
+     var changed = {}, appends = [], pending = {};
+     (items || []).forEach(function (it) {
+@@ -2334,6 +2340,8 @@
+       p.sh.getRange(p.sh.getLastRow() + 1, 1, appends.length, RB.PROGRESS_HEAD.length).setValues(appends);
+     }
+     if (after) after();
++    return n;
++    });
+   } finally {
+     lock.releaseLock();
+     cacheDrop_('prog:v2:' + ((mode === 'sample') ? 'sample' : 'po'));   // 뒤(after)에서 실패해도 이미 쓴 진행 기록은 캐시에서 버린다
+@@ -2890,6 +2898,31 @@
+  * 클라이언트에서 부르는 함수들
+  * ============================================================ */
+ 
++/** f495: 첫 화면 캐시(builtAt)가 마지막 저장보다 나중에 만든 것인지 — 캐시 변경 번호(서버 길) · Supabase rb_ver(직접 저장 · 1분 작업) 둘 다 본다 */
++function bootVerAt_(v) { var n = Number(String(v || '').split(':')[0]); return isFinite(n) ? n : 0; }
++function bootCacheFresh_(builtAt, embedded) {
++  builtAt = Number(builtAt || 0);
++  if (!builtAt) return false;
++  var age = Date.now() - builtAt;
++  if (age > (embedded ? 1800000 : 3600000)) return false;          // 아무도 저장 안 했어도 너무 오래된 캐시는 쓰지 않는다
++  var newest = 0;
++  try {
++    var c = CacheService.getScriptCache().getAll(['rb:ver:p', 'rb:ver:l', 'rb:ver:r']);
++    Object.keys(c).forEach(function (k) { newest = Math.max(newest, bootVerAt_(c[k])); });
++  } catch (eC) { /* 아래 */ }
++  if (newest > builtAt) return false;
++  var sbOk = false;
++  try {
++    if (typeof sbKey_ === 'function' && sbKey_() && typeof sbMigDone_ === 'function' && sbMigDone_('m080_ver')) {
++      var rs = sbFetch_('get', '/rest/v1/rb_ver?select=k,v,at&k=in.(p,l,r)');
++      (rs || []).forEach(function (r) { newest = Math.max(newest, bootVerAt_(r.v), Date.parse(r.at) || 0); });
++      sbOk = true;
++    }
++  } catch (eS) { sbOk = false; }
++  if (newest > builtAt) return false;
++  if (!sbOk && typeof sbKey_ === 'function' && sbKey_() && age > 300000) return false;   // Supabase 를 못 읽었으면 5분 넘은 캐시는 믿지 않는다
++  return true;
++}
+ /**
+  * 캐시에 설정 · 발주건 · 진행이 모두 있으면 첫 화면 데이터를 바로 만든다. 하나라도 없으면 null(시트는 열지 않는다).
+  * doGet(HTML 에 담기) 과 apiBootstrap(빠른 길)이 같이 쓴다. embedded 는 doGet 에서 부를 때.
+@@ -2901,6 +2934,11 @@
+   var rowsC = cacheGet_(rowsCacheKey_(mode, meta.cfg));
+   var progC = cacheGet_('prog:v2:' + mode);
+   if (!rowsC || !progC) return null;
++  // f495: 캐시를 만든 뒤에 누가 저장했으면(Supabase 직접 저장은 이 캐시를 버리지 않는다) 쓰지 않는다 — 예전엔 5시간 넘은 캐시가 첫 화면에 떠
++  //  잔량 마감 · 종결한 건이 10초쯤 '살아 있다가' 최신 값으로 바뀌었다(11/15). 변경 시각을 못 읽으면 5분 넘은 캐시는 버린다.
++  var at0 = 0;
++  try { var ca = CacheService.getScriptCache().getAll(['rows:at:' + mode, 'prog:at:' + mode]); at0 = Math.min(Number(ca['rows:at:' + mode] || 0), Number(ca['prog:at:' + mode] || 0)); } catch (eA) { at0 = 0; }
++  if (!bootCacheFresh_(at0, embedded)) return null;      // 만든 시각을 모르는 옛 캐시(f494 까지)는 쓰지 않는다
+   try { journalOverlay_(progC, mode); } catch (e) { /* 넘어간다 */ }
+   rowsC.forEach(function (r) { attachProg_(r, progC[r.id]); });
+   var t = { total: Date.now() - t0, cached: 'all',
+@@ -2959,10 +2997,11 @@
+     // 읽는 사이 누가 발주 DB 를 고쳤으면(목록 캐시 버림 · 변경 번호 r) 방금 읽은 옛 목록을 캐시에 담지 않는다
+     var rowsGen0 = cacheGen_('rows'), rowsVer0 = '';
+     try { rowsVer0 = CacheService.getScriptCache().get('rb:ver:r') || ''; } catch (eV) { rowsVer0 = ''; }
++    var rowsAt0 = Date.now();      // f495: 캐시를 언제 기준으로 만들었는지(읽기 시작 시각) — 첫 화면이 그 뒤 저장과 비교
+     rows = (mode === 'sample') ? readSampleRows_(cfg) : readOrderRows_(cfg, t);
+     var rowsVer1 = '';
+     try { rowsVer1 = CacheService.getScriptCache().get('rb:ver:r') || ''; } catch (eV2) { rowsVer1 = ''; }
+-    if (cacheGenSame_('rows', rowsGen0) && rowsVer1 === rowsVer0) cachePut_(cacheKey, rows, RB_TTL);
++    if (cacheGenSame_('rows', rowsGen0) && rowsVer1 === rowsVer0) { cachePut_(cacheKey, rows, RB_TTL); try { CacheService.getScriptCache().put('rows:at:' + mode, String(rowsAt0), RB_TTL); } catch (eRa) { /* 넘어간다 */ } }
+     else t.rowsStale = true;
+   }
+   t.plan = Date.now() - m;
+@@ -4073,7 +4112,7 @@
+     appendHist_(list.map(function (a) {
+       return {
+         mode: a.mode, kind: '칸 변경', id: a.id, doc: a.doc, code: a.code, name: a.item, item: a.what,
+-        before: a.before, after: a.after,
++        before: a.before, after: a.after, who: a.who ? str_(a.who) : undefined, at: a.at ? (function (d) { return isNaN(d.getTime()) ? undefined : d; })(new Date(a.at)) : (RB_J_AT ? new Date(RB_J_AT) : undefined),      // f493: 1분 작업이 옮겨도 저장한 사람 · 누른 때로
+         where: [a.tab || '', a.row ? a.row + '행' : '', a.col ? colLetterRB_(a.col) + '열' : ''].filter(String).join(' ')
+       };
+     }));
+@@ -4600,6 +4639,7 @@
+   cacheGenBump_('meta');                  // 지금 시트를 읽던 느린 길이 옛 단계를 다시 담지 않게
+   var mc = cacheGet_(mk);
+   if (mc) { mc.steps = out; cachePut_(mk, mc, RB_TTL); }
++  try { if (typeof pgConfPublish_ === 'function') pgConfPublish_(true); } catch (ePg) { /* 1분 작업이 다시 — 그사이 직접 저장은 _pgPost 대조가 본다 */ }      // f493: 진행 기록 직접 저장(SQL)의 단계 정의도 바로
+   return out;
+ }
+ 
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/Journal.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/Journal.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/Journal.js	2026-11-15 01:38:04.976549248 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/Journal.js	2026-11-15 10:18:05.702171352 +0000
+@@ -59,6 +59,8 @@
+   if (!journalRoom_(all, s.length + 40)) return false;        // 장부가 너무 커졌으면 바로 시트에(부르는 쪽 예전 방식)
+   // f491: 상태 올리기 · 내리기가 붙은 줄은 적기 전에 Supabase 에 알린다(rb_conf 'pdJ') — 직접 진행상태 저장(rb_od_state)이 그 건은 할 일 길로(차례). 못 알리면 장부에 안 적음(예전 방식)
+   if ((op.bump || op.down) && op.mode !== 'sample' && typeof pdJournalPublish_ === 'function') { try { pdJournalPublish_(op.id); } catch (ePj) { return false; } }
++  // f493: 진행 기록 직접 저장(rb_pg_save)이 이 건은 할 일 길로(차례) — 적기 전에 Supabase 에 알린다(rb_conf 'pgJ'). 못 알리면 장부에 안 적음(예전 방식)
++  if (typeof pgJournalPublish_ === 'function' && pgDirectMig_()) { try { pgJournalPublish_((op.mode === 'sample' ? 'sample' : 'po') + ':' + str_(op.id)); } catch (ePg) { return false; } }
+   // 같은 1/1000초에 적힌 줄은 꼬리(무작위)로 정렬돼 순서가 뒤집힐 수 있었다 — 한 실행 안에서는 순번을 붙여 적은 순서대로
+   RB_J_SEQ = (RB_J_SEQ + 1) % 10000;
+   var key = RB_J + op.at + ':' + ('000' + RB_J_SEQ).slice(-4) + Utilities.getUuid().slice(0, 4);
+@@ -382,6 +384,7 @@
+   SpreadsheetApp.flush();                 // 시트에 확실히 들어간 뒤에 남은 장부(모드가 po · sample 이 아닌 줄)를 지운다
+   list.forEach(function (x) { if (gone[x.key]) return; try { props.deleteProperty(x.key); } catch (e) { /* 다음에 다시 옮겨도 결과는 같다 */ } });
+   if (list.some(function (x) { return x.op.bump || x.op.down; }) && typeof pdJournalPublish_ === 'function') { try { pdJournalPublish_(); } catch (ePj) { /* 1분 작업이 다시 */ } }      // f491: 남은 상태 올리기 건만
++  if (typeof pgJournalPublish_ === 'function') { try { pgJournalPublish_(); } catch (ePg) { /* 1분 작업이 다시 */ } }      // f493: 남은 장부 건만(2분 안에 더한 것은 SQL 이 남김)
+   if (modeErr) throw modeErr;          // 남겨 둔 장부는 다음 판에
+   return list.length;
+ }
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/PageHtml.html /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/PageHtml.html
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/PageHtml.html	2026-11-15 01:38:04.988549249 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/PageHtml.html	2026-11-15 10:17:49.909770058 +0000
+@@ -14391,10 +14391,10 @@
+       step();
+     },
+     // f338: 진행 기록(체크 · 메모 · 변경 여부 — rb_pj_add · 세션 pj). 화면은 이미 그렸고, 할 일만 넣은 뒤 '지금 맞추기'(pjKick). 품의 상신 체크(BOM 확인 검사)는 서버 길
+-    apiSetChecks: function (args, ok, fail, gas) { pjDirect("apiSetChecks", args, ok, fail, gas); },
+-    apiSetCheck: function (args, ok, fail, gas) { var ch = {}; ch[String(args[2])] = !!args[3]; pjDirect("apiSetChecks", [args[0], args[1], ch, args[4]], ok, fail, gas); },
+-    apiSetNote: function (args, ok, fail, gas) { pjDirect("apiSetNote", args, ok, fail, gas); },
+-    apiSetChange: function (args, ok, fail, gas) { pjDirect("apiSetChange", args, ok, fail, gas); },
++    apiSetChecks: function (args, ok, fail, gas) { pgDirect("apiSetChecks", args, ok, fail, gas, Object.keys(args[2] || {})); },
++    apiSetCheck: function (args, ok, fail, gas) { var ch = {}; ch[String(args[2])] = !!args[3]; pgDirect("apiSetChecks", [args[0], args[1], ch, args[4]], ok, fail, gas, [String(args[2])]); },
++    apiSetNote: function (args, ok, fail, gas) { pgDirect("apiSetNote", args, ok, fail, gas); },
++    apiSetChange: function (args, ok, fail, gas) { pgDirect("apiSetChange", args, ok, fail, gas); },
+     // f341: 샘플 진행 메모 · 프로젝트 완료 · 회신 받음 — 화면은 이미 그렸다(응답 notes 없으면 화면 값 그대로)
+     apiSampleLog: function (args, ok, fail, gas) { pjDirect("apiSampleLog", args, ok, fail, gas); },
+     // f346: 화면이 먼저 바꾸는 저장 — 진행상태 · 통화 · 표시 단추 · 샘플 회차 상태 · 여러 건 숨기기 · 담당자(응답의 n 은 화면이 센 건수)
+@@ -14540,12 +14540,15 @@
+     apiSetDate: function (args, ok, fail, gas) {
+       var f = String(args[2] || ""), v = String(args[3] || "").trim(), m = args[4] || "po", meta = args[1] || {};
+       if (!(["submitted", "approved", "need"].indexOf(f) > -1 || /^(req|dv):[A-Za-z0-9_-]{1,60}$/.test(f)) || (v && f === "approved" && m === "po" && !String(meta.doc || "") && !meta.ordered)) { gas(); return; }
+-      pjDirect("apiSetDate", args, function () {
+-        var r0 = rowById(args[0]), res = { direct: 1 }, map = { submitted: "상신", approved: "승인" };
+-        if (m === "po" && v && map[f]) res.state = map[f];
+-        if (m === "po" && !v && map[f]) { var d = (r0 && r0.dates) || {}; res.stateDown = d.approved ? "승인" : (d.submitted ? "상신" : "계획"); }
+-        ok(res);
+-      }, fail, gas);
++      var viaPj = function () {
++        pjDirect("apiSetDate", args, function () {
++          var r0 = rowById(args[0]), res = { direct: 1 }, map = { submitted: "상신", approved: "승인" };
++          if (m === "po" && v && map[f]) res.state = map[f];
++          if (m === "po" && !v && map[f]) { var d = (r0 && r0.dates) || {}; res.stateDown = d.approved ? "승인" : (d.submitted ? "상신" : "계획"); }
++          ok(res);
++        }, fail, gas);
++      };
++      pgDirect("apiSetDate", args, ok, fail, gas, null, viaPj);
+     },
+     // f340: 샘플 일괄 상태(rb_sm_bulk · 세션 sm — 샘플 줄 고치기와 같은 켜기). 샘플ID 없는 줄이 있으면 서버 길
+     apiSampleBulkSet: function (args, ok, fail, gas) {
+@@ -14671,6 +14674,43 @@
+         function (e, useGas) { if (useGas || !e || /RB_FALLBACK/.test(String(e.message || ""))) gas(); else fail(e); });
+     });
+   }
++  /** f493: 진행 기록(체크 · 메모 · 변경 여부 · 날짜) — Supabase 함수(rb_pg_save)가 바로 바꾸고 진짜 결과를 준다. 시트 · 이력은 서버가 뒤에서(pgKick).
++   *  품의 상신 체크(pjGated)는 예전처럼 서버 길 · RB_FALLBACK(꺼짐 · 같은 건 앞선 저장 · 흔치 않은 모양 — 아무것도 안 들어감)은 예전 할 일 길 */
++  function pgDirect(fn, args, ok, fail, gas, keys, viaPj) {
++    var old = viaPj || function () { pjDirect(fn, args, ok, fail, gas); };
++    if (typeof noteRpc !== "function" || typeof noteSess !== "function" || pjGated(fn, args)) { old(); return; }
++    noteSess(function (ss) {
++      if (!ss || !ss.pgs) { old(); return; }
++      var body = { p_fn: fn, p_args: args };
++      if (keys) body.p_keys = keys;
++      noteRpc("rb_pg_save", body, function (r) { ok(r || { direct: 1 }); pgKick(); },
++        function (e, useGas) {
++          var msg = String((e && e.message) || "");
++          if (/RB_FALLBACK/.test(msg)) { rbWhy(fn, msg); old(); return; }
++          if (useGas || !e) gas(); else fail(e);      // 세션 · 연결 → 서버 길 · 규칙 오류(빈 체크 · BOM 확인 · 품의번호 없는 승인 등)는 그대로
++        });
++    });
++  }
++  /** 직접 저장 뒤 시트 줄 · 첫 화면 캐시 · 이력 맞추기(기다리지 않음 · 1.2초 모아 한 번). 그동안 다시 읽기가 옛 캐시를 받지 않게 '저장 중'.
++   *  내 뒷정리가 남았으면(left) 8초마다 다시(12번까지 — f490 과 같은 틀) */
++  var PGK = { t: null, on: false, again: false, n: 0 };
++  function pgKick() {
++    if (PGK.on) { PGK.again = true; return; }
++    if (PGK.t) return;
++    busy(true, true);
++    PGK.t = setTimeout(function () {
++      PGK.t = null; PGK.on = true;
++      var done = false, end = function (k) {
++        if (done) return; done = true; PGK.on = false;
++        if (k && k.left > 0 && PGK.n < 12) { PGK.n++; busy(false); setTimeout(function () { pgKick(); }, 8000); return; }
++        PGK.n = 0; busy(false);
++        if (PGK.again) { PGK.again = false; pgKick(); return; }
++        lastSync = 0; setTimeout(revalidate, 300);
++      };
++      setTimeout(function () { end(null); }, 60000);
++      try { gsr().withSuccessHandler(end).withFailureHandler(function () { end(null); }).apiPgKick(); } catch (e) { end(null); }
++    }, 1200);
++  }
+   /** f491: 진행상태 · 품의 취소 — Supabase 함수가 바로 바꾸고 진짜 결과(before · n · skipped · skippedIds)를 준다. 시트 · 이력 · AP 는 서버가 뒤에서.
+    *  RB_FALLBACK(꺼짐 · 같은 건의 앞선 저장이 아직 반영 전 등 — 아무것도 안 들어감)이면 예전 할 일 길로(차례 지킴) */
+   function pdDirect(rpc, fn, args, ok, fail, gas) {
+@@ -24804,7 +24844,7 @@
+    * 그래도 안 되면 서버 길로 다시 하지 않고 '저장됐는지 알 수 없음'으로 알린다. ok · fail 은 promise 밖에서(화면 처리 오류가 '저장 실패'로 바뀌지 않게). */
+   /** f486: 직접 저장을 안 하고 서버 길로 간 까닭(속도 기록 → 요약 파일) — 조용히 넘어가던 것 */
+   function rbWhy(fn, why) { try { PERF_Q.push({ n: "직접→서버(조건) " + String(fn).slice(0, 20) + " " + String(why).slice(0, 30), ms: 99999, ok: true, at: new Date().toISOString().slice(0, 19), t: String(why).slice(0, 200) }); } catch (e) { /* 넘어간다 */ } }
+-  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_(edit|state)|pj_add|po_cancel|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
++  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_(edit|state)|pg_save|pj_add|po_cancel|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
+   function noteRpc(fn, args, ok, fail, again, rq, tries) {
+     noteSess(function (ss) {
+       if (!ss) { fail(null, true); return; }
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/ProgLater.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/ProgLater.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/ProgLater.js	2026-11-15 01:38:04.980549248 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/ProgLater.js	2026-11-15 10:17:49.978527084 +0000
+@@ -122,6 +122,7 @@
+   var outer = deferVer_(), own = null, wrote = false;
+   try {
+     try { own = journalTakeOne_(mode, id); } catch (eJ) { throw new Error('앞서 저장한 변경을 시트로 옮기지 못해 이번 저장을 멈췄습니다. 잠시 뒤 다시 해 주세요. (' + eJ.message + ')'); }
++    return tabVirtualHeld_(progTvKey_(mode), function () {      // f493: 진행 기록 Supabase 먼저면 사본에(끝맺기 p_chk) · 장부 옮기기는 위(두 모드를 각자 가상 탭으로)
+     var p = readProgressOne_(mode, id);
+     var rec = findProg_(p, id);
+     var st = progState_(rec);
+@@ -141,6 +142,7 @@
+     bumpVer_('p');
+     wrote = true;
+     return res;
++    });
+   } finally {
+     try { endVer_(outer); } catch (e) { /* 넘어간다 */ }
+     if (wrote && own) { try { if (outer) SpreadsheetApp.flush(); journalDropOwn_(own); } catch (eD) { /* 넘어간다 */ } }
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/Samples.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/Samples.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/Samples.js	2026-11-15 01:38:04.980549248 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/Samples.js	2026-11-15 10:17:49.984915555 +0000
+@@ -168,6 +168,7 @@
+ function apiSampleEditRow(sheetRow, projKey, fields, meta, exp) {
+   return sampleVirtual_(function () { return apiSampleEditRow0_(sheetRow, projKey, fields, meta, exp); });      // 샘플 가상 저장(SampleShim.js · 꺼져 있으면 그대로)
+ }
++var RB_SM_RECENT_PUT = null;      // f493: 서버 길 샘플 고침이 rb_recent 에 남길 칸
+ function apiSampleEditRow0_(sheetRow, projKey, fields, meta, exp) {
+   requireEditor_();
+   var row = Number(sheetRow) || 0;
+@@ -196,7 +197,16 @@
+     // 날짜 칸은 표시 형식이 달라('26/10/28' · '2026-10-28' · 날짜 값) 날짜로 읽어 견준다. 상태는 시트가 빈칸(예전 줄)이면 넘어간다
+     // 내가 방금(10분 안) 이 칸에 쓴 값이면 '다른 사람'이 아니다(2026-11-02 담당자 — 날짜를 연달아 바꾸면 앞 저장이 끝나기 전 · 화면이 옛 값을 다시 읽은 사이 뒤 저장이 막혔다)
+     var myKey = function (f) { return 'se:' + row + ':' + f; }, meNow = me_(), cS = CacheService.getScriptCache();
+-    var mineNow = function (f, now) { try { var m = JSON.parse(cS.get(myKey(f)) || 'null'); return !!(m && m.by === meNow && m.v === now); } catch (eM) { return false; } };
++    var sidNow = K.sid >= 0 ? str_(cur[K.sid]) : '', sbRecent = null;
++    // f493: 화면이 Supabase 로 직접 쓴 칸(rb_recent 'se:<샘플ID>:<칸>')도 '내가 방금 쓴 값'으로 — 예전엔 직접 저장 뒤 서버 길 저장이 자기 저장을 '다른 사람'으로 막았다
++    var sbMine = function (f) {
++      if (!sidNow || typeof sbFetch_ !== 'function' || typeof sbKey_ !== 'function' || !sbKey_()) return false;
++      try {
++        if (sbRecent === null) { sbRecent = {}; (sbFetch_('get', '/rest/v1/rb_recent?select=rk,rby&rk=like.' + encodeURIComponent('se:' + sidNow + ':*') + '&rat=gt.' + encodeURIComponent(new Date(Date.now() - 600000).toISOString())) || []).forEach(function (x) { sbRecent[x.rk] = str_(x.rby).toLowerCase(); }); }
++        return sbRecent['se:' + sidNow + ':' + f] === str_(meNow).toLowerCase();
++      } catch (eR) { return false; }
++    };
++    var mineNow = function (f, now) { try { var m = JSON.parse(cS.get(myKey(f)) || 'null'); if (m && m.by === meNow && m.v === now) return true; } catch (eM) { /* 아래 */ } return sbMine(f); };
+     if (exp && exp.old) {
+       var nz = function (x) { return String(x == null ? '' : x).replace(/^'/, '').replace(/\s+/g, ' ').trim(); };
+       var dz = function (x) { var dd = toDate_(x instanceof Date ? x : nz(x)); return dd ? fmtDate_(dd) : nz(x); };
+@@ -224,10 +234,11 @@
+       if (sampleShow_(want) === sampleShow_(was)) return;
+       sh.getRange(row, K[f] + 1).setValue(want);
+       try { var shown = RB_SAMPLE_DATEF[f] ? (function () { var d0 = toDate_(want instanceof Date ? want : String(want == null ? '' : want).replace(/^'/, '').trim()); return d0 ? fmtDate_(d0) : String(want == null ? '' : want).replace(/^'/, '').replace(/\s+/g, ' ').trim(); })() : String(sampleShow_(want) == null ? '' : sampleShow_(want)).replace(/^'/, '').replace(/\s+/g, ' ').trim();
+-        cS.put(myKey(f), JSON.stringify({ by: meNow, v: shown }), 600); } catch (eK) { /* 넘어간다 */ }      // 내가 쓴 값 — 바로 다음 내 저장이 '다른 사람'으로 막히지 않게
++        cS.put(myKey(f), JSON.stringify({ by: meNow, v: shown }), 600); if (sidNow) (RB_SM_RECENT_PUT = RB_SM_RECENT_PUT || []).push({ rk: 'se:' + sidNow + ':' + f, rby: str_(meNow), rv: shown, rat: new Date().toISOString() }); } catch (eK) { /* 넘어간다 */ }      // 내가 쓴 값 — 바로 다음 내 저장이 '다른 사람'으로 막히지 않게(f493: 직접 저장 쪽 기록에도)
+       audits.push({ tab: RB.SAMPLE_TAB, row: row, col: K[f] + 1, what: '샘플 ' + RB_SAMPLE_F[f], before: sampleShow_(was), after: sampleShow_(want), item: str_(cur[K.name]) });
+       if (f === 'vendor') { oldVendor = str_(was) || '업체 미정'; newVendor = str_(fields[f]); }   // 업체 없이 등록한 줄이면 '업체 미정' 카드의 메모를 옮긴다
+     });
++    if (RB_SM_RECENT_PUT && RB_SM_RECENT_PUT.length && typeof sbFetch_ === 'function') { try { sbFetch_('post', '/rest/v1/rb_recent?on_conflict=rk', RB_SM_RECENT_PUT, { Prefer: 'resolution=merge-duplicates,return=minimal' }); } catch (eRp) { /* 넘어간다 */ } RB_SM_RECENT_PUT = null; }      // f493
+     if (oldVendor && newVendor && norm_(oldVendor) !== norm_(newVendor)) {
+       var n = sh.getLastRow() - C.hr;
+       var v = n > 0 ? sh.getRange(C.hr + 1, 1, n, width).getValues() : [];
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/ShimOff.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/ShimOff.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v270/ShimOff.js	2026-11-15 01:38:04.980549248 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/pn/ShimOff.js	2026-11-15 10:28:53.437330960 +0000
+@@ -77,6 +77,7 @@
+ 
+ /* ---------- 이슈 · 품질 · 품목 링크 ---------- */
+ function tabVirtual_(k, fn) { return fn(); }
++function tabVirtualHeld_(k, fn) { return fn(); }      // f494p: 진행 기록 끝맺기(회사판 TabShim) — 개인용은 시트에 바로
+ function tvLock_() { return LockService.getScriptLock(); }
+ function tvHook_(name) { return null; }
+ function tvSheetHook_(name) { return null; }
