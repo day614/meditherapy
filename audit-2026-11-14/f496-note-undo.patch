@@ -1,0 +1,77 @@
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/PageHtml.pre496.html	2026-11-15 10:37:26.295380914 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/PageHtml.html	2026-11-15 10:39:29.241368754 +0000
+@@ -25480,6 +25480,14 @@
+       L.splice(e.clientY < r.top + r.height / 2 ? to : to + 1, 0, mv); noteRender(mv.id, true); noteTouch();
+     });
+     body.addEventListener("dragend", function () { NOTE.drag = null; [].forEach.call(body.querySelectorAll(".dropa,.dropb"), function (x) { x.classList.remove("dropa", "dropb"); }); });
++    document.addEventListener("keydown", function (e) {      // f496: 메모장이 떠 있으면 Ctrl+Z · Ctrl+Y 는 메모장 것(실행판 다른 칸 · 브라우저 되돌리기로 가지 않게)
++      if (!(e.ctrlKey || e.metaKey) || e.altKey || $("ntPop").hidden) return;
++      var z = e.code === "KeyZ" || /^[zZㅋ]$/.test(e.key), y = e.code === "KeyY" || /^[yYㅛ]$/.test(e.key);
++      if (!z && !y) return;
++      var t = e.target; if (t && t !== document.body && !(t.closest && t.closest("#ntPop"))) return;
++      e.preventDefault(); e.stopPropagation();
++      noteMenuClose(); noteHistGo(z && !e.shiftKey);
++    }, true);
+     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("ntPop").hidden) { if (NOTE.menu) { noteMenuClose(); return; } noteClose(); } }, true);
+     document.addEventListener("mousedown", function (e) { if (NOTE.menu && !e.target.closest("#ntMenu")) noteMenuClose(); });
+     window.addEventListener("beforeunload", function (e) { if (NOTE.dirty || NOTE.busy) { noteSave(); e.preventDefault(); e.returnValue = ""; } });
+@@ -25668,6 +25676,7 @@
+     return '<div class="ntb t-' + b.t + (b.t === "todo" && b.c ? " done" : "") + '" data-id="' + b.id + '" style="--lv:' + lv + '"><span class="ntgrip" draggable="true" title="끌어서 옮기기 · 누르면 바꾸기 · 삭제">⋮⋮</span>' + pre + ed + "</div>";
+   }
+   function noteRender(focusId, atEnd, caretMark) {
++    NOTE.histBreak = true;
+     var pg = notePage(), ol = {};
+     noteSideRender();
+     $("ntTitle").value = pg.title || "";
+@@ -25679,6 +25688,7 @@
+       return noteBlockHtml(b, ol[lv] || 1);
+     }).join("");
+     if (focusId) noteFocus(focusId, atEnd, caretMark);
++    if (NOTE.histDoc !== NOTE.doc && !NOTE.histApplying) noteHistRec();      // f496: 불러온 내용 = 되돌리기 기준(그린 뒤라 화면 = 내용)
+   }
+   function noteGet(bel) { if (!bel) return null; var id = bel.dataset.id; return notePage().blocks.filter(function (b) { return b.id === id; })[0] || null; }
+   function noteIdx(id) { return notePage().blocks.findIndex(function (b) { return b.id === id; }); }
+@@ -25699,7 +25709,42 @@
+     if (end) t.setStart(r.endContainer, r.endOffset); else t.setEnd(r.startContainer, r.startOffset);
+     return t.toString().replace(/\u200b/g, "") === "";
+   }
+-  function noteTouch() { NOTE.dirty = true; noteStatus("입력 중…"); clearTimeout(NOTE.t); NOTE.t = setTimeout(noteSave, 1000); }
++  function noteTouch() { noteHistRec(); NOTE.dirty = true; noteStatus("입력 중…"); clearTimeout(NOTE.t); NOTE.t = setTimeout(noteSave, 1000); }
++  /* f496: 메모장 되돌리기(Ctrl+Z) · 다시(Ctrl+Shift+Z · Ctrl+Y) — 줄을 다시 그리면(Enter · 지우기 · 줄 합치기 등) 브라우저 되돌리기 기록이 사라져
++   *  Ctrl+Z 가 메모장 밖(실행판의 다른 입력 칸)을 되돌렸다(11/15 담당자). 메모장이 바뀔 때마다 직전 내용을 기억해 두고 직접 되돌린다.
++   *  이어서 치는 글자(0.8초 안)는 한 번에 되돌린다. 페이지만 옮긴 것은 기록하지 않는다. */
++  function noteHistKey() { return JSON.stringify(NOTE.doc.pages); }
++  function noteHistFocus() { var a = document.activeElement, bel = a && a.closest && a.closest("#ntBody .ntb"); return bel ? bel.dataset.id : ""; }
++  function noteHistRec(noFlush) {
++    if (!NOTE.doc || NOTE.histApplying) return;
++    if (NOTE.histDoc !== NOTE.doc) { NOTE.histDoc = NOTE.doc; NOTE.hist = []; NOTE.redo = []; NOTE.histLast = null; }
++    if (!noFlush) noteFlushAll();
++    var k = noteHistKey(), now = Date.now();
++    if (NOTE.histLast === null) { NOTE.histLast = { k: k, cur: NOTE.doc.cur, f: noteHistFocus() }; NOTE.histAt = now; return; }
++    if (k === NOTE.histLast.k) { NOTE.histLast.cur = NOTE.doc.cur; return; }
++    if (NOTE.histBreak || now - (NOTE.histAt || 0) > 800 || !NOTE.hist.length) {
++      NOTE.hist.push(NOTE.histLast); if (NOTE.hist.length > 300) NOTE.hist.shift();
++    }
++    NOTE.histBreak = false; NOTE.histAt = now; NOTE.redo = [];
++    NOTE.histLast = { k: k, cur: NOTE.doc.cur, f: noteHistFocus() };
++  }
++  function noteHistGo(back) {
++    if (!NOTE.doc) return;
++    if (NOTE.histDoc !== NOTE.doc || NOTE.histLast === null) noteHistRec();
++    noteHistRec();      // 아직 기록 안 된 마지막 입력까지
++    var from = back ? NOTE.hist : NOTE.redo, to = back ? NOTE.redo : NOTE.hist;
++    if (!from.length) { noteStatus(back ? "더 되돌릴 것이 없습니다" : "다시 할 것이 없습니다"); return; }
++    var st = from.pop(); to.push(NOTE.histLast);
++    NOTE.histApplying = true;
++    try {
++      NOTE.doc.pages = JSON.parse(st.k); NOTE.doc.cur = Math.min(st.cur || 0, NOTE.doc.pages.length - 1);
++      NOTE.histLast = st; NOTE.histBreak = true; NOTE.histAt = 0;
++      var pg = notePage(), fid = st.f && pg.blocks.some(function (b) { return b.id === st.f; }) ? st.f : (pg.blocks[pg.blocks.length - 1] || {}).id;
++      noteRender(fid, true);
++      noteFlushAll(); NOTE.histLast = { k: noteHistKey(), cur: NOTE.doc.cur, f: fid };      // 그린 뒤 읽은 값 기준(그리면서 모양이 조금 바뀌어도 '새 입력'으로 안 보게)
++      NOTE.dirty = true; noteStatus(back ? "되돌림 — 저장 중…" : "다시 함 — 저장 중…"); clearTimeout(NOTE.t); NOTE.t = setTimeout(noteSave, 1000);
++    } finally { NOTE.histApplying = false; }
++  }
+   function noteSnap() { noteFlushAll(); var d = JSON.parse(JSON.stringify(NOTE.doc)); d.pages.forEach(function (p) { p.blocks.forEach(function (b) { b.x = noteClean(b.x); if (b.t !== "todo") delete b.c; if (!b.lv) delete b.lv; }); }); d.at = new Date().toISOString(); return d; }
+   function noteSave(force) {
+     if (!NOTE.doc || (!NOTE.dirty && !force)) return;
