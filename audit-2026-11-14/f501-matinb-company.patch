@@ -1,0 +1,740 @@
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/Code.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/Code.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/Code.js	2026-11-16 05:24:58.358877607 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/Code.js	2026-11-16 05:36:07.840398587 +0000
+@@ -1985,7 +1985,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-16f500';
++var RB_BUILD = '2026-11-16f501';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/Journal.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/Journal.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/Journal.js	2026-11-16 05:24:49.747669567 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/Journal.js	2026-11-16 05:35:54.577481437 +0000
+@@ -581,7 +581,9 @@
+   try { if (typeof kvSeed_ === 'function') kvSeed_(); } catch (eKv) { /* 다음 1분에 */ }      // f497: 설정 값(옛 코드 그대로 · 네고 · 마감 상신) 원본을 rb_conf 로 한 번
+   try { if (typeof odConfPublish_ === 'function') { odConfPublish_(false); odDirectSelfTest_(); } } catch (eOdx) { try { console.log('발주 수정 직접 저장 설정 실패: ' + eOdx.message); } catch (eOdx2) { /* 다음 1분에 */ } }      // f497
+   jdm('pgxDrainIn_');
+-  try { if (typeof sm2Tick_ === 'function') sm2Tick_(); } catch (eSm2) { /* 다음 1분에 */ }      // f497: 샘플 직접 저장 2 — 켜짐 · 자체 시험 · 뒤처리(보기 탭 · 보관)
++  try { if (typeof sm2Tick_ === 'function') sm2Tick_(); } catch (eSm2) { /* 다음 1분에 */ }
++  try { if (typeof matDbTick_ === 'function') matDbTick_(); } catch (eMi) { /* 다음 1분에 */ }      // BOM 자재 입고 — 켜기(자체 시험 · 시트에서 옮김) · 시트 사본 맞추기
++  jdm('matDbTick_');      // f497: 샘플 직접 저장 2 — 켜짐 · 자체 시험 · 뒤처리(보기 탭 · 보관)
+   // 2026-11-02 담당자(전체가 느리다): 첫 화면 목록 · 오늘 보고서 미리 준비를 10분 작업에서 1분 작업으로도 —
+   // 누가 저장하면 캐시가 비고, 10분 작업이 돌 때까지 다음에 여는 사람이 첫 화면 6초 · 보고서 20초를 기다렸다.
+   // 근무 시간(7~21시) · 배포판과 같은 코드일 때만, 비어 있을 때만 한다(차 있으면 캐시 칸 수만 보고 끝 — 1초 안).
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/MatInb.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/MatInb.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/MatInb.js	1970-01-01 00:00:00.000000000 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/MatInb.js	2026-11-16 05:35:54.584910195 +0000
+@@ -0,0 +1,149 @@
++/**
++ * ============================================================
++ * BOM 자재 입고(2026-11-16 담당자) — 발주 상세 [▸ BOM 자재 입고]  · 회사 · 개인용 공통
++ * ------------------------------------------------------------
++ *  · 이 발주(완제품 · 반제품 등 BOM 있는 품목) 차수의 BOM 자재마다 부분 입고(입고일 · 수량 · 메모)를 여러 번 적는다. 돈(금액)은 없다 — AP 금액에 안 들어간다.
++ *  · 사급 자재는 그 자재코드 발주(사급 발주)에 연결하면 그 발주의 지급 줄을 보기만 한다(입고는 사급 발주에서만 — 두 번 세지 않게).
++ *    연결 = { 발주ID · 자재코드 → 사급 발주ID }, '-' = 연결 안 함(여기서 적음), 없음 = 화면이 자동으로 고름.
++ *  · 회사판: Supabase 가 원본(SQL m140_mat_inb · MatInbDb.js) — 화면은 rb_mat_save 를 바로 부르고, 이 서버 길(apiMatInbSave)도 같은 함수(rb_mat_save_srv).
++ *    시트 탭(_실행판_자재입고 · _실행판_자재연결)은 1분 작업(matDbDrainIn_)이 맞추는 보기 · 백업용 사본.
++ *  · 개인용(Supabase 없음) · 회사판 켜지기 전: 숨김 탭에 바로 읽고 쓴다(규칙은 SQL rb_mat_do 와 같다 — 문구 · 검사 · 판 확인).
++ * ============================================================
++ */
++var RB_MAT_TAB = '_실행판_자재입고';
++var RB_MAT_HEAD = ['줄ID', '발주ID', '자재코드', '입고일', '수량', '메모', '저장한 사람', '저장 시각', '고친 사람', '고친 시각', '판'];
++var RB_MATL_TAB = '_실행판_자재연결';
++var RB_MATL_HEAD = ['발주ID', '자재코드', '사급 발주ID', '저장한 사람', '저장 시각'];
++
++function matDbUse_() { try { return typeof matDbOn_ === 'function' && matDbOn_(); } catch (e) { return false; } }
++
++/** 화면: 한 발주 건의 자재 입고 줄 · 사급 연결 */
++function apiMatInbGet(oid) {
++  oid = str_(oid);
++  if (!oid) throw new Error('발주 건을 알 수 없습니다.');
++  if (matDbUse_()) return matDbGet_(oid);
++  return matSheetState_(matSheetRead_(), oid);
++}
++/** 화면: 저장 — op = add(줄 더하기) · set(고치기) · del(지우기) · link(사급 연결 바꾸기). 결과 = 그 건의 지금 값 */
++function apiMatInbSave(op, args) {
++  requireEditor_();
++  args = args || {};
++  if (matDbUse_()) return matDbSave_(op, args);
++  return matSheetSave_(str_(op), args);
++}
++
++/* ---------- 검사(SQL rb_mat_txt · rb_mat_day · rb_mat_num 과 같은 규칙 · 같은 문구) ---------- */
++function matTxt_(v) { return v == null ? '' : String(v).trim(); }
++function matDay_(t) {
++  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) throw new Error('RB_MAT_BAD 입고일은 yyyy-mm-dd 로 적어 주세요(' + t + ').');
++  var p = t.split('-').map(Number), d = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
++  if (d.getUTCFullYear() !== p[0] || d.getUTCMonth() !== p[1] - 1 || d.getUTCDate() !== p[2]) throw new Error('RB_MAT_BAD 없는 날짜입니다(' + t + ').');
++  if (t < '2000-01-01' || t > '2100-12-31') throw new Error('RB_MAT_BAD 입고일이 이상합니다(' + t + ').');
++  return t;
++}
++function matNum_(t) {
++  var s = String(t == null ? '' : t).replace(/[, ]/g, '');
++  if (!/^\d+(\.\d{1,4})?$/.test(s)) throw new Error('RB_MAT_BAD 수량은 0보다 큰 숫자로 적어 주세요(' + (t == null ? '' : t) + ').');
++  var n = Number(s);
++  if (!(n > 0)) throw new Error('RB_MAT_BAD 수량은 0보다 커야 합니다.');
++  if (n > 1000000000) throw new Error('RB_MAT_BAD 수량이 너무 큽니다(' + t + ').');
++  return n;
++}
++function matCode_(v) { return matTxt_(v).replace(/\s/g, '').toUpperCase(); }
++
++/* ---------- 시트 길 ---------- */
++function matCellIso_(v) {
++  if (v instanceof Date) return v.toISOString();
++  return str_(v);
++}
++function matCellDay_(v) {
++  if (v instanceof Date) return Utilities.formatDate(v, tz_(), 'yyyy-MM-dd');
++  return str_(v).slice(0, 10);
++}
++function matSheetRead_() {
++  var sh = tab_(RB_MAT_TAB, RB_MAT_HEAD), lr = sh.getLastRow(), lines = [];
++  if (lr > 1) sh.getRange(2, 1, lr - 1, RB_MAT_HEAD.length).getValues().forEach(function (x, i) {
++    if (!str_(x[0]) || !str_(x[1])) return;
++    lines.push({ r: i + 2, id: str_(x[0]), oid: str_(x[1]), code: str_(x[2]).toUpperCase(), d: matCellDay_(x[3]), qty: Number(String(x[4]).replace(/,/g, '')) || 0, memo: str_(x[5]),
++      by: str_(x[6]), at: matCellIso_(x[7]), updBy: str_(x[8]), updAt: matCellIso_(x[9]) || null, ver: Number(x[10]) || 1 });
++  });
++  var shl = tab_(RB_MATL_TAB, RB_MATL_HEAD), ll = shl.getLastRow(), links = [];
++  if (ll > 1) shl.getRange(2, 1, ll - 1, RB_MATL_HEAD.length).getValues().forEach(function (x, i) {
++    if (!str_(x[0]) || !str_(x[1]) || !str_(x[2])) return;
++    links.push({ r: i + 2, oid: str_(x[0]), code: str_(x[1]).toUpperCase(), link: str_(x[2]), by: str_(x[3]), at: matCellIso_(x[4]) });
++  });
++  return { sh: sh, shl: shl, lines: lines, links: links };
++}
++/** SQL rb_mat_state 와 같은 모양(줄 순서: 자재코드 · 입고일 · 저장 시각 · ID) */
++function matSheetState_(S, oid) {
++  var L = S.lines.filter(function (x) { return x.oid === oid; }).map(function (x) {
++    return { id: x.id, code: x.code, d: x.d, qty: x.qty, memo: x.memo, by: x.by, at: x.at, updBy: x.updBy, updAt: x.updAt, ver: x.ver };
++  });
++  L.sort(function (a, b) { return a.code < b.code ? -1 : a.code > b.code ? 1 : a.d < b.d ? -1 : a.d > b.d ? 1 : a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
++  var links = {};
++  S.links.forEach(function (x) { if (x.oid === oid) links[x.code] = { link: x.link, by: x.by, at: x.at }; });
++  return { oid: oid, lines: L, links: links };
++}
++function matSheetSave_(op, a) {
++  var oid = matTxt_(a.oid), id = matTxt_(a.id), code = matCode_(a.code), me = str_(me_()).toLowerCase() || '(알 수 없음)';
++  if (!oid || oid.length > 80) throw new Error('RB_MAT_BAD 발주 건을 알 수 없습니다.');
++  if (['add', 'set', 'del', 'link'].indexOf(op) < 0) throw new Error('RB_MAT_BAD 모르는 저장(' + op + ').');
++  var base = /^\d+$/.test(matTxt_(a.ver)) ? Number(matTxt_(a.ver)) : null, memo = '', d = '', q = 0;
++  if (op === 'add' || op === 'set') {
++    memo = matTxt_(a.memo);
++    if (memo.length > 300) throw new Error('RB_MAT_BAD 메모는 300자까지입니다.');
++    d = matDay_(matTxt_(a.d));
++    q = matNum_(matTxt_(a.qty));
++  }
++  if (op !== 'link' && !/^[A-Za-z0-9_-]{6,64}$/.test(id)) throw new Error('RB_MAT_BAD 입고 줄 ID 가 이상합니다.');
++  if ((op === 'add' || op === 'link') && (!code || code.length > 40)) throw new Error('RB_MAT_BAD 자재코드가 없습니다.');
++  var lock = LockService.getScriptLock();
++  waitLock_(lock, 30000);
++  try {
++    var S = matSheetRead_(), now = new Date().toISOString(), out = function (x) { var st = matSheetState_(matSheetRead_(), oid); Object.keys(x || {}).forEach(function (k) { st[k] = x[k]; }); return st; };
++    var cur = S.lines.filter(function (x) { return x.id === id; })[0] || null;
++    var who = function (c) { return c.updBy || c.by; };
++    if (op === 'add') {
++      if (cur) {
++        if (cur.oid === oid && cur.code === code && cur.d === d && cur.qty === q && cur.memo === memo) return out({ op: op, id: id, again: 1 });
++        throw new Error('RB_MAT_BAD 같은 입고 줄 ID 가 이미 있습니다 — 다시 불러온 뒤 적어 주세요.');
++      }
++      var lk = (S.links.filter(function (x) { return x.oid === oid && x.code === code; })[0] || {}).link || '';
++      if (lk && lk !== '-') throw new Error('RB_MAT_LINKED 이 자재는 사급 발주(' + lk + ')에 연결돼 있어 여기서 입고를 적지 않습니다 — 그 발주에서 입고를 등록하거나 연결을 풀어 주세요.');
++      var r = S.sh.getLastRow() + 1; if (r > S.sh.getMaxRows()) S.sh.insertRowsAfter(S.sh.getMaxRows(), 1);
++      var rg = S.sh.getRange(r, 1, 1, RB_MAT_HEAD.length); rg.setNumberFormat('@');
++      rg.setValues([[id, oid, code, d, String(q), memo, me, now, '', '', '1']]);
++    } else if (op === 'set') {
++      if (!cur || cur.oid !== oid) throw new Error('RB_MAT_GONE 그사이 지워진 입고 줄입니다 — 다시 불러왔습니다.');
++      if (cur.d === d && cur.qty === q && cur.memo === memo) return out({ op: op, id: id, same: 1 });
++      if (base !== null && base !== cur.ver) throw new Error('RB_MAT_CHANGED 그사이 ' + who(cur) + '님이 이 입고 줄을 고쳤습니다 — 다시 불러왔으니 확인 후 다시 고쳐 주세요.');
++      var rs = S.sh.getRange(cur.r, 4, 1, 8); rs.setNumberFormat('@');
++      rs.setValues([[d, String(q), memo, cur.by, cur.at, me, now, String(cur.ver + 1)]]);
++    } else if (op === 'del') {
++      if (!cur) return out({ op: op, id: id, again: 1 });
++      if (cur.oid !== oid) throw new Error('RB_MAT_BAD 다른 발주 건의 입고 줄입니다.');
++      if (base !== null && base !== cur.ver) throw new Error('RB_MAT_CHANGED 그사이 ' + who(cur) + '님이 이 입고 줄을 고쳤습니다 — 다시 불러왔으니 확인 후 지워 주세요.');
++      S.sh.deleteRow(cur.r);
++    } else {
++      var link = matTxt_(a.link);
++      if (link.length > 80) throw new Error('RB_MAT_BAD 연결할 발주가 이상합니다.');
++      if (link === oid) throw new Error('RB_MAT_BAD 자기 발주에는 연결할 수 없습니다.');
++      var L0 = S.links.filter(function (x) { return x.oid === oid && x.code === code; })[0] || null;
++      if (link && link !== '-') {
++        var n = S.lines.filter(function (x) { return x.oid === oid && x.code === code; }).length;
++        if (n > 0) throw new Error('RB_MAT_HAS_LINES 이 자재에 여기서 적은 입고가 ' + n + '줄 있습니다 — 같은 입고가 두 번 세어지지 않게 먼저 지운 뒤 연결해 주세요.');
++      }
++      if ((L0 ? L0.link : '') === link) return out({ op: op, same: 1 });
++      if (!link) S.shl.deleteRow(L0.r);
++      else if (L0) { var rl = S.shl.getRange(L0.r, 3, 1, 3); rl.setNumberFormat('@'); rl.setValues([[link, me, now]]); }
++      else {
++        var r2 = S.shl.getLastRow() + 1; if (r2 > S.shl.getMaxRows()) S.shl.insertRowsAfter(S.shl.getMaxRows(), 1);
++        var rg2 = S.shl.getRange(r2, 1, 1, RB_MATL_HEAD.length); rg2.setNumberFormat('@'); rg2.setValues([[oid, code, link, me, now]]);
++      }
++    }
++    SpreadsheetApp.flush();
++    return out({ op: op, id: id || null });
++  } finally {
++    lock.releaseLock();
++  }
++}
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/MatInbDb.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/MatInbDb.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/MatInbDb.js	1970-01-01 00:00:00.000000000 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/MatInbDb.js	2026-11-16 05:35:54.588482176 +0000
+@@ -0,0 +1,116 @@
++/**
++ * ============================================================
++ * BOM 자재 입고 — Supabase 원본(SQL m140_mat_inb) · 회사용만 (공통 길은 MatInb.js)
++ * ------------------------------------------------------------
++ *  · 화면은 세션 표로 rb_mat_save / rb_mat_get 을 바로 부른다(세션 'mi'). 서버 길(apiMatInbSave · apiMatInbGet)도 같은 함수(rb_mat_save_srv · rb_mat_get_srv).
++ *  · 켜기(1분 작업 matDbTick_): SQL m140 뒤 자체 시험(matDbSelfTest_ — 서버 길 더하기 · 고치기 · 판 확인 · 지우기 · 연결 막기 · 공개 키로 표 안 읽힘 · 없는 세션)
++ *    → 스크립트 잠금 안에서 시트 탭(켜기 전 서버 길로 적은 것)을 rb_mat_import 로 옮기고 rb_conf 'miConf' 켬 → rb.matDb = ok.
++ *    (잠금 안이라 그사이 시트 길 저장이 끼지 않는다 — 시트 길도 같은 스크립트 잠금.)
++ *  · 시트 사본: rb_tab_job(tab='mi')이 있으면 matDbDrainIn_ 이 두 탭을 Supabase 값 전체로 다시 쓴다(줄 수가 적다 — 칸 맞추기보다 단순 · 틀릴 일 없음).
++ *  · 끄기: 스크립트 속성 rb.matDb 를 지우면 서버 길은 시트로 — 단 그동안 Supabase 에만 있는 줄은 시트 사본에 이미 있다(1분 작업). 화면 직접은 rb_conf miConf on≠1 이면 RB_FALLBACK.
++ * ============================================================
++ */
++function matDbMig_() { return typeof sbMigDone_ === 'function' && sbMigDone_('m140_mat_inb'); }
++function matDbOn_() { try { return /^ok/.test(str_(PropertiesService.getScriptProperties().getProperty('rb.matDb'))) && !!sbKey_() && matDbMig_(); } catch (e) { return false; } }
++
++/** 서비스 키로 부르기 — 오류는 함수가 낸 문구 그대로 */
++function matDbRpc_(fn, args) {
++  var k = sbKey_(), res = UrlFetchApp.fetch(sbUrl_() + '/rest/v1/rpc/' + fn, { method: 'post', contentType: 'application/json',
++    headers: { apikey: k, Authorization: 'Bearer ' + k }, payload: JSON.stringify(args || {}), muteHttpExceptions: true });
++  var code = res.getResponseCode(), txt = String(res.getContentText() || '');
++  if (code < 200 || code >= 300) { var m = ''; try { m = (JSON.parse(txt) || {}).message || ''; } catch (e) { m = ''; } throw new Error(m || ('자재 입고 저장 실패(Supabase ' + code + ')')); }
++  return txt ? JSON.parse(txt) : null;
++}
++function matDbGet_(oid) { return matDbRpc_('rb_mat_get_srv', { p_oid: oid }); }
++function matDbSave_(op, args) {
++  var r = matDbRpc_('rb_mat_save_srv', { p_email: str_(me_()).toLowerCase(), p_op: str_(op), p_args: args || {} });
++  try { journalTriggerEnsure_(true); } catch (e) { /* 1분 작업이 곧 맞춘다 */ }
++  return r;
++}
++
++/** Supabase 전체(1000줄씩) */
++function matDbAll_(path) {
++  var out = [], off = 0;
++  while (true) {
++    var L = sbFetch_('get', path + (path.indexOf('?') > -1 ? '&' : '?') + 'limit=1000&offset=' + off) || [];
++    out = out.concat(L);
++    if (L.length < 1000) break;
++    off += 1000;
++    if (off > 200000) throw new Error('자재 입고 줄이 너무 많습니다');
++  }
++  return out;
++}
++/** 시트 사본 맞추기: 남은 'mi' 일이 있으면 두 탭을 Supabase 값으로 다시 쓴다. force = 일이 없어도(첫 켜기 뒤 · 손으로) */
++function matDbDrainIn_(force) {
++  if (!matDbOn_()) return 0;
++  var J = sbFetch_('get', '/rest/v1/rb_tab_job?select=id&tab=eq.mi&done_at=is.null&order=id&limit=500') || [];
++  if (!J.length && !force) return 0;
++  var A = matDbAll_('/rest/v1/rb_mat_inb?select=id,oid,code,d,qty,memo,by_email,at,upd_by,upd_at,ver&order=oid,code,d,at,id');
++  var B = matDbAll_('/rest/v1/rb_mat_link?select=oid,code,link,by_email,at&order=oid,code');
++  var put = function (sh, head, rows) {
++    var lr = sh.getLastRow();
++    if (rows.length + 1 > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), rows.length + 1 - sh.getMaxRows());
++    if (rows.length) { var rg = sh.getRange(2, 1, rows.length, head.length); rg.setNumberFormat('@'); rg.setValues(rows); }
++    if (lr > rows.length + 1) sh.getRange(rows.length + 2, 1, lr - rows.length - 1, head.length).clearContent();
++  };
++  put(tab_(RB_MAT_TAB, RB_MAT_HEAD), RB_MAT_HEAD, A.map(function (x) {
++    return [str_(x.id), str_(x.oid), str_(x.code), str_(x.d), String(x.qty == null ? '' : x.qty), str_(x.memo), str_(x.by_email), str_(x.at), str_(x.upd_by), str_(x.upd_at), String(x.ver || 1)];
++  }));
++  put(tab_(RB_MATL_TAB, RB_MATL_HEAD), RB_MATL_HEAD, B.map(function (x) { return [str_(x.oid), str_(x.code), str_(x.link), str_(x.by_email), str_(x.at)]; }));
++  SpreadsheetApp.flush();
++  if (J.length) sbFetch_('patch', '/rest/v1/rb_tab_job?id=in.(' + J.map(function (x) { return x.id; }).join(',') + ')', { done_at: new Date().toISOString() }, { Prefer: 'return=minimal' });
++  try { PropertiesService.getScriptProperties().setProperty('rb.matSync', new Date().toISOString() + ' 줄 ' + A.length + ' · 연결 ' + B.length + ' · 일 ' + J.length); } catch (eP) { /* 넘어간다 */ }
++  return J.length;
++}
++
++/** 자체 시험 → 시트에 있던 것 옮기기 → 켬 */
++function matDbSelfTest_() {
++  var P = PropertiesService.getScriptProperties();
++  if (!sbKey_() || !matDbMig_() || /^ok/.test(str_(P.getProperty('rb.matDb')))) return;
++  var c = CacheService.getScriptCache(); if (c.get('sb:matTest')) return; c.put('sb:matTest', '1', 240);      // 실패하면 4분 뒤 다시
++  var T = 'selftest@rb.local', O = '__rbtest_mat__', id = 'mi_selftest_' + Date.now().toString(36);
++  try {
++    var ex = function (f, want) { var e0 = null; try { f(); } catch (e) { e0 = e; } if (!e0 || !new RegExp(want).test(String(e0.message))) throw new Error(want + ' 가 안 남: ' + (e0 ? e0.message : '통과함')); };
++    var a = matDbRpc_('rb_mat_save_srv', { p_email: T, p_op: 'add', p_args: { oid: O, id: id, code: 'HP9999AA1', d: '2026-01-02', qty: '1,500', memo: '시험' } });
++    if (!a || !a.lines || a.lines.length !== 1 || Number(a.lines[0].qty) !== 1500 || a.lines[0].d !== '2026-01-02') throw new Error('더하기 결과가 다름: ' + JSON.stringify(a).slice(0, 160));
++    var a2 = matDbRpc_('rb_mat_save_srv', { p_email: T, p_op: 'add', p_args: { oid: O, id: id, code: 'HP9999AA1', d: '2026-01-02', qty: '1500', memo: '시험' } });
++    if (!a2 || !a2.again || a2.lines.length !== 1) throw new Error('같은 요청 다시가 두 줄이 됨');
++    var s = matDbRpc_('rb_mat_save_srv', { p_email: T, p_op: 'set', p_args: { oid: O, id: id, d: '2026-01-03', qty: '7', memo: '', ver: 1 } });
++    if (!s || s.lines[0].ver !== 2 || Number(s.lines[0].qty) !== 7) throw new Error('고치기 결과가 다름');
++    ex(function () { matDbRpc_('rb_mat_save_srv', { p_email: T, p_op: 'set', p_args: { oid: O, id: id, d: '2026-01-03', qty: '8', ver: 1 } }); }, 'RB_MAT_CHANGED');
++    ex(function () { matDbRpc_('rb_mat_save_srv', { p_email: T, p_op: 'add', p_args: { oid: O, id: id + 'x', code: 'HP9999AA1', d: '2026-02-30', qty: '1' } }); }, 'RB_MAT_BAD');
++    ex(function () { matDbRpc_('rb_mat_save_srv', { p_email: T, p_op: 'link', p_args: { oid: O, code: 'HP9999AA1', link: 'S1' } }); }, 'RB_MAT_HAS_LINES');
++    var dl = matDbRpc_('rb_mat_save_srv', { p_email: T, p_op: 'del', p_args: { oid: O, id: id, ver: 2 } });
++    if (!dl || dl.lines.length) throw new Error('지우기 결과가 다름');
++    matDbRpc_('rb_mat_save_srv', { p_email: T, p_op: 'link', p_args: { oid: O, code: 'HP9999AA1', link: 'S1' } });
++    ex(function () { matDbRpc_('rb_mat_save_srv', { p_email: T, p_op: 'add', p_args: { oid: O, id: id + 'y', code: 'HP9999AA1', d: '2026-01-02', qty: '1' } }); }, 'RB_MAT_LINKED');
++    matDbRpc_('rb_mat_save_srv', { p_email: T, p_op: 'link', p_args: { oid: O, code: 'HP9999AA1', link: '' } });
++    ex(function () { sbRpcAnon_('rb_mat_save', { p_token: 'not-a-session', p_op: 'add', p_args: {} }); }, 'RB_SESSION');
++    ex(function () { sbRpcAnon_('rb_mat_save_srv', { p_email: T, p_op: 'add', p_args: {} }); }, '40[13]|permission');
++    var k = sbAnon_(), rr = UrlFetchApp.fetch(sbUrl_() + '/rest/v1/rb_mat_inb?select=id&limit=1', { headers: { apikey: k, Authorization: 'Bearer ' + k }, muteHttpExceptions: true });
++    if (rr.getResponseCode() === 200 && (JSON.parse(rr.getContentText() || '[]') || []).length) throw new Error('공개 키로 자재 입고 표가 읽힘(RLS 확인)');
++    // 시험 흔적 지우기(기록 · 시트 일)
++    sbFetch_('delete', '/rest/v1/rb_mat_log?oid=eq.' + O, undefined, { Prefer: 'return=minimal' });
++    sbFetch_('delete', '/rest/v1/rb_tab_job?tab=eq.mi&' + encodeURIComponent('job->>oid') + '=eq.' + O, undefined, { Prefer: 'return=minimal' });
++    // 켜기 — 시트 길 저장과 겹치지 않게 같은 스크립트 잠금 안에서 옮기고 켠다
++    var lock = LockService.getScriptLock();
++    if (!lock.tryLock(20000)) throw new Error('잠금을 못 잡아 다음에 켭니다');
++    var n;
++    try {
++      var S = matSheetRead_();
++      n = matDbRpc_('rb_mat_import', { p_rows: S.lines.map(function (x) { return { id: x.id, oid: x.oid, code: x.code, d: x.d, qty: String(x.qty), memo: x.memo, by: x.by, at: x.at, updBy: x.updBy, updAt: x.updAt || '', ver: String(x.ver) }; }),
++        p_links: S.links.map(function (x) { return { oid: x.oid, code: x.code, link: x.link, by: x.by, at: x.at }; }), p_on: false });
++      if (n && n.bad) throw new Error('시트 줄 ' + n.bad + '개를 옮기지 못해 켜지 않습니다(입고일 · 수량 모양 확인 — ' + RB_MAT_TAB + ')');      // 켜면 사본 맞추기가 시트를 Supabase 값으로 다시 써 그 줄이 사라진다
++      matDbRpc_('rb_mat_import', { p_rows: [], p_links: [], p_on: true });
++      P.setProperty('rb.matDb', 'ok ' + new Date().toISOString() + ' · 시트에서 옮김 줄 ' + (n && n.lines) + ' · 연결 ' + (n && n.links));
++    } finally { lock.releaseLock(); }
++    try { matDbDrainIn_(true); } catch (eD) { /* 다음 1분에 */ }
++  } catch (e) {
++    P.setProperty('rb.matDb', '실패 ' + new Date().toISOString() + ' ' + String(e && e.message || e).slice(0, 300));
++  }
++}
++/** 1분 작업 */
++function matDbTick_() {
++  try { matDbSelfTest_(); } catch (e) { /* 다음 1분에 */ }
++  try { matDbDrainIn_(false); } catch (e2) { try { PropertiesService.getScriptProperties().setProperty('rb.matJobErr', new Date().toISOString() + ' ' + String(e2 && e2.message || e2).slice(0, 300)); } catch (e3) { /* 넘어간다 */ } }
++}
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/Notes.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/Notes.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/Notes.js	2026-11-16 05:24:49.764747857 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/Notes.js	2026-11-16 05:36:07.760255199 +0000
+@@ -153,5 +153,6 @@
+   var sm2 = 0; try { sm2 = typeof sm2On_ === 'function' && sm2On_() ? 1 : 0; } catch (eSm2) { sm2 = 0; }      // f497: 샘플 저장(진행 메모 · 완료 · 상태 · 프로젝트 …) 직접 2(켜짐은 SQL 이 pgConf · sm2Conf 로 다시 봄)
+   var bp = function (k) { try { return typeof bomPathOn_ === 'function' && bomPathOn_(k) ? 1 : 0; } catch (eBp) { return 0; } };      // f359: BOM 길마다(N차만 정정 · 되돌리기 · 새 품목코드)
+   var pos = 0; try { pos = typeof poDirectMig_ === 'function' && poDirectMig_() && /^ok/.test(str_(PropertiesService.getScriptProperties().getProperty('rb.poDirectTest'))) ? 1 : 0; } catch (ePos) { pos = 0; }      // f497: 발주 등록 · 품목코드 등록 · 업체 추가 · 기안 원복 · 상신 대기/완료 직접(켜짐은 SQL 이 poConf 로 다시 봄)
+-  return { direct: 1, url: sbUrl_(), anon: anon, token: t.token, exp: t.exp, me: me, pds: pds, pgs: pgs, pos: pos, ods: ods, sm2: sm2, cf: cf, iss: iss, ql: ql, lk: lk, it: it, cl: cl, sm: sm, ln: ln, od: od, li: li, pj: pj, bom: bom, bomfx: bp('fx'), bomun: bp('un'), bomnv: bp('nv'), bomfm: bp('fm'), bomord: bp('ord'), bomck: bp('ck'), bomcs: bp('cs'), bomcm: bp('cm'), bomhf: bp('hf') };
++  var mi = 0; try { mi = typeof matDbOn_ === 'function' && matDbOn_() ? 1 : 0; } catch (eMi) { mi = 0; }      // BOM 자재 입고(SQL m140 · 켜짐은 SQL 이 miConf 로 다시 봄)
++  return { direct: 1, url: sbUrl_(), anon: anon, token: t.token, exp: t.exp, me: me, mi: mi, pds: pds, pgs: pgs, pos: pos, ods: ods, sm2: sm2, cf: cf, iss: iss, ql: ql, lk: lk, it: it, cl: cl, sm: sm, ln: ln, od: od, li: li, pj: pj, bom: bom, bomfx: bp('fx'), bomun: bp('un'), bomnv: bp('nv'), bomfm: bp('fm'), bomord: bp('ord'), bomck: bp('ck'), bomcs: bp('cs'), bomcm: bp('cm'), bomhf: bp('hf') };
+ }
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/PageHtml.html /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/PageHtml.html
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/PageHtml.html	2026-11-16 05:24:49.807344993 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/PageHtml.html	2026-11-16 05:36:07.826717066 +0000
+@@ -681,6 +681,46 @@
+   .vowner select { font: inherit; font-size: 12px; border: 0; background: transparent; color: inherit; padding: 0 2px; cursor: pointer; }
+   #bomv:has(#bomv-new:not([hidden])) #bomv-bar, #bomv:has(#bomv-new:not([hidden])) #bomv-wrap, #bomv:has(#bomv-new:not([hidden])) #bomv-pend,
+   #bomv:has(#bomv-new:not([hidden])) #bomv-log, #bomv:has(#bomv-new:not([hidden])) #bomv-used { display: none !important; }   /* 신제품 등록 중엔 보던 품목 BOM 을 숨긴다 */
++  /* BOM 자재 입고(2026-11-16) — 지급 줄 표(lnbox · lntab) 모양 그대로 */
++  .mibox { border: 1px solid var(--line); border-radius: 10px; margin: 10px 0; background: var(--surface); overflow-x: hidden; }
++  .mihead { display: flex; align-items: center; gap: 6px; width: 100%; padding: 10px 12px; border: 0; background: none; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; color: inherit; }
++  .mihead b { font-weight: 700; }
++  .mihead .mitw { width: 12px; color: var(--ink-3); }
++  .mihead .misum { color: var(--ink-3); margin-left: 6px; font-variant-numeric: tabular-nums; }
++  .mibody { padding: 0 12px 12px; }
++  .mihint { font-size: 12px; color: var(--ink-3); margin: 0 0 8px; line-height: 1.5; }
++  .mihint b { color: inherit; font-weight: 600; }
++  .mitab { min-width: 600px; }
++  .mitab > tbody > tr > td.mc, .mitab > tbody > tr > td.mn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
++  .mitab > tbody > tr > td.q { text-align: right; font-variant-numeric: tabular-nums; padding-right: 8px; width: auto; }
++  .mitab > thead th:nth-child(5), .mitab > thead th:nth-child(6), .mitab > thead th:nth-child(7) { text-align: right; padding-right: 8px; }
++  .mitab > tbody > tr > td.mizero { color: var(--ink-3); }
++  .mitab > tbody > tr.midone > td { background: color-mix(in srgb, var(--ok) 8%, var(--surface)); }
++  .mitab > tbody > tr.mimat > td { border-bottom: 0; padding-top: 6px; }
++  .mitab > tbody > tr.midet > td { padding: 0 4px 8px 16px; border-bottom: 1px solid var(--line); }
++  .mitab > tbody > tr.mimat > td.x { width: auto; text-align: right; }
++  .mibuy { display: inline-block; padding: 0 6px; border-radius: 999px; font-size: 11.5px; background: var(--surface-2, #f1f3f5); }
++  .mibuy.sg { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); font-weight: 600; }
++  .milink { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 4px; font-size: 12px; }
++  .milink .milab { color: var(--ink-3); }
++  .milink select { max-width: 360px; width: auto; }
++  .misub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
++  .miro { color: var(--ink-3); }
++  .michip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; border: 1px solid var(--line); background: var(--surface); font-variant-numeric: tabular-nums; white-space: nowrap; margin: 1px 0; }
++  .michip.in { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 10%, var(--surface)); }
++  .michip.plan { border-style: dashed; }
++  .lntab .milines { width: 100%; min-width: 0; border-collapse: collapse; font-size: 12px; table-layout: fixed; margin-top: 2px; }
++  .lntab .milines th { text-align: left; font-weight: 600; padding: 2px 4px; color: var(--ink-3); border-bottom: 1px solid var(--line); }
++  .lntab .milines td { padding: 2px 4px; border-bottom: 1px dashed var(--line); vertical-align: middle; background: transparent; }
++  .lntab .milines td.mq { text-align: right; font-variant-numeric: tabular-nums; }
++  .lntab .milines th:nth-child(2) { text-align: right; }
++  .lntab .milines td.mw { color: var(--ink-3); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
++  .lntab .milines td.mx { white-space: nowrap; text-align: right; }
++  .lntab .milines td.mx .btn-sm { padding: 2px 6px; }
++  .lntab .milines input { font: inherit; font-size: 12px; padding: 3px 4px; border: 1px solid var(--line-strong); border-radius: 6px; width: 100%; box-sizing: border-box; }
++  .mierr { color: var(--late); font-size: 12px; font-weight: 600; }
++  .lnmat { font-size: 12px; margin: -4px 0 8px; line-height: 1.9; color: var(--ink-2, inherit); }
++  .lnmat small { color: var(--ink-3); }
+   .lnwarn { margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; background: #fff4e5; color: #8a4b00; font-size: 12.5px; }
+   .bomvlinks { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+   .linkbtn { display: inline-flex; align-items: center; gap: 3px; text-decoration: none; margin: 0 4px 2px 0; }
+@@ -3405,7 +3445,7 @@
+     bar.innerHTML = "🔒 " + (cx ? "취소된" : "종결된") + " 건입니다 — 지급 줄 · 체크 · 날짜 · 메모 · 발주 수정이 잠겨 있습니다. 고치려면 먼저 " +
+       '<button type="button" class="btn btn-sm" data-unlock="' + (cx ? "cancel" : "close") + '">' + (cx ? "취소 풀기" : "종결 풀기") + "</button>";
+     [].forEach.call(document.querySelectorAll("#ladder input, #ladder textarea, #ladder select, #ladder button, #runhead input, #runhead select, #runhead button"), function (el) {
+-      if (el.id === "stateSel" || el.closest("[data-postep]") || el.classList.contains("card-head") || el.hasAttribute("data-sampgo") || el.hasAttribute("data-lnreopen") || el.hasAttribute("data-bomopen")) return;
++      if (el.id === "stateSel" || el.closest("[data-postep]") || el.classList.contains("card-head") || el.hasAttribute("data-sampgo") || el.hasAttribute("data-lnreopen") || el.hasAttribute("data-bomopen") || el.hasAttribute("data-mitoggle") || el.hasAttribute("data-miopen") || el.hasAttribute("data-mireload")) return;
+       el.disabled = true;
+     });
+   }
+@@ -4084,8 +4124,10 @@
+       var lv0 = LASTVER_BY[src];
+       var chR = v.r !== lv0.r && verWho(v.r) !== DATA.me;   // 시트 쪽은 무거우니 내가 바꾼 건 건너뜀
+       var chP = v.p !== lv0.p, chL = v.l !== lv0.l, chN = v.n !== lv0.n && verWho(v.n) !== DATA.me;
++      var chM = v.mi !== lv0.mi && verWho(v.mi) !== DATA.me;      // BOM 자재 입고(rb_ver 'mi') — 남이 바꿨으면 열린 건만 다시 읽는다
+       LASTVER_BY[src] = v; lastVer = v;
+       if (chN) loadNotice();
++      if (chM && typeof miLoad === "function" && MI.id && currentId === MI.id && !$("view-run").hidden) { var rM = rowById(MI.id); if (rM) miLoad(rM, true); }
+       // 남이 발주 DB 를 바꿨다 — 모든 화면이 같은 순간에 다시 읽으면 서버 캐시가 빈 채로 다 같이 시트를 읽는다.
+       // 사람마다 0~6초 흩어 부르면 먼저 읽은 한 사람이 캐시를 채우고 나머지는 캐시로 받는다
+       if (chR) { clearTimeout(checkVer._rj); checkVer._rj = setTimeout(revalidate, Math.floor(Math.random() * 6000)); return; }
+@@ -10403,7 +10445,7 @@
+           '<ul class="checks">' + checks + "</ul>" +
+           datesHtml +
+           orderHtml +
+-          (wantEdit ? linesBlock(row) : "") +
++          (wantEdit ? matInbBlock(row) + linesBlock(row) : "") +      // 2026-11-16: BOM 자재 입고(수량만) — 체크 목록 아래 · AP 업데이트 위
+           '<div class="links">' + links + "</div>" +
+           '<div class="note"><label>메모</label><textarea data-note="' + esc(step.id) + '" placeholder="여기에 기록해 두면 다음 사람이 이어받을 수 있습니다"' +
+             (skipped ? " disabled" : "") + ">" + esc(row.notes[step.id] || "") + "</textarea></div>" +
+@@ -16426,6 +16468,323 @@
+     var y = Math.floor(t / 12), mo = t % 12 + 1;
+     return String(y).slice(2) + "-" + (mo < 10 ? "0" : "") + mo;
+   }
++  /* ---------- BOM 자재 입고(2026-11-16 담당자) — 발주 상세 [▸ BOM 자재 입고] (진행 단계 체크 목록 아래 · AP 업데이트 위) ----------
++   * 이 발주 차수의 BOM 자재(BV_ALL — BOM 보기 · 'BOM 단가 다름'과 같은 차수 규칙 bvPlan)마다 부분 입고(입고일 · 수량 · 메모)를 여러 번 적는다.
++   * 돈(금액)은 없다 — AP 금액(lnInner 합계 · 서버 apFromLines_)에는 넣지 않고, AP 칸에는 수량 요약만 보인다(#lnmat).
++   * 사급 자재: 그 자재코드 발주(사급 발주 — 취소 빼고 · 진행 중 먼저 · 차수 가까운 것)를 자동으로 연결하고, 골라 바꾸면 연결을 저장한다.
++   *   연결되면 그 자재는 보기만(연결 발주 지급 줄의 입고 · 예정) — 입고는 사급 발주에서만 적는다(두 번 세지 않게).
++   *   이 자재에 여기서 적은 입고가 있으면 자동 연결하지 않는다(그 줄을 지운 뒤 연결 — 서버도 RB_MAT_HAS_LINES 로 막는다).
++   * 저장: 회사판은 Supabase rb_mat_save(세션 mi — 바로 · 진짜 응답) · 안 되면 서버 apiMatInbSave(같은 규칙 · 같은 Supabase 표, 개인용은 숨김 탭).
++   *   응답(그 건의 지금 값)을 받은 뒤에만 '저장됨' — 그동안 단추를 막는다. 다른 사람이 바꾸면 rb_ver 'mi' 로 다시 읽는다.
++   */
++  var MI = { id: null, st: null, loading: false, err: "", busy: false, msg: "", form: null, edit: null }, MI_CACHE = {}, MI_SUB = {};
++  var MI_OPEN = (function () { try { return localStorage.getItem("rb.miOpen") === "1"; } catch (e) { return false; } })();
++  function miErrTxt(e) { return String((e && e.message) || e || "").replace(/^Error:\s*/, "").replace(/^(RB_MAT_[A-Z_]+|RB_FALLBACK|RB_SESSION)\s*/, ""); }
++  function miQty(v) { var n = Number(String(v == null ? "" : v).replace(/[, ]/g, "")); return isFinite(n) ? Math.round(n * 10000) / 10000 : 0; }
++  function miFmt(n) { return miQty(n).toLocaleString(undefined, { maximumFractionDigits: 4 }); }
++  function miBuy(v) { var b = String((v && v.buy) || ""); return /사급/.test(b) ? "사급" : (/턴키/.test(b) ? "턴키" : (b.trim() || "-")); }
++  function miItemName(code) {
++    try { var it = (typeof ITEMDB !== "undefined" && ITEMDB ? ITEMDB : []).filter(function (x) { return String(x.code || "").toUpperCase() === code; })[0]; if (it && it.name) return String(it.name); } catch (e) { /* 넘어간다 */ }
++    var r = (DATA.rows || []).filter(function (x) { return String(x.code || "").toUpperCase() === code && x.name; })[0];
++    return r ? String(r.name) : "";
++  }
++  /** 저장 시각(ISO) → 'yyyy-MM-dd HH:mm'(서울) */
++  function miAt(v) {
++    var s = v == null ? "" : String(v); if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return s.trim();
++    var d = new Date(s); if (isNaN(d)) return s;
++    var k = new Date(d.getTime() + 9 * 3600000), z = function (n) { return ("0" + n).slice(-2); };
++    return k.getUTCFullYear() + "-" + z(k.getUTCMonth() + 1) + "-" + z(k.getUTCDate()) + " " + z(k.getUTCHours()) + ":" + z(k.getUTCMinutes());
++  }
++  /** 다시 그리기 전에 쓰던 칸 값을 기억(받아 온 지급 줄 · 다른 사람 저장으로 다시 그려도 입력이 사라지지 않게) */
++  function miGrab() {
++    if (MI.form) { var d = $("miNewD"), q = $("miNewQ"), m = $("miNewM"); if (d) MI.form.d = d.value; if (q) MI.form.qty = q.value; if (m) MI.form.memo = m.value; }
++    if (MI.edit) { var tr = document.querySelector('#mibox tr.miedit[data-mil="' + (window.CSS && CSS.escape ? CSS.escape(MI.edit.id) : MI.edit.id) + '"]');
++      if (tr) ["d", "qty", "memo"].forEach(function (k) { var el = tr.querySelector('[data-mif="' + k + '"]'); if (el) MI.edit[k] = el.value; }); }
++  }
++  function miNewId() { return "mi_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
++  /** 이 발주 차수의 BOM 자재(같은 코드는 소요량을 더해 한 줄). null = BOM 을 아직 못 받음 · [] = BOM 없음/자재 없음 */
++  function miMats(row) {
++    var SRC = BV_ALL || BV_ALL_SNAP; if (!SRC) return null;
++    var pc = String((row && row.code) || "").toUpperCase(); if (!pc || !SRC[pc]) return [];
++    var rows = SRC[pc].map(function (x) { return Object.assign({}, x); });
++    var max = bvPlan(rows); bvGroupsOf(rows, pc);
++    var round = bvR(row.batch) || 0, at = round && round <= max ? round : max;
++    var by = {}, out = [];
++    rows.filter(function (v) { return v._s <= at && at <= v._e; }).forEach(function (v) {
++      var c = String(v.code || "").toUpperCase().replace(/\s/g, "");
++      if (!c || /^X$/.test(c) || c === pc) return;          // 자기 제품 줄(스케일 줄 포함) · 코드 없는 줄은 뺀다
++      var q = v.qty === "" || v.qty == null ? 1 : bvNum(v.qty);
++      var m = by[c];
++      if (!m) { m = by[c] = { code: c, name: String(v.name || "") || miItemName(c), type: String(v.type || ""), buy: miBuy(v), vendor: String(v.vendor || ""), per: 0 }; out.push(m); }
++      m.per += q;
++      if (m.buy !== "사급" && miBuy(v) === "사급") m.buy = "사급";
++    });
++    out.forEach(function (m) { m.per = miQty(m.per); m.need = miQty(m.per * (Number(row.qty) || 0)); });
++    out.at = at; out.snap = !BV_ALL;
++    return out;
++  }
++  /** 사급 발주 후보: 같은 자재코드 · 취소 빼고 · 진행 중 먼저 · 이 발주 차수에 가까운 것 · 같으면 늦게 만든 것 */
++  function miCands(row, code) {
++    var round = bvR(row.batch) || 0;
++    return (DATA.rows || []).filter(function (r) { return r.id !== row.id && String(r.code || "").toUpperCase() === code && !r.cancelled && r.state !== "취소" && !r.pending; })
++      .map(function (r) { return { r: r, done: (r.closed || r.state === "종결") ? 1 : 0, dist: Math.abs((bvR(r.batch) || 0) - round) }; })
++      .sort(function (a, b) { return a.done - b.done || a.dist - b.dist || (String(a.r.id) < String(b.r.id) ? 1 : String(a.r.id) > String(b.r.id) ? -1 : 0); });
++  }
++  /** 자재의 연결: { id, r, auto, none, gone, hint, cands } — id 가 있으면 보기 전용 */
++  function miLinkOf(row, m) {
++    var st = MI.st || {}, L = (st.links || {})[m.code], cands = m.buy === "사급" || L ? miCands(row, m.code) : [];
++    if (L && L.link === "-") return { none: 1, cands: cands };
++    if (L && L.link) { var r = rowById(L.link); return { id: L.link, r: r, gone: !r, cands: cands, by: L.by }; }
++    if (m.buy !== "사급" || !cands.length) return { cands: cands };
++    if ((st.lines || []).some(function (x) { return x.code === m.code; })) return { cands: cands, hint: 1 };
++    return { id: cands[0].r.id, r: cands[0].r, auto: 1, cands: cands };
++  }
++  /** 연결 발주의 지급 줄(보기만) — 없으면 받으러 가고 null */
++  function miSub(id) {
++    var s = MI_SUB[id];
++    if (s && s.lines) return s.lines;
++    if (s && (s.busy || s.err)) return null;
++    if (LN_CACHE[id] && LN_CACHE[id].lines) { MI_SUB[id] = { lines: LN_CACHE[id].lines }; return LN_CACHE[id].lines; }
++    MI_SUB[id] = { busy: 1 };
++    gsr().withSuccessHandler(function (res) { MI_SUB[id] = { lines: (res && res.lines) || [] }; miRender(); })
++      .withFailureHandler(function (e) { MI_SUB[id] = { err: miErrTxt(e) }; miRender(); }).apiGetLines(id);
++    return null;
++  }
++  /** 자재 한 줄 합계: { inQ, plan, left, linked } */
++  function miSumOf(row, m) {
++    var lk = miLinkOf(row, m), inQ = 0, plan = 0, wait = false;
++    if (lk.id) {
++      var L = miSub(lk.id);
++      if (!L) wait = true;
++      (L || []).forEach(function (x) { if (x.kind === "입고") inQ += miQty(x.qty); else if (x.kind === "예정") plan += miQty(x.qty); });
++    } else ((MI.st && MI.st.lines) || []).forEach(function (x) { if (x.code === m.code) inQ += miQty(x.qty); });
++    return { lk: lk, inQ: miQty(inQ), plan: miQty(plan), left: miQty(m.need - inQ), wait: wait };
++  }
++  function miCandLabel(c) {
++    var r = c.r;
++    return [r.batch || "", r.state || "", r.qty != null && r.qty !== "" ? commaNum(r.qty) + "개" : "", r.vendor || ""].filter(function (x) { return String(x).trim(); }).join(" · ") + (c.done ? " (종결)" : "");
++  }
++  /** 이 건을 처음 보면 상태를 바꾸고 읽으러 간다 */
++  function miEnsure(row) {
++    if (MI.id === row.id) return;
++    MI = { id: row.id, st: MI_CACHE[row.id] || null, loading: false, err: "", busy: false, msg: "", form: null, edit: null };
++    MI_SUB = {};
++    setTimeout(function () { if (MI.id === row.id) miLoad(row); }, 0);
++  }
++  /** 읽기: Supabase rb_mat_get(세션 mi) → 안 되면 서버 apiMatInbGet */
++  function miRun(op, args, ok, fail) {
++    var gas = function () {
++      var g = gsr().withSuccessHandler(ok).withFailureHandler(fail);
++      if (op === "get") g.apiMatInbGet(args.oid); else g.apiMatInbSave(op, args);
++    };
++    if (typeof noteRpc !== "function" || typeof noteSess !== "function") { gas(); return; }
++    noteSess(function (ss) {
++      if (!ss || !ss.mi) { gas(); return; }
++      var fn = op === "get" ? "rb_mat_get" : "rb_mat_save", body = op === "get" ? { p_oid: args.oid } : { p_op: op, p_args: args };
++      noteRpc(fn, body, function (r) { ok(r); }, function (e, useGas) {
++        var m = String((e && e.message) || "");
++        if (/RB_FALLBACK/.test(m)) { try { rbWhy(op === "get" ? "apiMatInbGet" : "apiMatInbSave", m); } catch (eW) { /* 넘어간다 */ } }
++        if (useGas || !e) gas(); else fail(e);      // 세션 · 연결 · 꺼짐 → 서버 길(같은 규칙 · 같은 표) · 규칙 오류는 그대로
++      });
++    });
++  }
++  function miLoad(row, force) {
++    if (!row || mode !== "po") return;
++    if (MI.loading && !force) return;
++    MI.loading = true;
++    var id = row.id;
++    miRun("get", { oid: id }, function (st) {
++      if (MI.id !== id) return;
++      MI.loading = false; if (MI.loadErr) { MI.err = ""; MI.loadErr = 0; }      // 저장 실패 문구('그사이 남이 고침' 등)는 다시 읽은 뒤에도 남긴다
++      if (st && st.oid === id) { MI.st = st; MI_CACHE[id] = st; }
++      if (force) MI_SUB = {};
++      miRender();
++    }, function (e) {
++      if (MI.id !== id) return;
++      MI.loading = false; MI.loadErr = 1; MI.err = "자재 입고를 불러오지 못했습니다: " + miErrTxt(e);
++      miRender();
++    });
++  }
++  function miSave(op, args, done) {
++    var row = rowById(MI.id);
++    if (!row || MI.busy) return;
++    args.oid = row.id;
++    MI.busy = true; MI.err = ""; MI.msg = "저장 중…"; miRender();
++    var t0 = performance.now(), id = row.id;
++    miRun(op, args, function (st) {
++      if (MI.id !== id) return;
++      MI.busy = false;
++      if (st && st.oid === id) { MI.st = st; MI_CACHE[id] = st; }
++      MI.msg = "저장됨 " + new Date().toTimeString().slice(0, 5);
++      try { perfLog("apiMatInbSave " + op, performance.now() - t0, true, null); } catch (eP) { /* 넘어간다 */ }
++      if (done) done(true);
++      miRender();
++    }, function (e) {
++      if (MI.id !== id) return;
++      MI.busy = false; MI.msg = "";
++      MI.err = "저장하지 못했습니다: " + miErrTxt(e);
++      if (/RB_MAT_(CHANGED|GONE)/.test(String((e && e.message) || ""))) { MI.edit = null; miLoad(row, true); }
++      if (done) done(false);
++      miRender();
++    });
++  }
++  function miToggle() {
++    MI_OPEN = !MI_OPEN;
++    try { localStorage.setItem("rb.miOpen", MI_OPEN ? "1" : "0"); } catch (e) { /* 넘어간다 */ }
++    if (MI_OPEN && !BV_ALL) bomAllEnsure("now");
++    miRender();
++  }
++  function matInbBlock(row) {
++    if (mode !== "po" || !row || !row.code) return "";
++    miEnsure(row); miGrab();
++    if (!BV_ALL && !BV_ALL_SNAP) bomAllEnsure(0);
++    return '<div class="mibox" id="mibox">' + miInner(row) + "</div>";
++  }
++  function miRender() {
++    var row = rowById(MI.id);
++    miGrab();
++    var b = $("mibox"); if (row && b) b.innerHTML = miInner(row);
++    var a = $("lnmat"); if (row && a) a.innerHTML = miApHtml(row);
++    if (row && currentId === row.id) { try { applyRowLock(row); } catch (eL) { /* 넘어간다 */ } }
++  }
++  function miInner(row) {
++    var mats = miMats(row), open = MI_OPEN;
++    var sums = (mats || []).map(function (m) { return miSumOf(row, m); });
++    var nDone = sums.filter(function (s, i) { return mats[i].need > 0 && s.inQ >= mats[i].need; }).length, nLink = sums.filter(function (s) { return s.lk.id; }).length;
++    var head = '<button type="button" class="mihead" data-mitoggle aria-expanded="' + (open ? "true" : "false") + '">' +
++      '<span class="mitw">' + (open ? "▾" : "▸") + "</span> <b>BOM 자재 입고</b>" +
++      '<span class="misum">' + (mats === null ? "BOM 불러오는 중…" : !mats.length ? "BOM 자재 없음" :
++        "자재 " + mats.length + "종 · 입고 끝 " + nDone + " · 사급 연결 " + nLink + (MI.st ? "" : " · 불러오는 중…")) + "</span></button>";
++    if (!open) return head;
++    if (mats === null) return head + '<div class="mibody"><p class="count-note">BOM 을 불러오는 중입니다…</p></div>';
++    if (!mats.length) return head + '<div class="mibody"><p class="count-note">' + (BV_ALL && BV_ALL[String(row.code).toUpperCase()] ? "이 차수 BOM 에 자재 줄이 없습니다." : "이 품목(" + esc(row.code) + ")은 BOM 이 없습니다 — [BOM 보기]에서 등록하면 자재가 나옵니다.") + "</p></div>";
++    var ro = DATA.canEdit === false || rowLocked(row), busyA = MI.busy ? " disabled" : "";
++    var body = mats.map(function (m, i) {
++      var s = sums[i], lk = s.lk, mine = ((MI.st && MI.st.lines) || []).filter(function (x) { return x.code === m.code; });
++      var cls = s.inQ >= m.need && m.need > 0 ? " midone" : (s.inQ > 0 ? " mipart" : "");
++      var tr = '<tr class="mimat' + cls + '" data-mic="' + esc(m.code) + '">' +
++        '<td class="mc"><b>' + esc(m.code) + "</b></td>" +
++        '<td class="mn" title="' + esc(m.name + (m.vendor ? " · " + m.vendor : "")) + '">' + esc(m.name || "-") + (m.vendor ? ' <small class="count-note">' + esc(m.vendor) + "</small>" : "") + "</td>" +
++        '<td class="mt">' + esc(m.type || "-") + "</td>" +
++        '<td class="mb"><span class="mibuy' + (m.buy === "사급" ? " sg" : "") + '">' + esc(m.buy) + "</span></td>" +
++        '<td class="q" title="발주수량 ' + esc(commaNum(row.qty)) + " × 소요량 " + esc(miFmt(m.per)) + '">' + miFmt(m.need) + "</td>" +
++        '<td class="q">' + (s.wait ? "…" : miFmt(s.inQ)) + "</td>" +
++        '<td class="q' + (s.left > 0 ? "" : " mizero") + '">' + (s.wait ? "…" : (s.left < 0 ? "+" + miFmt(-s.left) + " 초과" : miFmt(s.left))) + "</td>" +
++        '<td class="x">' + (lk.id || ro ? "" : '<button type="button" class="btn btn-sm" data-miadd="' + esc(m.code) + '"' + busyA + ">+ 입고</button>") + "</td></tr>";
++      var det = "";
++      // 사급 연결(사급이거나 연결을 저장한 자재) — 골라 바꾸기
++      if (m.buy === "사급" || (MI.st && (MI.st.links || {})[m.code])) {
++        var cur = MI.st && (MI.st.links || {})[m.code] ? MI.st.links[m.code].link : "";
++        var opts = '<option value=""' + (cur === "" ? " selected" : "") + ">자동 연결" + (lk.auto ? " — " + esc(miCandLabel(lk.cands[0])) : (lk.hint ? " — 여기서 적은 입고가 있어 연결 안 함" : (!lk.cands.length ? " — 같은 코드 발주 없음" : ""))) + "</option>" +
++          lk.cands.map(function (c) { return '<option value="' + esc(c.r.id) + '"' + (cur === c.r.id ? " selected" : "") + ">" + esc(miCandLabel(c)) + "</option>"; }).join("") +
++          (cur && cur !== "-" && !lk.cands.some(function (c) { return c.r.id === cur; }) ? '<option value="' + esc(cur) + '" selected>' + esc(lk.r ? miCandLabel({ r: lk.r, done: lk.r.closed ? 1 : 0 }) : "목록에 없는 발주 " + cur) + "</option>" : "") +
++          '<option value="-"' + (cur === "-" ? " selected" : "") + ">연결 안 함 — 여기서 입고 적기</option>";
++        det += '<div class="milink"><span class="milab">사급 발주</span><select data-milink="' + esc(m.code) + '"' + (ro || MI.busy ? " disabled" : "") + ">" + opts + "</select>" +
++          (lk.id && lk.r ? '<button type="button" class="btn btn-sm" data-miopen="' + esc(lk.id) + '">그 발주 열기</button>' : "") +
++          (lk.gone ? '<span class="mierr">연결한 발주를 목록에서 찾지 못했습니다(취소 · 숨김?) — 다른 발주를 고르세요</span>' : "") + "</div>";
++      }
++      if (lk.id) {
++        var L = MI_SUB[lk.id] && MI_SUB[lk.id].lines ? MI_SUB[lk.id].lines : null, er = MI_SUB[lk.id] && MI_SUB[lk.id].err;
++        var shown = (L || []).filter(function (x) { return x.kind === "입고" || x.kind === "예정"; }).slice().sort(function (a, b) { return String(a.date || "9") < String(b.date || "9") ? -1 : String(a.date || "9") > String(b.date || "9") ? 1 : 0; });
++        det += '<div class="misub"><span class="miro">보기 전용 — 입고는 사급 발주에서 적습니다' + (lk.auto ? " (자동 연결)" : "") + "</span>" +
++          (er ? '<span class="mierr">지급 줄을 못 불러왔습니다: ' + esc(er) + "</span>" : !L ? '<span class="count-note">지급 줄 불러오는 중…</span>' :
++            !shown.length ? '<span class="count-note">입고 · 예정 줄이 없습니다</span>' :
++            shown.map(function (x) { return '<span class="michip ' + (x.kind === "입고" ? "in" : "plan") + '">' + esc(x.kind) + " " + esc(x.date || "날짜 없음") + " · " + miFmt(x.qty) + "개</span>"; }).join("") +
++            (s.plan ? '<span class="count-note">예정 합계 ' + miFmt(s.plan) + "개</span>" : "")) + "</div>";
++      } else {
++        var rowsH = mine.map(function (x) {
++          if (MI.edit && MI.edit.id === x.id) {
++            return '<tr class="miedit" data-mil="' + esc(x.id) + '"><td class="md"><input type="date" data-mif="d" value="' + esc(MI.edit.d) + '"></td>' +
++              '<td class="mq"><input data-mif="qty" inputmode="decimal" value="' + esc(MI.edit.qty) + '"></td>' +
++              '<td><input data-mif="memo" maxlength="300" value="' + esc(MI.edit.memo) + '"></td><td class="mw"></td>' +
++              '<td class="mx"><button type="button" class="btn btn-sm btn-solid" data-misetok' + busyA + ">저장</button><button type=\"button\" class=\"btn-quiet btn-sm\" data-misetno" + busyA + ">취소</button></td></tr>";
++          }
++          return '<tr data-mil="' + esc(x.id) + '"><td class="md">' + esc(x.d) + '</td><td class="mq">' + miFmt(x.qty) + "</td><td>" + esc(x.memo || "") + "</td>" +
++            '<td class="mw" title="' + esc((x.updBy ? "고침 " + x.updBy + " " + miAt(x.updAt) + " · " : "") + "적음 " + x.by + " " + miAt(x.at)) + '">' + esc(String(x.updBy || x.by || "").split("@")[0]) + " " + esc(miAt(x.updAt || x.at).slice(5)) + "</td>" +
++            '<td class="mx">' + (ro ? "" : '<button type="button" class="btn-quiet btn-sm" data-miset="' + esc(x.id) + '"' + busyA + ">고치기</button>" +
++              '<button type="button" class="btn-quiet btn-sm" data-midel="' + esc(x.id) + '"' + busyA + ' title="이 입고 줄 지우기">✕</button>') + "</td></tr>";
++        }).join("");
++        if (MI.form && MI.form.code === m.code) {
++          rowsH += '<tr class="miedit minew"><td class="md"><input type="date" id="miNewD" value="' + esc(MI.form.d) + '"></td>' +
++            '<td class="mq"><input id="miNewQ" inputmode="decimal" value="' + esc(MI.form.qty) + '" placeholder="수량"></td>' +
++            '<td><input id="miNewM" maxlength="300" value="' + esc(MI.form.memo) + '" placeholder="메모(선택)"></td><td class="mw"></td>' +
++            '<td class="mx"><button type="button" class="btn btn-sm btn-solid" data-miaddok' + busyA + ">저장</button><button type=\"button\" class=\"btn-quiet btn-sm\" data-miaddno" + busyA + ">닫기</button></td></tr>";
++        }
++        if (rowsH) det += '<table class="milines"><colgroup><col style="width:120px"><col style="width:96px"><col><col style="width:120px"><col style="width:96px"></colgroup><thead><tr><th>입고일</th><th>수량</th><th>메모</th><th>적은 사람</th><th></th></tr></thead><tbody>' + rowsH + "</tbody></table>";
++      }
++      return tr + (det ? '<tr class="midet"><td colspan="8">' + det + "</td></tr>" : "");
++    }).join("");
++    var msg = MI.err ? '<span class="mierr">' + esc(MI.err) + "</span>" : (MI.msg ? '<span class="lnmsg">' + esc(MI.msg) + "</span>" : "");
++    return head + '<div class="mibody">' +
++      '<p class="mihint">' + esc(mats.at ? mats.at + "차" : "최종 차수") + " BOM 기준 · 필요 = 발주수량 " + esc(commaNum(row.qty || 0)) + " × 소요량 · <b>수량만 적습니다(금액 없음 — AP 금액에 안 들어감)</b>" +
++        (mats.snap ? " · 저장해 둔 BOM 으로 보는 중(최신 확인 중)" : "") + "</p>" +
++      (MI.loading && !MI.st ? '<p class="count-note">자재 입고를 불러오는 중…</p>' : "") +
++      '<div class="lntabwrap"><table class="lntab mitab"><colgroup><col style="width:112px"><col><col style="width:64px"><col style="width:56px"><col style="width:78px"><col style="width:78px"><col style="width:86px"><col style="width:70px"></colgroup>' +
++      "<thead><tr><th>자재코드</th><th>품목명</th><th>구분</th><th>매입</th><th>필요</th><th>입고</th><th>남음</th><th></th></tr></thead><tbody>" + body + "</tbody></table></div>" +
++      '<div class="lnacts"><button type="button" class="btn-quiet btn-sm" data-mireload' + busyA + ">다시 불러오기</button>" + msg + "</div></div>";
++  }
++  /** AP 업데이트 칸 아래 — 자재 입고 수량 요약(보기만 · 금액 계산과 무관) */
++  function miApHtml(row) {
++    if (mode !== "po" || !row || !row.code) return "";
++    var mats = miMats(row);
++    if (!mats || !mats.length) return "";
++    miEnsure(row);
++    if (!MI.st) return '<p class="lnmat"><b>BOM 자재 입고</b> <small>(수량만 · AP 금액과 무관)</small> — 불러오는 중…</p>';
++    return '<p class="lnmat"><b>BOM 자재 입고</b> <small>(수량만 · AP 금액과 무관)</small> — ' + mats.map(function (m) {
++      var s = miSumOf(row, m);
++      return '<span class="michip' + (s.inQ >= m.need && m.need > 0 ? " in" : "") + '" title="' + esc(m.name || "") + '">' + esc(m.code) + (s.lk.id ? " 사급(연결 발주)" : "") + " " + (s.wait ? "…" : miFmt(s.inQ)) + " / " + miFmt(m.need) + "</span>";
++    }).join(" ") + "</p>";
++  }
++  document.addEventListener("click", function (e) {
++    var t = e.target; if (!t || !t.closest) return;
++    var box = t.closest("#mibox"); if (!box) return;
++    var row = rowById(MI.id); if (!row) return;
++    var b;
++    if ((b = t.closest("[data-mitoggle]"))) { miToggle(); return; }
++    if ((b = t.closest("[data-miopen]"))) { openRun(b.dataset.miopen); return; }
++    if ((b = t.closest("[data-mireload]"))) { MI_SUB = {}; MI.err = ""; miLoad(row, true); miRender(); return; }
++    if (MI.busy) return;
++    if ((b = t.closest("[data-miadd]"))) {
++      var code = b.dataset.miadd, m = (miMats(row) || []).filter(function (x) { return x.code === code; })[0], s = m ? miSumOf(row, m) : null;
++      MI.form = { code: code, d: todayIso(), qty: s && s.left > 0 ? String(s.left) : "", memo: "" }; MI.edit = null; MI.err = "";
++      miRender(); setTimeout(function () { var q = $("miNewQ"); if (q) { q.focus(); q.select(); } }, 0); return;
++    }
++    if (t.closest("[data-miaddno]")) { MI.form = null; MI.err = ""; miRender(); return; }
++    if (t.closest("[data-miaddok]")) {
++      var f = MI.form; if (!f) return;
++      f.d = ($("miNewD") || {}).value || ""; f.qty = ($("miNewQ") || {}).value || ""; f.memo = ($("miNewM") || {}).value || "";
++      if (!f.id) f.id = miNewId();          // 같은 줄 ID 로 다시 보내면 한 번만 들어간다(응답만 잃은 경우)
++      miSave("add", { id: f.id, code: f.code, d: f.d, qty: String(f.qty).replace(/[, ]/g, ""), memo: f.memo }, function (ok) { if (ok) MI.form = null; });
++      return;
++    }
++    if ((b = t.closest("[data-miset]"))) {
++      var x = ((MI.st && MI.st.lines) || []).filter(function (y) { return y.id === b.dataset.miset; })[0]; if (!x) return;
++      MI.edit = { id: x.id, d: x.d, qty: String(miQty(x.qty)), memo: x.memo || "", ver: x.ver }; MI.form = null; MI.err = ""; miRender(); return;
++    }
++    if (t.closest("[data-misetno]")) { MI.edit = null; MI.err = ""; miRender(); return; }
++    if (t.closest("[data-misetok]")) {
++      var ed = MI.edit, tr = t.closest("[data-mil]"); if (!ed || !tr) return;
++      var v = function (k) { var el = tr.querySelector('[data-mif="' + k + '"]'); return el ? el.value : ""; };
++      ed.d = v("d"); ed.qty = v("qty"); ed.memo = v("memo");
++      miSave("set", { id: ed.id, d: ed.d, qty: String(ed.qty).replace(/[, ]/g, ""), memo: ed.memo, ver: ed.ver }, function (ok) { if (ok) MI.edit = null; });
++      return;
++    }
++    if ((b = t.closest("[data-midel]"))) {
++      var y = ((MI.st && MI.st.lines) || []).filter(function (z) { return z.id === b.dataset.midel; })[0]; if (!y) return;
++      if (!confirm(y.code + " 입고 " + y.d + " · " + miFmt(y.qty) + "개 줄을 지울까요?")) return;
++      miSave("del", { id: y.id, ver: y.ver });
++      return;
++    }
++  });
++  document.addEventListener("change", function (e) {
++    var t = e.target; if (!t || !t.closest || !t.closest("#mibox") || !t.dataset || t.dataset.milink === undefined) return;
++    var code = t.dataset.milink, v = t.value;
++    miSave("link", { code: code, link: v }, function (ok) { if (!ok) miRender(); else { MI_SUB = {}; miRender(); } });
++  });
++  document.addEventListener("keydown", function (e) {
++    if (e.key !== "Enter" || !e.target || !e.target.closest || !e.target.closest("#mibox .miedit") || e.isComposing) return;
++    var ok = e.target.closest("#mibox .miedit").querySelector("[data-miaddok], [data-misetok]"); if (ok && !ok.disabled) { e.preventDefault(); ok.click(); }
++  });
+   function linesBlock(row) {
+     if (LN.id !== row.id) {
+       LN = { id: row.id, lines: [], months: [], dirty: false, saving: false, inOpen: false };
+@@ -16582,6 +16941,7 @@
+         "발주금액" + (cancelQ ? "(취소 " + cancelQ.toLocaleString() + "개 빼고)" : "") + " " + total.toLocaleString() + "원 / AP 금액 " + Math.round(sum).toLocaleString() + "원" +
+         (diff ? ' · <span class="lndiff">차이 ' + diff.toLocaleString() + "원</span>" : " · 맞음") +
+         " · 입고 " + inQ.toLocaleString() + " / " + oq.toLocaleString() + "개" + (cancelQ ? " · 취소 " + cancelQ.toLocaleString() + "개" : "") + " · 잔량 " + Math.max(0, oq - inQ - cancelQ).toLocaleString() + "개" + lnNoPlanTxt(oq - inQ - cancelQ) + "</p>" +
++      '<div id="lnmat">' + miApHtml(row) + "</div>" +          // BOM 자재 입고 수량 요약(보기만 — 위 AP 금액 · 차이 계산과 무관)
+       '<div class="lntabwrap"><table class="lntab"><colgroup><col style="width:92px"><col style="width:132px"><col style="width:84px"><col style="width:112px"><col style="width:86px"><col style="width:96px"><col><col style="width:84px"></colgroup><thead><tr><th>종류</th><th>입고일</th><th>수량</th><th>금액(원)</th><th>지급월</th><th>채널</th><th>메모</th><th></th></tr></thead><tbody>' +
+         (rows || '<tr><td colspan="8" class="count-note">지급 줄이 없습니다. [+ 예정] · [+ 선금] 으로 더하세요.</td></tr>') + "</tbody></table></div>" +
+       '<div class="lnacts">' +
+@@ -25828,7 +26188,7 @@
+    * 그래도 안 되면 서버 길로 다시 하지 않고 '저장됐는지 알 수 없음'으로 알린다. ok · fail 은 promise 밖에서(화면 처리 오류가 '저장 실패'로 바뀌지 않게). */
+   /** f486: 직접 저장을 안 하고 서버 길로 간 까닭(속도 기록 → 요약 파일) — 조용히 넘어가던 것 */
+   function rbWhy(fn, why) { try { PERF_Q.push({ n: "직접→서버(조건) " + String(fn).slice(0, 20) + " " + String(why).slice(0, 30), ms: 99999, ok: true, at: new Date().toISOString().slice(0, 19), t: String(why).slice(0, 200) }); } catch (e) { /* 넘어간다 */ } }
+-  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_(edit|state|save|bulk)|pg_(save|more)|kv_set|co_create|item_reg|vendor_add|po_(cancel|redraft|submit|pend_add|pend_drop)|sm2_save|dly_save|bom_cfset|pj_add|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
++  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_(edit|state|save|bulk)|pg_(save|more)|kv_set|co_create|item_reg|vendor_add|po_(cancel|redraft|submit|pend_add|pend_drop)|sm2_save|dly_save|bom_cfset|mat_save|pj_add|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
+   function noteRpc(fn, args, ok, fail, again, rq, tries) {
+     noteSess(function (ss) {
+       if (!ss) { fail(null, true); return; }
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/Supabase.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/Supabase.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn499/Supabase.js	2026-11-16 05:24:49.863328289 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/Supabase.js	2026-11-16 05:36:07.790717064 +0000
+@@ -928,3 +928,6 @@
+ SB_MIGRATIONS.push({ id: 'm116_cf_bomconf', sql: "-- m116_cf_bomconf — BOM 설정 저장(반제품 차수 고르기 apiSemiPin · 자재 구분 추가 apiBomAddType · 세트에서 구성 자재 빼기 apiBomSetCompOff)을 Supabase 함수로 바로.\n-- 원본은 서버 스크립트 속성(rb.semipin · bom:types · bom:setx) — 함수는 그 사본 rb_conf 'bomConf'(semipins · types · setx)를 그 자리에서 고치고\n-- 진짜 결과(그 품목 BOM 줄 · 이력 · 고른 차수 / 구분표 / 뺀 자재)를 준다. 속성 · BOM변경이력 시트 · 캐시는 rb_tab_job tab='bom'(cfSemiPin · cfTypeAdd · cfSetx)\n-- → 서버 bomDbDrainIn_ 가 같은 일을 속성에 다시 해 맞춘다(덮어쓰기가 아니라 같은 바꾸기 — 그사이 서버 길로 바꾼 다른 칸을 지우지 않게).\n-- 사본 덮어쓰기 막기: bomConfPublish_ 는 rb_bom_conf_put 으로 — 아직 속성에 안 옮긴 직접 저장이 있으면 그 칸(semipins · types · setx · hf)은 사본 값 그대로.\n-- 켜짐 · 겹침: rb_bom_guard(BOM 직접 저장 켜짐 · 시트 앞섬 없음 · 서버 BOM 가상 저장 중이면 RB_FALLBACK) · 잠금 rb_bom(다른 BOM 직접 저장과 같은 줄).\n\n-- JS Number(v) — 숫자 · 숫자 글자 · 참거짓 · null. 못 읽으면 null(NaN)\ncreate or replace function rb_cf_num(v jsonb) returns numeric language plpgsql immutable as $$\ndeclare s text;\nbegin\n  if v is null or jsonb_typeof(v) = 'null' then return 0; end if;\n  if jsonb_typeof(v) = 'boolean' then return case when (v #>> '{}')::boolean then 1 else 0 end; end if;\n  if jsonb_typeof(v) = 'number' then return (v #>> '{}')::numeric; end if;\n  if jsonb_typeof(v) <> 'string' then return null; end if;\n  s := rb_cf_trim(v #>> '{}');\n  if s = '' then return 0; end if;\n  if s ~ '^[+-]?([0-9]+\\.?[0-9]*|\\.[0-9]+)([eE][+-]?[0-9]+)?$' then return s::numeric; end if;\n  return null;\nend $$;\n-- JS 숫자 → 글자(String(n)) — 흔한 모양만(정수 · 소수)\ncreate or replace function rb_cf_ntxt(n numeric) returns text language sql immutable as $$ select trim_scale(n)::text $$;\n\n/** 그 품목 BOM 줄 · 이력(최근 50) — 화면 bvDirectOut 이 apiBomGet 모양으로 만든다 */\ncreate or replace function rb_cf_bomout(P text) returns jsonb language plpgsql stable security definer set search_path = public as $$\nbegin\n  return jsonb_build_object(\n    'rows', (select coalesce(jsonb_agg(to_jsonb(b) - 'synced_at' order by b.sheet_row, b.id), '[]'::jsonb) from bom_rows b where upper(b.product) = P),\n    'log', (select coalesce(jsonb_agg(to_jsonb(l) - 'synced_at' order by l.sheet_row desc), '[]'::jsonb) from (select * from bom_log where upper(product) = P order by sheet_row desc limit 50) l));\nend $$;\n\n/** BOM변경이력 한 줄(bom_log 사본 + 시트 일의 logs 줄 모양) */\ncreate or replace function rb_cf_bomlog(e text, P text, rnd text, kind text, typ text, ca text, cb text, bef text, aft text, why text, st text, tag text) returns jsonb language plpgsql security definer set search_path = public as $$\ndeclare nowiso text := to_char(now() at time zone 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'); lsr int;\nbegin\n  select coalesce(max(sheet_row), 1) into lsr from bom_log;\n  insert into bom_log select * from jsonb_populate_record(null::bom_log, jsonb_build_object('sheet_row', lsr + 1, 'at', nowiso, 'who', e, 'product', P, 'product_name', '', 'round', rnd,\n    'kind', kind, 'type', typ, 'code_a', ca, 'code_b', cb, 'before', bef, 'after', aft, 'why', why, 'order_ref', '', 'state', st, 'change_id', tag, 'synced_at', now()));\n  return jsonb_build_array(jsonb_build_object('d', nowiso), e, P, '', rnd, kind, typ, ca, cb, bef, aft, why, '', st, tag, '');\nend $$;\n\ncreate or replace function rb_cf_bomjob(e text, P text, tag text, logs jsonb, extra jsonb) returns void language sql security definer set search_path = public as $$\n  insert into rb_tab_job(tab, job) values ('bom', jsonb_build_object('k', 'bom', 'v', 1, 'at', (extract(epoch from now()) * 1000)::bigint, 'who', e, 'product', P, 'tag', tag,\n    'rep', jsonb_build_object('codes', case when P <> '' then jsonb_build_array(P) else '[]'::jsonb end, 'ins', '{}'::jsonb, 'upd', '{}'::jsonb, 'del', '{}'::jsonb), 'logs', logs,\n    'hist', '[]'::jsonb, 'reg', '[]'::jsonb, 'price', '[]'::jsonb, 'unmark', '[]'::jsonb, 'made', '[]'::jsonb) || extra) $$;\n\n/* ---------- 반제품 차수 고르기(apiSemiPin0_ 와 같은 규칙) ---------- */\ncreate or replace function rb_bom_semipin_do(e text, a jsonb) returns jsonb language plpgsql security definer set search_path = public as $$\ndeclare\n  P text := upper(rb_cf_str(a->'product')); sc text := upper(rb_cf_str(a->'semi')); fr numeric := rb_cf_num(a->'fromRound'); sr numeric := rb_cf_num(a->'semiRound');\n  why text := rb_cf_str(a->'why'); op text := left(rb_t(a->'op'), 60); hit text; conf jsonb; all_ jsonb; m jsonb; L jsonb; bef numeric := 0; x jsonb; tag text := substr(md5(random()::text || clock_timestamp()::text), 1, 8);\n  logs jsonb; res jsonb;\nbegin\n  if P is null or sc is null or why is null or P ~ '[^\\x01-\\x7e]' then raise exception 'RB_FALLBACK 인자 모양'; end if;\n  if fr is null or fr = 0 then fr := 1; end if;\n  if sr is null then sr := 0; end if;\n  if sc !~ '^[A-Z]X[0-9]{4}[A-Z]{2}[0-9]+$' or P = '' then raise exception '코드가 맞지 않습니다.'; end if;\n  conf := rb_bom_guard(false);\n  if jsonb_typeof(conf->'semipins') is distinct from 'object' then raise exception 'RB_FALLBACK 반제품 차수 사본 모름'; end if;\n  perform pg_advisory_xact_lock(hashtext('rb_bom'));\n  perform rb_bom_guard(true);\n  if op <> '' then\n    select rv into hit from rb_recent where rk = 'op:bomsp:' || op and rat > now() - interval '30 minutes';\n    if hit is not null then return hit::jsonb || rb_cf_bomout(P) || '{\"duplicate\":true}'::jsonb; end if;\n  end if;\n  select rc.v->'semipins' into all_ from rb_conf rc where rc.k = 'bomConf';\n  m := coalesce(all_->P, '{}'::jsonb);\n  if jsonb_typeof(m) <> 'object' or (m ? sc and jsonb_typeof(m->sc) <> 'array') then raise exception 'RB_FALLBACK 반제품 차수 사본 모양'; end if;\n  -- L = 그 차수를 뺀 것 → 그때의 고른 차수(before — 서버와 같게 뺀 뒤에 셈)\n  select coalesce(jsonb_agg(z order by o), '[]'::jsonb) into L from jsonb_array_elements(coalesce(m->sc, '[]'::jsonb)) with ordinality t(z, o) where (z->0) is distinct from to_jsonb(fr);\n  for x in select z from jsonb_array_elements(L) with ordinality t(z, o) order by rb_num(z->0), o loop\n    if rb_num(x->0) <= fr then bef := coalesce(rb_cf_num(x->1), 0); end if;\n  end loop;\n  L := L || jsonb_build_array(jsonb_build_array(fr, sr));\n  select jsonb_agg(z order by rb_num(z->0), o) into L from jsonb_array_elements(L) with ordinality t(z, o);\n  m := m || jsonb_build_object(sc, L);\n  all_ := all_ || jsonb_build_object(P, m);\n  update rb_conf set v = jsonb_set(v, '{semipins}', all_) where k = 'bomConf';\n  logs := jsonb_build_array(rb_cf_bomlog(e, P, rb_cf_ntxt(fr) || '차~', '정정', '반제품', sc, sc,\n    '반제품 차수 ' || case when bef <> 0 then rb_cf_ntxt(bef) || '차' else '최신' end, '반제품 차수 ' || case when sr <> 0 then rb_cf_ntxt(sr) || '차' else '최신' end,\n    coalesce(nullif(why, ''), '반제품 차수 고르기'), '참고', tag || '-sp'));\n  perform rb_cf_bomjob(e, P, tag, logs, jsonb_build_object('cfSemiPin', jsonb_build_object('product', P, 'semi', sc, 'from', fr, 'sr', sr)));\n  res := jsonb_build_object('ok', true, 'sb', 1, 'code', P, 'semiPin', m, 'saved', 1, 'logTag', tag, 'made', '[]'::jsonb, 'splitMap', '{}'::jsonb);\n  if op <> '' then\n    insert into rb_recent(rk, rby, rv, rat) values ('op:bomsp:' || op, e, res::text, now()) on conflict on constraint rb_recent_pkey do update set rby = excluded.rby, rv = excluded.rv, rat = excluded.rat;\n  end if;\n  return res || rb_cf_bomout(P);\nend $$;\n\n/* ---------- 자재 구분 추가(apiBomAddType 와 같은 규칙) ---------- */\ncreate or replace function rb_bom_addtype_do(e text, a jsonb) returns jsonb language plpgsql security definer set search_path = public as $$\ndeclare\n  nm text := rb_cf_str(a->'name'); cd text := upper(rb_cf_str(a->'code')); op text := left(rb_t(a->'op'), 60); hit text; conf jsonb; tp jsonb; byc text; used jsonb; ul text; tag text := substr(md5(random()::text || clock_timestamp()::text), 1, 8);\n  logs jsonb; res jsonb;\nbegin\n  if nm is null or cd is null or rb_cf_astral(nm) then raise exception 'RB_FALLBACK 인자 모양'; end if;\n  nm := left(regexp_replace(nm, '[\\s   - \u2028\u2029  　\ufeff]+', ' ', 'g'), 20);\n  if nm = '' then raise exception '구분 이름을 넣어 주세요.'; end if;\n  if cd !~ '^[A-Z]{2}$' then raise exception '약호는 영문 대문자 2글자로 넣어 주세요(예: CS).'; end if;\n  conf := rb_bom_guard(false);\n  if jsonb_typeof(conf->'types') is distinct from 'object' then raise exception 'RB_FALLBACK 구분표 모름'; end if;\n  perform pg_advisory_xact_lock(hashtext('rb_bom'));\n  perform rb_bom_guard(true);\n  if op <> '' then\n    select rv into hit from rb_recent where rk = 'op:bomty:' || op and rat > now() - interval '30 minutes';\n    if hit is not null then return hit::jsonb || '{\"duplicate\":true}'::jsonb; end if;\n  end if;\n  select rc.v into conf from rb_conf rc where rc.k = 'bomConf';\n  tp := conf->'types';\n  if rb_t(tp->nm) <> '' then raise exception '\"%\" 구분은 이미 있습니다(약호 %).', nm, tp->>nm; end if;\n  select string_agg(key, ', ') into byc from jsonb_each_text(tp) where value = cd;\n  if byc is not null then raise exception '약호 % 는 이미 \"%\" 에 쓰고 있습니다.', cd, byc; end if;\n  used := rb_bom_used(conf);\n  select string_agg(k, ', ') into ul from (select k from jsonb_object_keys(used) k where k ~ ('^[A-Z]P[0-9]{4}' || cd || '[0-9]+$') order by k limit 3) z;\n  if ul is not null then raise exception '약호 % 는 이미 자재코드에 쓰였습니다(%). 다른 약호를 넣어 주세요.', cd, ul; end if;\n  tp := tp || jsonb_build_object(nm, cd);\n  update rb_conf set v = jsonb_set(v, '{types}', tp) where k = 'bomConf';\n  logs := jsonb_build_array(rb_cf_bomlog(e, '', '', '구분 추가', nm, '', '', '', nm || ' = ' || cd, '자재 구분 새로 추가', '-', tag || '-ty'));\n  perform rb_cf_bomjob(e, '', tag, logs, jsonb_build_object('cfTypeAdd', jsonb_build_object('name', nm, 'code', cd)));\n  res := jsonb_build_object('ok', true, 'types', tp);\n  if op <> '' then\n    insert into rb_recent(rk, rby, rv, rat) values ('op:bomty:' || op, e, res::text, now()) on conflict on constraint rb_recent_pkey do update set rby = excluded.rby, rv = excluded.rv, rat = excluded.rat;\n  end if;\n  return res;\nend $$;\n\n/* ---------- 세트에서 구성 완제품 자재 빼기 · 되살리기(apiBomSetCompOff 와 같은 규칙) ---------- */\ncreate or replace function rb_bom_compoff_do(e text, a jsonb) returns jsonb language plpgsql security definer set search_path = public as $$\ndeclare\n  P text := upper(rb_cf_str(a->'product')); cc text := upper(rb_cf_str(a->'comp')); fam text := rb_cf_str(a->'fam'); off_ boolean := rb_pg_tru(a->'off'); why text := rb_cf_str(a->'why');\n  op text := left(rb_t(a->'op'), 60); hit text; conf jsonb; all_ jsonb; sk text; L jsonb; bef text; aft text; i int; tag text := substr(md5(random()::text || clock_timestamp()::text), 1, 8);\n  logs jsonb; res jsonb; co jsonb; typ text;\nbegin\n  if P is null or cc is null or fam is null or why is null or rb_cf_astral(fam) or rb_cf_astral(why) or P ~ '[^\\x01-\\x7e]' or cc ~ '[^\\x01-\\x7e]' then raise exception 'RB_FALLBACK 인자 모양'; end if;\n  if P !~ '^[A-Z]X?[0-9]{4}[A-Z]{2}[0-9]+$' or cc !~ '^[A-Z]X?[0-9]{4}[A-Z]{2}[0-9]+$' or P = cc then raise exception '세트 · 구성 완제품 코드가 맞지 않습니다.'; end if;\n  if fam !~ '^[^|]{1,30}\\|[A-Z0-9]{4,20}$' then raise exception '뺄 자재가 맞지 않습니다: %', fam; end if;\n  conf := rb_bom_guard(false);\n  if jsonb_typeof(conf->'setx') is distinct from 'object' then raise exception 'RB_FALLBACK 세트 뺀 자재 사본 모름'; end if;\n  perform pg_advisory_xact_lock(hashtext('rb_bom'));\n  perform rb_bom_guard(true);\n  if op <> '' then\n    select rv into hit from rb_recent where rk = 'op:bomcx:' || op and rat > now() - interval '30 minutes';\n    if hit is not null then return hit::jsonb || rb_cf_bomout(P) || '{\"duplicate\":true}'::jsonb; end if;\n  end if;\n  select rc.v->'setx' into all_ from rb_conf rc where rc.k = 'bomConf';\n  sk := P || '|' || cc;\n  L := coalesce(all_->sk, '[]'::jsonb);\n  if jsonb_typeof(L) <> 'array' or exists (select 1 from jsonb_array_elements(L) z where jsonb_typeof(z) <> 'string') then raise exception 'RB_FALLBACK 세트 뺀 자재 사본 모양'; end if;\n  select coalesce(string_agg(z, ', ' order by o), '') into bef from jsonb_array_elements_text(L) with ordinality t(z, o);\n  select min(o - 1) into i from jsonb_array_elements_text(L) with ordinality t(z, o) where z = fam;\n  if off_ and i is null then L := L || to_jsonb(fam); elsif not off_ and i is not null then L := L - i; end if;\n  select coalesce(string_agg(z, ', ' order by o), '') into aft from jsonb_array_elements_text(L) with ordinality t(z, o);\n  if bef <> aft then\n    if jsonb_array_length(L) > 0 then\n      select jsonb_agg(z order by z collate \"C\", o) into L from jsonb_array_elements_text(L) with ordinality t(z, o);\n      all_ := all_ || jsonb_build_object(sk, L);\n    else all_ := all_ - sk; end if;\n    update rb_conf set v = jsonb_set(v, '{setx}', all_) where k = 'bomConf';\n    typ := split_part(fam, '|', 1);\n    logs := jsonb_build_array(rb_cf_bomlog(e, P, '', '세트 구성 ' || case when off_ then '뺌' else '되살림' end, typ, cc, cc, coalesce(nullif(bef, ''), '-'), coalesce(nullif(aft, ''), '-'),\n      coalesce(nullif(left(why, 200), ''), cc || ' 의 ' || typ || ' — 이 세트에서만 ' || case when off_ then '안 씀' else '다시 씀' end), '참고', tag || '-cx'));\n    perform rb_cf_bomjob(e, P, tag, logs, jsonb_build_object('cfSetx', jsonb_build_object('product', P, 'comp', cc, 'fam', fam, 'off', off_)));\n  end if;\n  select coalesce(jsonb_object_agg(substr(key, length(P) + 2), value), '{}'::jsonb) into co from jsonb_each(all_)\n   where left(key, length(P) + 1) = P || '|' and jsonb_typeof(value) = 'array' and jsonb_array_length(value) > 0;\n  res := jsonb_build_object('ok', true, 'sb', 1, 'code', P, 'compOff', co, 'saved', case when bef <> aft then 1 else 0 end, 'logTag', case when bef <> aft then tag else '' end, 'made', '[]'::jsonb, 'splitMap', '{}'::jsonb);\n  if op <> '' then\n    insert into rb_recent(rk, rby, rv, rat) values ('op:bomcx:' || op, e, res::text, now()) on conflict on constraint rb_recent_pkey do update set rby = excluded.rby, rv = excluded.rv, rat = excluded.rat;\n  end if;\n  return res || rb_cf_bomout(P);\nend $$;\n\ncreate or replace function rb_bom_cfset(p_token text, p_fn text, p_args jsonb) returns jsonb language plpgsql security definer set search_path = public as $$\ndeclare e text := rb_me(p_token); ed boolean;\nbegin\n  if e is null then raise exception 'RB_SESSION'; end if;\n  select editor into ed from rb_session where token = p_token;\n  if not coalesce(ed, false) then raise exception 'RB_SESSION 저장 권한 확인'; end if;\n  if p_fn = 'apiSemiPin' then return rb_bom_semipin_do(e, coalesce(p_args, '{}'::jsonb)); end if;\n  if p_fn = 'apiBomAddType' then return rb_bom_addtype_do(e, coalesce(p_args, '{}'::jsonb)); end if;\n  if p_fn = 'apiBomSetCompOff' then return rb_bom_compoff_do(e, coalesce(p_args, '{}'::jsonb)); end if;\n  raise exception 'RB_FALLBACK % 는 서버 길', p_fn;\nend $$;\n\n/** 서버 bomConfPublish_ — 속성에 아직 안 옮긴 직접 저장이 있으면 그 칸은 사본 값 그대로(옛 속성 값으로 덮지 않게) */\ncreate or replace function rb_bom_conf_put(p_conf jsonb) returns jsonb language plpgsql security definer set search_path = public as $$\ndeclare cur jsonb; nv jsonb := p_conf; kept text[] := '{}';\nbegin\n  perform pg_advisory_xact_lock(hashtext('rb_bom'));\n  select v into cur from rb_conf where k = 'bomConf';\n  if cur is not null then\n    if exists (select 1 from rb_tab_job where tab = 'bom' and done_at is null and job ? 'hfProp') and cur ? 'hf' then nv := jsonb_set(nv, '{hf}', cur->'hf'); kept := array_append(kept, 'hf'); end if;\n    if exists (select 1 from rb_tab_job where tab = 'bom' and done_at is null and (job ? 'cfSemiPin' or job ? 'semiPinAdd')) and cur ? 'semipins' then nv := jsonb_set(nv, '{semipins}', cur->'semipins'); kept := array_append(kept, 'semipins'); end if;\n    if exists (select 1 from rb_tab_job where tab = 'bom' and done_at is null and job ? 'cfTypeAdd') and cur ? 'types' then nv := jsonb_set(nv, '{types}', cur->'types'); kept := array_append(kept, 'types'); end if;\n    if exists (select 1 from rb_tab_job where tab = 'bom' and done_at is null and job ? 'cfSetx') and cur ? 'setx' then nv := jsonb_set(nv, '{setx}', cur->'setx'); kept := array_append(kept, 'setx'); end if;\n  end if;\n  insert into rb_conf(k, v, at) values ('bomConf', nv, now()) on conflict (k) do update set v = excluded.v, at = excluded.at;\n  return jsonb_build_object('kept', to_jsonb(kept));\nend $$;\n\nrevoke all on function rb_cf_num(jsonb) from public, anon, authenticated;\nrevoke all on function rb_cf_ntxt(numeric) from public, anon, authenticated;\nrevoke all on function rb_cf_bomout(text) from public, anon, authenticated;\nrevoke all on function rb_cf_bomlog(text, text, text, text, text, text, text, text, text, text, text, text) from public, anon, authenticated;\nrevoke all on function rb_cf_bomjob(text, text, text, jsonb, jsonb) from public, anon, authenticated;\nrevoke all on function rb_bom_semipin_do(text, jsonb) from public, anon, authenticated;\nrevoke all on function rb_bom_addtype_do(text, jsonb) from public, anon, authenticated;\nrevoke all on function rb_bom_compoff_do(text, jsonb) from public, anon, authenticated;\nrevoke all on function rb_bom_conf_put(jsonb) from public, anon, authenticated;\nrevoke all on function rb_bom_cfset(text, text, jsonb) from public;\ngrant execute on function rb_bom_cfset(text, text, jsonb) to anon, authenticated;\n" });
+ // f498: 직접 저장 함수 14개를 rb_once 허용 목록에(같은 요청 번호면 두 번 저장 안 함) — m084 판 위에 더함
+ SB_MIGRATIONS.push({ id: 'm125_once_all', sql: SB_MIGRATIONS.filter(function (m) { return m.id === 'm084_once_pg'; })[0].sql.replace("'rb_pg_save',", "'rb_pg_save','rb_od_save','rb_pg_more','rb_od_bulk','rb_kv_set','rb_co_create','rb_item_reg','rb_vendor_add','rb_po_redraft','rb_po_pend_add','rb_po_pend_drop','rb_po_submit','rb_sm2_save','rb_dly_save','rb_bom_cfset',") });
++SB_MIGRATIONS.push({ id: 'm140_mat_inb', sql: "-- m140_mat_inb — BOM 자재 입고(발주 상세 [▸ BOM 자재 입고]) · Supabase 가 원본\n--  · rb_mat_inb  : 자재 부분 입고 줄(발주 실행판ID · 자재코드 · 입고일 · 수량 · 메모 — 돈 없음)\n--  · rb_mat_link : 사급 자재 → 사급 발주 연결(발주ID · 자재코드 → 사급 발주ID, '-' = 연결 안 함(여기서 적음))\n--  · rb_mat_log  : 바꾼 기록(누가 · 언제 · 앞 · 뒤)\n--  · rb_mat_save(token) / rb_mat_save_srv(email) : 저장 길 하나(rb_mat_do) — 세션 · 저장 권한 · 검사 · 잠금 · 시트 사본 일(rb_tab_job 'mi') · rb_ver 'mi'\n--  · rb_mat_get(token)  / rb_mat_get_srv        : 한 발주 건 줄 · 연결\n--  · rb_mat_import(rows, links) : 켜기 전 시트(_실행판_자재입고 · _실행판_자재연결)에 있던 것을 한 번 옮기고 rb_conf 'miConf' 를 켬(서버만)\n-- 켜짐: rb_conf 'miConf' {on:'1'}(rb_mat_import 가 켬). 'gate:rb_mat_save' {on:'1'} 이면 화면 직접 저장은 RB_FALLBACK(서버 길).\n\ncreate table if not exists rb_mat_inb (\n  id text primary key,\n  oid text not null,\n  code text not null,\n  d date not null,\n  qty numeric not null check (qty > 0),\n  memo text not null default '',\n  by_email text not null default '',\n  at timestamptz not null default now(),\n  upd_by text not null default '',\n  upd_at timestamptz,\n  ver int not null default 1\n);\ncreate index if not exists rb_mat_inb_oid on rb_mat_inb (oid);\ncreate table if not exists rb_mat_link (\n  oid text not null,\n  code text not null,\n  link text not null,\n  by_email text not null default '',\n  at timestamptz not null default now(),\n  primary key (oid, code)\n);\ncreate table if not exists rb_mat_log (\n  id bigserial primary key,\n  oid text not null,\n  code text not null default '',\n  op text not null,\n  line_id text,\n  before jsonb,\n  after jsonb,\n  by_email text not null default '',\n  at timestamptz not null default now()\n);\ncreate index if not exists rb_mat_log_oid on rb_mat_log (oid);\n\nalter table rb_mat_inb enable row level security;\nalter table rb_mat_link enable row level security;\nalter table rb_mat_log enable row level security;\nrevoke all on rb_mat_inb, rb_mat_link, rb_mat_log from anon, authenticated;\ngrant select on rb_mat_inb, rb_mat_link to authenticated;\ndrop policy if exists rb_mat_inb_read on rb_mat_inb;\ncreate policy rb_mat_inb_read on rb_mat_inb for select to authenticated using (true);\ndrop policy if exists rb_mat_link_read on rb_mat_link;\ncreate policy rb_mat_link_read on rb_mat_link for select to authenticated using (true);\n\n-- 한 발주 건의 지금 값(화면 · 서버 모두 이 모양)\ncreate or replace function rb_mat_state(p_oid text) returns jsonb\nlanguage sql stable security definer set search_path = public as $$\n  select jsonb_build_object(\n    'oid', p_oid,\n    'lines', coalesce((select jsonb_agg(jsonb_build_object('id', i.id, 'code', i.code, 'd', to_char(i.d, 'YYYY-MM-DD'), 'qty', i.qty, 'memo', i.memo,\n               'by', i.by_email, 'at', i.at, 'updBy', i.upd_by, 'updAt', i.upd_at, 'ver', i.ver) order by i.code, i.d, i.at, i.id)\n             from rb_mat_inb i where i.oid = p_oid), '[]'::jsonb),\n    'links', coalesce((select jsonb_object_agg(l.code, jsonb_build_object('link', l.link, 'by', l.by_email, 'at', l.at)) from rb_mat_link l where l.oid = p_oid), '{}'::jsonb),\n    'db', 1)\n$$;\n\n-- 검사 도우미\ncreate or replace function rb_mat_txt(v jsonb) returns text language sql immutable as $$\n  select case when v is null or jsonb_typeof(v) = 'null' then '' when jsonb_typeof(v) = 'string' then btrim(v #>> '{}') else btrim(v::text) end\n$$;\ncreate or replace function rb_mat_day(t text) returns date language plpgsql immutable as $$\ndeclare d date;\nbegin\n  if t !~ '^\\d{4}-\\d{2}-\\d{2}$' then raise exception 'RB_MAT_BAD 입고일은 yyyy-mm-dd 로 적어 주세요(%).', t; end if;\n  begin d := t::date; exception when others then raise exception 'RB_MAT_BAD 없는 날짜입니다(%).', t; end;\n  if to_char(d, 'YYYY-MM-DD') <> t then raise exception 'RB_MAT_BAD 없는 날짜입니다(%).', t; end if;\n  if d < date '2000-01-01' or d > date '2100-12-31' then raise exception 'RB_MAT_BAD 입고일이 이상합니다(%).', t; end if;\n  return d;\nend $$;\ncreate or replace function rb_mat_num(t text) returns numeric language plpgsql immutable as $$\ndeclare s text := replace(replace(coalesce(t, ''), ',', ''), ' ', ''); n numeric;\nbegin\n  if s !~ '^\\d+(\\.\\d{1,4})?$' then raise exception 'RB_MAT_BAD 수량은 0보다 큰 숫자로 적어 주세요(%).', coalesce(t, ''); end if;\n  n := s::numeric;\n  if n <= 0 then raise exception 'RB_MAT_BAD 수량은 0보다 커야 합니다.'; end if;\n  if n > 1000000000 then raise exception 'RB_MAT_BAD 수량이 너무 큽니다(%).', t; end if;\n  return n;\nend $$;\n\n-- 저장 본체(화면 직접 · 서버 길 모두)\ncreate or replace function rb_mat_do(p_email text, p_op text, p_a jsonb) returns jsonb\nlanguage plpgsql security definer set search_path = public as $$\ndeclare\n  a jsonb := coalesce(p_a, '{}'::jsonb);\n  v_oid text := rb_mat_txt(a->'oid');\n  v_id text := rb_mat_txt(a->'id');\n  v_code text := upper(regexp_replace(rb_mat_txt(a->'code'), '\\s', '', 'g'));\n  v_memo text;\n  v_d date; q numeric; base int;\n  cur rb_mat_inb%rowtype;\n  lk text; n int;\n  bef jsonb; aft jsonb;\nbegin\n  if coalesce(p_email, '') = '' then raise exception 'RB_SESSION'; end if;\n  if v_oid = '' or length(v_oid) > 80 then raise exception 'RB_MAT_BAD 발주 건을 알 수 없습니다.'; end if;\n  if p_op not in ('add', 'set', 'del', 'link') then raise exception 'RB_MAT_BAD 모르는 저장(%).', p_op; end if;\n  perform pg_advisory_xact_lock(hashtext('rb_mat:' || v_oid));\n  if a ? 'ver' and rb_mat_txt(a->'ver') ~ '^\\d+$' then base := rb_mat_txt(a->'ver')::int; end if;\n\n  if p_op in ('add', 'set') then\n    v_memo := rb_mat_txt(a->'memo');\n    if length(v_memo) > 300 then raise exception 'RB_MAT_BAD 메모는 300자까지입니다.'; end if;\n    v_d := rb_mat_day(rb_mat_txt(a->'d'));\n    q := rb_mat_num(rb_mat_txt(a->'qty'));\n  end if;\n  if p_op in ('add', 'set', 'del') and (v_id = '' or v_id !~ '^[A-Za-z0-9_-]{6,64}$') then raise exception 'RB_MAT_BAD 입고 줄 ID 가 이상합니다.'; end if;\n\n  if p_op = 'add' then\n    if v_code = '' or length(v_code) > 40 then raise exception 'RB_MAT_BAD 자재코드가 없습니다.'; end if;\n    select * into cur from rb_mat_inb where rb_mat_inb.id = v_id;\n    if found then\n      -- 같은 요청이 다시 온 것(응답만 잃음) — 같은 값이면 그대로 성공\n      if cur.oid = v_oid and cur.code = v_code and cur.d = v_d and cur.qty = q and cur.memo = v_memo then\n        return rb_mat_state(v_oid) || jsonb_build_object('op', p_op, 'id', v_id, 'again', 1);\n      end if;\n      raise exception 'RB_MAT_BAD 같은 입고 줄 ID 가 이미 있습니다 — 다시 불러온 뒤 적어 주세요.';\n    end if;\n    select l.link into lk from rb_mat_link l where l.oid = v_oid and l.code = v_code;\n    if coalesce(lk, '') not in ('', '-') then\n      raise exception 'RB_MAT_LINKED 이 자재는 사급 발주(%)에 연결돼 있어 여기서 입고를 적지 않습니다 — 그 발주에서 입고를 등록하거나 연결을 풀어 주세요.', lk;\n    end if;\n    insert into rb_mat_inb (id, oid, code, d, qty, memo, by_email, at, ver) values (v_id, v_oid, v_code, v_d, q, v_memo, p_email, now(), 1);\n    aft := jsonb_build_object('d', to_char(v_d, 'YYYY-MM-DD'), 'qty', q, 'memo', v_memo);\n  elsif p_op = 'set' then\n    select * into cur from rb_mat_inb where rb_mat_inb.id = v_id for update;\n    if not found or cur.oid <> v_oid then raise exception 'RB_MAT_GONE 그사이 지워진 입고 줄입니다 — 다시 불러왔습니다.'; end if;\n    v_code := cur.code;\n    if cur.d = v_d and cur.qty = q and cur.memo = v_memo then\n      return rb_mat_state(v_oid) || jsonb_build_object('op', p_op, 'id', v_id, 'same', 1);      -- 바뀐 것 없음(다시 보낸 저장 포함)\n    end if;\n    if base is not null and base <> cur.ver then\n      raise exception 'RB_MAT_CHANGED 그사이 %님이 이 입고 줄을 고쳤습니다 — 다시 불러왔으니 확인 후 다시 고쳐 주세요.', coalesce(nullif(cur.upd_by, ''), cur.by_email);\n    end if;\n    bef := jsonb_build_object('d', to_char(cur.d, 'YYYY-MM-DD'), 'qty', cur.qty, 'memo', cur.memo);\n    update rb_mat_inb set d = v_d, qty = q, memo = v_memo, upd_by = p_email, upd_at = now(), ver = cur.ver + 1 where rb_mat_inb.id = v_id;\n    aft := jsonb_build_object('d', to_char(v_d, 'YYYY-MM-DD'), 'qty', q, 'memo', v_memo);\n  elsif p_op = 'del' then\n    select * into cur from rb_mat_inb where rb_mat_inb.id = v_id for update;\n    if not found then return rb_mat_state(v_oid) || jsonb_build_object('op', p_op, 'id', v_id, 'again', 1); end if;      -- 이미 지움\n    if cur.oid <> v_oid then raise exception 'RB_MAT_BAD 다른 발주 건의 입고 줄입니다.'; end if;\n    if base is not null and base <> cur.ver then\n      raise exception 'RB_MAT_CHANGED 그사이 %님이 이 입고 줄을 고쳤습니다 — 다시 불러왔으니 확인 후 지워 주세요.', coalesce(nullif(cur.upd_by, ''), cur.by_email);\n    end if;\n    v_code := cur.code;\n    bef := jsonb_build_object('d', to_char(cur.d, 'YYYY-MM-DD'), 'qty', cur.qty, 'memo', cur.memo);\n    delete from rb_mat_inb where rb_mat_inb.id = v_id;\n  else -- link\n    if v_code = '' or length(v_code) > 40 then raise exception 'RB_MAT_BAD 자재코드가 없습니다.'; end if;\n    lk := rb_mat_txt(a->'link');\n    if length(lk) > 80 then raise exception 'RB_MAT_BAD 연결할 발주가 이상합니다.'; end if;\n    if lk = v_oid then raise exception 'RB_MAT_BAD 자기 발주에는 연결할 수 없습니다.'; end if;\n    select to_jsonb(l.link) into bef from rb_mat_link l where l.oid = v_oid and l.code = v_code;\n    if lk not in ('', '-') then\n      select count(*) into n from rb_mat_inb i where i.oid = v_oid and i.code = v_code;\n      if n > 0 then\n        raise exception 'RB_MAT_HAS_LINES 이 자재에 여기서 적은 입고가 %줄 있습니다 — 같은 입고가 두 번 세어지지 않게 먼저 지운 뒤 연결해 주세요.', n;\n      end if;\n    end if;\n    if coalesce(bef #>> '{}', '') = lk then return rb_mat_state(v_oid) || jsonb_build_object('op', p_op, 'same', 1); end if;\n    if lk = '' then delete from rb_mat_link l where l.oid = v_oid and l.code = v_code;\n    else insert into rb_mat_link (oid, code, link, by_email, at) values (v_oid, v_code, lk, p_email, now())\n           on conflict (oid, code) do update set link = excluded.link, by_email = excluded.by_email, at = excluded.at;\n    end if;\n    aft := to_jsonb(lk);\n  end if;\n\n  insert into rb_mat_log (oid, code, op, line_id, before, after, by_email) values (v_oid, v_code, p_op, nullif(v_id, ''), bef, aft, p_email);\n  insert into rb_tab_job (tab, job) values ('mi', jsonb_build_object('oid', v_oid, 'op', p_op, 'code', v_code, 'who', p_email, 'at', now()));\n  if p_email <> 'selftest@rb.local' then\n    insert into rb_ver (k, v, at) values ('mi', (floor(extract(epoch from clock_timestamp()) * 1000))::bigint::text || ':' || p_email, now())\n      on conflict (k) do update set v = excluded.v, at = excluded.at;\n  end if;\n  return rb_mat_state(v_oid) || jsonb_build_object('op', p_op, 'id', nullif(v_id, ''));\nend $$;\n\n-- 화면(세션 표)\ncreate or replace function rb_mat_save(p_token text, p_op text, p_args jsonb) returns jsonb\nlanguage plpgsql security definer set search_path = public as $$\ndeclare e text := rb_me(p_token); ed boolean; c jsonb;\nbegin\n  if e is null then raise exception 'RB_SESSION'; end if;\n  select editor into ed from rb_session where token = p_token;\n  if not coalesce(ed, false) then raise exception 'RB_SESSION 저장 권한 확인'; end if;\n  select v into c from rb_conf where k = 'miConf';\n  if coalesce(c->>'on', '') <> '1' then raise exception 'RB_FALLBACK 자재 입고 직접 저장 꺼짐'; end if;\n  select v into c from rb_conf where k = 'gate:rb_mat_save';\n  if coalesce(c->>'on', '') = '1' then raise exception 'RB_FALLBACK 막음(gate)'; end if;\n  return rb_mat_do(e, p_op, coalesce(p_args, '{}'::jsonb));\nend $$;\ncreate or replace function rb_mat_get(p_token text, p_oid text) returns jsonb\nlanguage plpgsql stable security definer set search_path = public as $$\ndeclare e text := rb_me(p_token); c jsonb;\nbegin\n  if e is null then raise exception 'RB_SESSION'; end if;\n  select v into c from rb_conf where k = 'miConf';\n  if coalesce(c->>'on', '') <> '1' then raise exception 'RB_FALLBACK 자재 입고 직접 꺼짐'; end if;\n  return rb_mat_state(btrim(coalesce(p_oid, '')));\nend $$;\n-- 서버 길(서비스 키만)\ncreate or replace function rb_mat_save_srv(p_email text, p_op text, p_args jsonb) returns jsonb\nlanguage sql security definer set search_path = public as $$ select rb_mat_do(lower(btrim(p_email)), p_op, coalesce(p_args, '{}'::jsonb)) $$;\ncreate or replace function rb_mat_get_srv(p_oid text) returns jsonb\nlanguage sql stable security definer set search_path = public as $$ select rb_mat_state(btrim(coalesce(p_oid, ''))) $$;\n\n-- 켜기 전 시트에 있던 것 옮기기(이미 있는 줄 · 연결은 그대로) + 켬\ncreate or replace function rb_mat_import(p_rows jsonb, p_links jsonb, p_on boolean) returns jsonb\nlanguage plpgsql security definer set search_path = public as $$\ndeclare x jsonb; n1 int := 0; n2 int := 0; bad int := 0;\nbegin\n  perform pg_advisory_xact_lock(hashtext('rb_mat_import'));\n  for x in select * from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb)) loop\n    begin\n      insert into rb_mat_inb (id, oid, code, d, qty, memo, by_email, at, upd_by, upd_at, ver)\n      values (rb_mat_txt(x->'id'), rb_mat_txt(x->'oid'), upper(rb_mat_txt(x->'code')), rb_mat_day(rb_mat_txt(x->'d')), rb_mat_num(rb_mat_txt(x->'qty')),\n              rb_mat_txt(x->'memo'), rb_mat_txt(x->'by'), coalesce(nullif(rb_mat_txt(x->'at'), '')::timestamptz, now()),\n              rb_mat_txt(x->'updBy'), nullif(rb_mat_txt(x->'updAt'), '')::timestamptz, greatest(1, coalesce(nullif(rb_mat_txt(x->'ver'), '')::int, 1)))\n      on conflict (id) do nothing;\n      if found then n1 := n1 + 1; end if;\n    exception when others then bad := bad + 1;\n    end;\n  end loop;\n  for x in select * from jsonb_array_elements(coalesce(p_links, '[]'::jsonb)) loop\n    begin\n      if rb_mat_txt(x->'oid') <> '' and rb_mat_txt(x->'code') <> '' and rb_mat_txt(x->'link') <> '' then\n        insert into rb_mat_link (oid, code, link, by_email, at)\n        values (rb_mat_txt(x->'oid'), upper(rb_mat_txt(x->'code')), rb_mat_txt(x->'link'), rb_mat_txt(x->'by'), coalesce(nullif(rb_mat_txt(x->'at'), '')::timestamptz, now()))\n        on conflict (oid, code) do nothing;\n        if found then n2 := n2 + 1; end if;\n      end if;\n    exception when others then bad := bad + 1;\n    end;\n  end loop;\n  if p_on then\n    insert into rb_conf (k, v, at) values ('miConf', jsonb_build_object('on', '1', 'at', now()), now())\n      on conflict (k) do update set v = excluded.v, at = excluded.at;\n  end if;\n  return jsonb_build_object('lines', n1, 'links', n2, 'bad', bad);\nend $$;\n\nrevoke all on function rb_mat_state(text) from public, anon, authenticated;\nrevoke all on function rb_mat_do(text, text, jsonb) from public, anon, authenticated;\nrevoke all on function rb_mat_save_srv(text, text, jsonb) from public, anon, authenticated;\nrevoke all on function rb_mat_get_srv(text) from public, anon, authenticated;\nrevoke all on function rb_mat_import(jsonb, jsonb, boolean) from public, anon, authenticated;\nrevoke all on function rb_mat_save(text, text, jsonb) from public;\nrevoke all on function rb_mat_get(text, text) from public;\ngrant execute on function rb_mat_save(text, text, jsonb) to anon, authenticated;\ngrant execute on function rb_mat_get(text, text) to anon, authenticated;\ngrant execute on function rb_mat_save_srv(text, text, jsonb) to service_role;\ngrant execute on function rb_mat_get_srv(text) to service_role;\ngrant execute on function rb_mat_import(jsonb, jsonb, boolean) to service_role;\n" });
++// f501: BOM 자재 입고 저장(rb_mat_save)도 rb_once 허용 목록에
++SB_MIGRATIONS.push({ id: 'm126_once_mat', sql: SB_MIGRATIONS.filter(function (m) { return m.id === 'm125_once_all'; })[0].sql.replace("'rb_pg_save',", "'rb_pg_save','rb_mat_save',") });
