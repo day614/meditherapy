@@ -1,0 +1,51 @@
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn501/PageHtml.html	2026-11-16 05:51:03.451015569 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn502/PageHtml.html	2026-11-16 05:52:27.655020575 +0000
+@@ -20641,7 +20641,7 @@
+       if (!same) m[f] = val;
+     });
+     if (m.unit != null || m.cur != null) { var cw = m.cur != null ? m.cur : bvCur(v), fw = bvFxFor(cw); if (bvNum(v.fx || 1) !== fw) m.fx = String(fw); }
+-    var ren = (m.vendor != null || m.spec != null || m.qty != null) && !bvStartsHere(v);      // 이 차수에 시작한 줄은 코드 그대로(앞 차수에서 쓴 적 없음)
++    var ren = (m.vendor != null || m.spec != null) && !bvStartsHere(v);      // f502: 소요량은 새 코드 안 붙임(서버 f426 과 같게 · 담당자)      // 이 차수에 시작한 줄은 코드 그대로(앞 차수에서 쓴 적 없음)
+     if (ren && bvCodeOk(v.code)) m.predict = (prev && prev.predict && prev.predict.indexOf("품목코드") < 0) ? prev.predict : bvPredict(bvBase(v.code));
+     if (!ren) delete m.want;
+     else if (ren && bvIsProd(v) && bvCodeOk2(BV.code) && !BV.newProduct) m.predict = bvPredict(bvBase(BV.code)) + " 품목코드(예상)";
+@@ -21296,10 +21296,10 @@
+       var el = e.target; if (!BV.fix || !el || !el.dataset || !el.dataset.fx || !el.closest || !el.closest("#bomv-rows")) return;
+       bvFixMark(el);
+       if (/^(unit|qty|proc|ship|cur)$/.test(el.dataset.f)) bvFixLive();
+-      if (/^(vendor|spec|qty|code)$/.test(el.dataset.f)) bvFixAutoCode(Number(el.dataset.fx), el.dataset.f === "code");
++      if (/^(vendor|spec|code)$/.test(el.dataset.f)) bvFixAutoCode(Number(el.dataset.fx), el.dataset.f === "code");
+     });
+   });
+-  /* f502: 업체 · 사양 · 소요량을 고친 자재 줄은 새 코드(채번)를 바로 보여 준다(담당자: "사양 바꿨는데 왜 신규 코드 채번이 안 뜨냐").
++  /* f502: 업체 · 사양을 고친 자재 줄은(소요량은 아님) 새 코드(채번)를 바로 보여 준다(담당자: "사양 바꿨는데 왜 신규 코드 채번이 안 뜨냐").
+    *  발주에서 연 BOM 확인(그 발주 차수부터 변경 등록) — 코드 칸에 다음 번호를 채운다(저장하면 그 번호로 등록 · 고쳐 적을 수 있음 · 되돌리면 원래 코드).
+    *  BOM 관리 정정 — 값 정정(①)일 수도 있어 칸은 그대로 두고 '② 변경 등록이면 새 코드 X'만 보여 준다. */
+   function bvFixAutoCode(r, typed) {
+@@ -21311,7 +21311,7 @@
+     var codeEl = q("code"); if (!codeEl) return;
+     var A = BV.fix.auto || (BV.fix.auto = {});
+     if (typed) { if (String(codeEl.value).trim().toUpperCase() !== A[r]) delete A[r]; }
+-    var diff = ["vendor", "spec", "qty"].some(function (f) {
++    var diff = ["vendor", "spec"].some(function (f) {      // 소요량은 새 코드 아님(담당자)
+       var el = q(f); if (!el) return false;
+       var o = String(v[f] == null ? "" : v[f]).trim(), n = String(el.value == null ? "" : el.value).trim();
+       return BV_NUM[f] ? !(bvNum(o) === bvNum(n) && (o === "") === (n === "")) : o !== n;
+@@ -21330,7 +21330,7 @@
+       if (diff && (cur === orig || A[r] === cur)) { codeEl.value = pred; A[r] = pred; bvFixMark(codeEl); cur = pred; }
+       else if (!diff && A[r] && cur === A[r]) { codeEl.value = orig; delete A[r]; bvFixMark(codeEl); cur = orig; }
+     }
+-    var msg = !diff ? "" : (auto ? (A[r] && cur === A[r] ? "새 코드(사양 · 업체 · 소요량 바뀜) — 저장하면 이 번호로 등록 · 원래 " + orig : (cur !== orig ? "적은 코드로 등록 — 추천 " + pred : ""))
++    var msg = !diff ? "" : (auto ? (A[r] && cur === A[r] ? "새 코드(사양 · 업체 바뀜) — 저장하면 이 번호로 등록 · 원래 " + orig : (cur !== orig ? "적은 코드로 등록 — 추천 " + pred : ""))
+       : "② 변경 등록으로 저장하면 새 코드 " + pred + " (① 값 정정이면 " + orig + " 그대로)");
+     if (!msg) { if (hint) hint.remove(); return; }
+     if (!hint && td) { hint = document.createElement("div"); hint.className = "newc fxauto"; td.insertBefore(hint, codeEl.nextSibling); }
+@@ -23138,7 +23138,7 @@
+       if ((BV_FIELDS[E.field] || []).indexOf("cur") > -1) { var cw = m.cur != null ? m.cur : bvCur(v), fw = bvFxFor(cw); if (bvNum(v.fx || 1) !== fw && (m.unit != null || m.cur != null)) m.fx = String(fw); else delete m.fx; }
+       if (bad) { $("bomv-msg").textContent = ({ unit: "단가를 숫자로", vendor: "업체명을", moq: "MOQ를 숫자로", qty: "소요량을 숫자로", proc: "임가공을 숫자로", ship: "배송비를 숫자로" }[bad] || "값을") + " 넣어 주세요."; return; }
+       // 업체 · 사양(데이터) · 소요량이 바뀌면 새 코드(채번 형식인 코드만), 그 밖은 코드 그대로
+-      var renE = (m.vendor != null || m.spec != null || m.qty != null) && !bvStartsHere(v);      // 이 차수에 시작한 줄은 코드 그대로
++      var renE = (m.vendor != null || m.spec != null) && !bvStartsHere(v);      // f502: 소요량은 새 코드 아님      // 이 차수에 시작한 줄은 코드 그대로
+       if (renE && bvCodeOk(v.code)) m.predict = m.predict || bvPredict(bvBase(v.code));
+       else if (renE && bvIsProd(v) && bvCodeOk2(BV.code) && !BV.newProduct) m.predict = bvPredict(bvBase(BV.code)) + " 품목코드(예상)";
+       else delete m.predict;
