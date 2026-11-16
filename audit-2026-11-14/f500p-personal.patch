@@ -1,0 +1,752 @@
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Bom.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Bom.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Bom.js	2026-11-16 05:27:22.126685817 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Bom.js	2026-11-16 05:27:00.371913603 +0000
+@@ -344,6 +344,7 @@
+ /** 화면: 세트 BOM 에서 구성 완제품 자재 하나를 빼거나(off) 되살린다 — fam = '구분|코드 줄기'. 세트 BOM 다시 보내 준다 */
+ function apiBomSetCompOff(product, comp, fam, off, why) {
+   requireEditor_();
++  try { if (typeof bomDbDrainIn_ === 'function' && typeof bomDbMig_ === 'function' && bomDbMig_()) bomDbDrainIn_(true); } catch (eDj) { /* 1분 작업이 */ }      // f497: 남은 직접 저장(속성 · 이력)을 먼저 — 차례
+   product = str_(product).toUpperCase(); comp = str_(comp).toUpperCase(); fam = str_(fam);
+   if (!/^[A-Z]X?\d{4}[A-Z]{2}\d+$/.test(product) || !/^[A-Z]X?\d{4}[A-Z]{2}\d+$/.test(comp) || product === comp) throw new Error('세트 · 구성 완제품 코드가 맞지 않습니다.');
+   if (!/^[^|]{1,30}\|[A-Z0-9]{4,20}$/.test(fam)) throw new Error('뺄 자재가 맞지 않습니다: ' + fam);
+@@ -364,6 +365,7 @@
+     } catch (eL) { /* 이력이 실패해도 설정은 저장됐다 */ }
+   } finally { lock.releaseLock(); }
+   try { bomRefreshOne_([product]); } catch (eR) { /* 다음 캐시 만들 때 */ }      // 목록 원가(세트)도
++  try { if (typeof bomConfPublish_ === 'function') bomConfPublish_(true); } catch (eCp) { /* 10분 작업이 */ }      // f497: 세트 뺀 자재 사본(bomConf.setx)도 바로
+   return apiBomGet(product);
+ }
+ 
+@@ -2889,6 +2891,7 @@
+  */
+ function apiBomAddType(name, code) {
+   requireEditor_();
++  try { if (typeof bomDbDrainIn_ === 'function' && typeof bomDbMig_ === 'function' && bomDbMig_()) bomDbDrainIn_(true); } catch (eDj) { /* 1분 작업이 */ }      // f497: 남은 직접 저장을 먼저
+   name = str_(name).replace(/\s+/g, ' ').slice(0, 20);
+   code = str_(code).toUpperCase();
+   if (!name) throw new Error('구분 이름을 넣어 주세요.');
+@@ -2911,6 +2914,7 @@
+   } finally {
+     lock.releaseLock();
+   }
++  try { if (typeof bomConfPublish_ === 'function') bomConfPublish_(true); } catch (eCp) { /* 10분 작업이 */ }      // f497: 구분표 사본(bomConf.types)도 바로 — 직접 구분 추가가 옛 표로 겹친 이름을 통과시키지 않게
+   return bomTypeCodes_(bomSS_());
+ }
+ 
+@@ -4023,6 +4027,7 @@
+ /** 화면: 완제품 BOM 에서 반제품 차수 고르기 — product N차(fromRound)부터 반제품 semi 의 semiRound 차(0 = 최신)를 쓴다. 이력 한 줄 */
+ function apiSemiPin(product, semi, fromRound, semiRound, why) {
+   requireEditor_();
++  try { if (typeof bomDbDrainIn_ === 'function' && typeof bomDbMig_ === 'function' && bomDbMig_()) bomDbDrainIn_(true); } catch (eDj) { /* 1분 작업이 */ }      // f497: 남은 직접 저장을 먼저
+   product = str_(product).toUpperCase(); semi = str_(semi).toUpperCase(); fromRound = Number(fromRound) || 1; semiRound = Number(semiRound) || 0;
+   if (!/^[A-Z]X\d{4}[A-Z]{2}\d+$/.test(semi) || !product) throw new Error('코드가 맞지 않습니다.');
+   var lock = LockService.getScriptLock(), before = 0; waitLock_(lock);
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/BomExtra.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/BomExtra.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/BomExtra.js	2026-11-16 05:27:22.126685817 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/BomExtra.js	2026-11-16 05:27:17.862685564 +0000
+@@ -298,7 +298,8 @@
+  * [그대로 두기]를 고른 건은 { 실행판ID: 새 코드 } 로 남겨 다시 묻지 않는다(더 새 코드가 생기면 다시 묻는다).
+  * ============================================================ */
+ var RB_OLDACK = 'rb.oldack';
+-function oldAckRead_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(RB_OLDACK) || '{}') || {}; } catch (e) { return {}; } }
++function oldAckRead_() { var kv = typeof kvRead_ === 'function' ? kvRead_('kv:oldack') : null; if (kv) return kv;      // f497: rb_conf 가 원본(올린 뒤)
++  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(RB_OLDACK) || '{}') || {}; } catch (e) { return {}; } }
+ /** 화면: 그대로 두기로 한 건 */
+ function apiOldAcks() { return oldAckRead_(); }
+ /** 화면: 이 발주 건은 옛 코드 그대로(새 코드 to 기준) */
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Closing.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Closing.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Closing.js	2026-11-16 05:27:22.126685817 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Closing.js	2026-11-16 05:27:17.865435965 +0000
+@@ -107,6 +107,8 @@
+  */
+ var RB_CLOSE_EXP_TAB = '_실행판_마감상신', RB_CLOSE_EXP_HEAD = ['마감 줄 ID', '상신', '누가', '언제'];
+ function closeExpMap_() {
++  var kv = typeof kvRead_ === 'function' ? kvRead_('kv:closeexp') : null;      // f497: rb_conf 가 원본(올린 뒤)
++  if (kv) { var o2 = {}; Object.keys(kv).forEach(function (id) { if (kv[id] && kv[id].on === 'Y') o2[id] = { by: str_(kv[id].by), at: str_(kv[id].at) }; }); return o2; }
+   var sh = ss_().getSheetByName(RB_CLOSE_EXP_TAB), out = {};
+   if (!sh || sh.getLastRow() < 2) return out;
+   sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach(function (r) { var id = str_(r[0]); if (id && str_(r[1]) === 'Y') out[id] = { by: str_(r[2]), at: r[3] instanceof Date ? Utilities.formatDate(r[3], tz_(), 'yyyy-MM-dd HH:mm') : str_(r[3]) }; });
+@@ -131,7 +133,7 @@
+ }
+ function apiCloseList() {
+   var hit = cacheGet_(RB_CLOSE_CACHE);
+-  if (hit) return hit;
++  if (hit) { try { if (typeof kvOn_ === 'function' && kvOn_('kv:closeexp')) hit.exp = closeExpMap_(); } catch (eK) { /* 넘어간다 */ } return hit; }      // f497: 상신 체크는 rb_conf 에서 늘 새로(직접 저장은 캐시를 안 버림)
+   var all = closeReadAll_(), out = { dom: [], imp: [] };
+   all.forEach(function (o) { (o.kind === '수입' ? out.imp : out.dom).push(o); });
+   try { out.exp = closeExpMap_(); } catch (eX) { out.exp = {}; }
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Code.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Code.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Code.js	2026-11-16 05:27:22.126685817 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Code.js	2026-11-16 05:27:17.914685567 +0000
+@@ -1990,7 +1990,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-16f497p';
++var RB_BUILD = '2026-11-16f500p';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Daily.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Daily.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Daily.js	2026-11-16 05:27:22.126685817 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Daily.js	2026-11-16 05:27:17.866131560 +0000
+@@ -23,7 +23,12 @@
+ /** 보고서를 계산할 날짜 — 다음 보고(내일 날짜)는 아직 그날이 아니라 오늘 기준으로 센다(향후 7일 · 당일 예정 등) */
+ function dailyCalcDate_(date) { var t = dailyToday_(); return date > t ? t : date; }
+ function dailyOkDate_(d) { return /^\d{4}-\d{2}-\d{2}$/.test(str_(d)) ? str_(d) : ''; }
+-function dailyTab_() { return tab_(RB_DAILY_TAB, RB_DAILY_HEAD); }
++function dailyTab_() { if (typeof cfDailyEnsure_ === 'function') cfDailyEnsure_(); return tab_(RB_DAILY_TAB, RB_DAILY_HEAD); }      // f497: 직접 저장(Supabase 원본)이 남았으면 시트에 먼저
++/** f497: 켜져 있으면 서버 길 api 도 Supabase 원본(rb_dly_srv)으로 — 꺼져 있으면 undefined(예전 길). RB_FALLBACK(흔치 않은 인자 모양)도 예전 길 */
++function dailyCfTry_(fn, args, admin) {
++  if (typeof cfDailyOn_ !== 'function' || !cfDailyOn_()) return undefined;
++  try { return cfDailySrv_(fn, args, admin); } catch (e) { if (/RB_FALLBACK/.test(String(e && e.message || ''))) return undefined; throw e; }
++}
+ function dailyCell_(v) { return v instanceof Date ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd') : str_(v).replace(/^'/, ''); }
+ function dailyFind_(sh, date) {
+   var n = sh.getLastRow() - 1; if (n < 1) return 0;
+@@ -131,12 +136,14 @@
+  */
+ var RB_DLY_HIDE = 'rb.dlyhide.';
+ function dailyHideGet_(date) {
++  if (typeof cfDailyEnsure_ === 'function') cfDailyEnsure_();      // f497: 직접 저장한 보고 제외를 속성에 먼저
+   try { var v = PropertiesService.getScriptProperties().getProperty(RB_DLY_HIDE + date); var L = v ? JSON.parse(v) : []; return Array.isArray(L) ? L : []; } catch (e) { return []; }
+ }
+ /** 화면: 고른 줄을 보고서에서 빼기(on) · 되돌리기(!on) — 그 날짜의 뺀 줄 목록을 돌려준다 */
+ function apiDailyHide(date, keys, on) {
+   requireEditor_();
+   date = dailyOkDate_(date); if (!date) throw new Error('날짜가 없습니다.');
++  if (typeof cfDailyOn_ === 'function' && cfDailyOn_()) return cfDailySrv_('apiDailyHide', [date, (keys || []).map(function (k) { return str_(k).slice(0, 40); }).filter(String), !!on]);      // f497: 보고 제외 원본 = Supabase rb_dly_hide
+   dailyLockedCheck_(date);
+   keys = (keys || []).map(function (k) { return str_(k).slice(0, 40); }).filter(String);
+   var lock = LockService.getScriptLock(); waitLock_(lock);
+@@ -189,6 +196,11 @@
+  */
+ function apiDailySaveRep(date, rep) {
+   requireEditor_();
++  if (typeof cfDailyOn_ === 'function' && cfDailyOn_()) {      // f497: Supabase 원본(rb_dly_srv — 화면 직접 저장과 같은 규칙 · 같은 잠금)
++    var r0 = rep && typeof rep === 'object' ? JSON.parse(JSON.stringify(rep)) : null;
++    if (r0 && !Array.isArray(r0)) { delete r0.issues; delete r0.author; delete r0.weekMode; }
++    return cfDailySrv_('apiDailySaveRep', [date, r0 ? JSON.stringify(r0) : null]);
++  }
+   var today = dailyToday_(); date = dailyOkDate_(date) || today;
+   if (date < today) throw new Error('지난 날짜는 이 방식으로 저장하지 않습니다 — 새로고침 후 다시 해 주세요.');
+   if (date > today && date !== dailyAhead_()) throw new Error('앞으로의 날짜는 저장할 수 없습니다.');
+@@ -272,6 +284,7 @@
+ /** 관리자: 저장 풀기 — 그 날짜 보고서 칸만 비운다(특이사항은 그대로). 다시 [저장]할 수 있게 */
+ function apiDailyUnlock(date) {
+   requireAdmin_();
++  if (typeof cfDailyOn_ === 'function' && cfDailyOn_()) return cfDailySrv_('apiDailyUnlock', [date], true);      // f497: Supabase 원본 — 뒤처리(기준 시각 · 미리 계산본 · 이력)는 시트 맞추기가
+   date = dailyOkDate_(date); if (!date) throw new Error('날짜가 없습니다.');
+   var sh = dailyTab_(), lock = LockService.getScriptLock(); waitLock_(lock);
+   try {
+@@ -383,6 +396,7 @@
+ /** 화면: 병목 · 이슈(직접 작성) 저장 — rows = [[구분, 이슈 내용, 품목 · 업체, 원인, 대응 방안, 해결 예정일, 담당], …] */
+ function apiDailyIssues(date, rows) {
+   requireEditor_();
++  var cf = dailyCfTry_('apiDailyIssues', [date, rows]); if (cf !== undefined) return cf;      // f497
+   date = dailyOkDate_(date); if (!date) throw new Error('날짜가 없습니다.');
+   dailyLockedCheck_(date);
+   var clean = (rows || []).map(function (r) { return (r || []).slice(0, 7).map(function (x) { return str_(x).slice(0, 500); }); }).filter(function (r) { return r.some(function (x) { return x; }); }).slice(0, 50);
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Keys.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Keys.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Keys.js	2026-11-16 05:27:22.130685817 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Keys.js	2026-11-16 05:27:00.418024683 +0000
+@@ -961,6 +961,7 @@
+ 
+ function apiEditOrder(statusRow, expect, patch) {
+   requireEditor_();
++  try { if (typeof pjDrainIn_ === 'function') pjDrainIn_(); } catch (ePj) { /* 1분 작업이 */ }      // f497: 직접 저장의 지급 줄 따라 고치기(_odLines)가 남았으면 먼저(차례)
+   try { if (typeof odDrainIn_ === 'function') odDrainIn_(); } catch (eOd) { /* 1분 작업이 */ }      // f336: 화면이 직접 넣은 발주 수정이 남았으면 먼저(차례 지키기)
+   return editOrder_(statusRow, expect, patch, null);
+ }
+@@ -1231,10 +1232,12 @@
+  * 아마란스에 올린 뒤 [상신 대기]에서 결재문서번호를 넣고 [상신 완료] → 품의번호 · 상신 · 상신일 · 체크 · 결재문서번호를 한 번에.
+  * 예전엔 내려받은 직후 확인창 하나로 상신까지 넣어, 창을 옮기면 흐름이 끊기고 손으로 따로 넣어야 했다.
+  * ============================================================ */
+-var RB_POPEND = 'rb:popend';
++var RB_POPEND = 'rb:popend', RB_POPEND_VER = 0;
+ // 스크립트 속성 한 칸은 9KB(UTF-8 바이트) 까지 — 넘으면 여러 칸(rb:popend#0, #1 …)에 나눠 담고 rb:popend 에는 {"__chunks":n} 만 둔다.
+ // 예전(한 칸에 JSON 통째로) 값도 그대로 읽는다.
+ function poPendRead_() {
++  // f497: 상신 대기 원본을 Supabase(rb_conf 'poPend')로 옮긴 뒤에는 그것만 읽는다(화면 직접 저장 rb_po_pend_add · rb_po_submit 과 같은 곳) — PoDirect.js(회사만)
++  if (typeof poPendSbOn_ === 'function' && poPendSbOn_()) { var sv = sbRpc_('rb_po_pend_get', {}) || {}; RB_POPEND_VER = Number(sv.ver) || 0; return (sv.o && typeof sv.o === 'object') ? sv.o : {}; }
+   try {
+     var P = PropertiesService.getScriptProperties();
+     var o = JSON.parse(P.getProperty(RB_POPEND) || '{}');
+@@ -1250,6 +1253,10 @@
+ function poPendWrite_(o) {
+   var cut = ymd_(new Date(Date.now() - 90 * 864e5));
+   Object.keys(o).forEach(function (k) { if (str_(o[k].at) < cut) delete o[k]; });
++  if (typeof poPendSbOn_ === 'function' && poPendSbOn_()) {      // f497: 읽은 판 그대로일 때만(그사이 직접 저장이 바꿨으면 '잠시 뒤 다시' — 할 일 길은 다시 넣고 · 화면 gsr 은 저절로 다시)
++    try { var rv = sbRpc_('rb_po_pend_put', { p_o: o, p_ver: RB_POPEND_VER }); RB_POPEND_VER = Number(rv && rv.ver) || RB_POPEND_VER; return; }
++    catch (eP) { if (/RB_ROW_TAKEN/.test(String(eP && eP.message || eP))) throw new Error('상신 대기를 그사이 다른 사람이 바꿨습니다 — 잠시 뒤 다시 해 주세요.'); throw eP; }
++  }
+   var js = JSON.stringify(o), P = PropertiesService.getScriptProperties();
+   var old = 0;
+   try { old = Number((JSON.parse(P.getProperty(RB_POPEND) || '{}') || {}).__chunks) || 0; } catch (eO) { old = 0; }
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Nego.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Nego.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/Nego.js	2026-11-16 05:27:22.130685817 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/Nego.js	2026-11-16 05:27:17.867302259 +0000
+@@ -7,6 +7,7 @@
+ var RB_NEGO_QTY = 'rb.negoqty';
+ 
+ function negoQtyRead_() {
++  var kv = typeof kvRead_ === 'function' ? kvRead_('kv:negoqty') : null; if (kv) return kv;      // f497: rb_conf 가 원본(올린 뒤)
+   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(RB_NEGO_QTY) || '{}') || {}; } catch (e) { return {}; }
+ }
+ 
+@@ -36,7 +37,8 @@
+  * (기본: 사유에 네고 · 인하 · 절감 · 할인이 있으면 집계 — '변경'은 오타 정정에도 써서 · '인상'은 절감이 아니라서 넣지 않는다, f220). 고른 값은 스크립트 속성 rb.negopick = { 변경ID: 1 | 0 }.
+  */
+ var RB_NEGO_PICK = 'rb.negopick';
+-function negoPickRead_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(RB_NEGO_PICK) || '{}') || {}; } catch (e) { return {}; } }
++function negoPickRead_() { var kv = typeof kvRead_ === 'function' ? kvRead_('kv:negopick') : null; if (kv) return kv;      // f497
++  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(RB_NEGO_PICK) || '{}') || {}; } catch (e) { return {}; } }
+ function negoFixLog_() {
+   var sh = bomLogTab_(bomSS_());
+   if (!sh || sh.getLastRow() < 2) return [];
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/PageHtml.html /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/PageHtml.html
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/v276o/PageHtml.html	2026-11-16 05:27:22.142685818 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/p276/PageHtml.html	2026-11-16 05:27:17.906685566 +0000
+@@ -7661,9 +7661,12 @@
+     };
+     var fold = function (memos, gk) {
+       if (TLMORE[gk] || memos.length <= 1) return { keep: function () { return true; }, hidden: 0, open: !!TLMORE[gk] && memos.length > 1 };
++      // f498: 마지막 것이 상태만 적힌 자동 기록(드롭 · 드롭 취소 · 수신 …, 사유가 없거나 '.')이면 그 앞의 마지막 사람 메모부터 보인다 — 예전엔 메모 뒤에 드롭하면 메모가 [이전 기록]에 숨었다
++      var autoRec = function (m) { var t = String((m.x && m.x.text) || "").trim(); return !!(m.x && m.x.st) && (!t || /^(드롭|드롭 취소|탈락|수신|채택|진행중)(\s*[—-]\s*[.\s]*)?$/.test(t)); };
+       var lastJ = memos.length - 1, n = 0;
+-      memos.forEach(function (m, j) { if (j !== lastJ && !editingIdx(m)) n++; });
+-      return { keep: function (m, j) { return j === lastJ || editingIdx(m); }, hidden: n, open: false };
++      while (lastJ > 0 && autoRec(memos[lastJ])) lastJ--;
++      memos.forEach(function (m, j) { if (j < lastJ && !editingIdx(m)) n++; });
++      return { keep: function (m, j) { return j >= lastJ || editingIdx(m); }, hidden: n, open: false };
+     };
+     var moreRow = function (f, gk) {
+       if (!f.hidden && !f.open) return "";
+@@ -14324,14 +14327,7 @@
+     // f390: 핸들링피 설정 — Supabase 함수(rb_bom_hfset · 세션 bomhf): 설정은 bomConf.hf 바로 · 품목을 주면 그 품목 지금 줄에 수식. 세션이 없으면 예전 길(할 일 · 서버)
+     apiHfSet: function (args, ok, fail, gas) {
+       var v = String(args[0] || ""), k = bvHfKey(v), pct = Number(String(args[1] == null ? "" : args[1]).replace(/,/g, "")) || 0, mode = { turnkey: 1, all: 1, maker: 1 }[args[2]] ? args[2] : "turnkey";
+-      var old = function () {
+-        if (!k || pct < 0 || pct > 50 || isNaN(pct) || (pct > 0 && String(args[3] || "").trim()) || !HF) { gas(); return; }
+-        pjDirect("apiHfSet", [v, pct, mode, String(args[3] || ""), String(args[4] || "")], function () {
+-          var all = Object.assign({}, HF);
+-          if (pct > 0) all[k] = { vendor: v.trim(), pct: pct, mode: mode, at: rbNowFmt("yy/MM/dd"), who: String((DATA && DATA.me) || "") }; else delete all[k];
+-          ok({ direct: 1, all: all });
+-        }, fail, gas);
+-      };
++      var old = function () { gas(); };      // f497: 대기열(가짜 응답) 대신 서버 길(진짜 결과 · 같은 잠금 차례) — 직접(rb_bom_hfset)이 안 될 때만
+       var code = String(args[3] || "").trim().toUpperCase();
+       bvDirectRpc("bomhf", "rb_bom_hfset", { vendor: v, pct: args[1], mode: args[2], applyTo: code, why: String(args[4] || "") }, code || "_", ok, fail, old, function (d, x) {
+         return { direct: 1, all: (x && x.all) || HF, applied: (x && x.applied) || null, bom: x && x.applied && x.applied.n && code ? d : null };
+@@ -14349,10 +14345,16 @@
+     apiBomSetCompOff: function (args, ok, fail, gas) {
+       var p = String(args[0] || "").toUpperCase(), c = String(args[1] || "").toUpperCase(), fam = String(args[2] || "");
+       if (!/^[A-Z]X?\d{4}[A-Z]{2}\d+$/.test(p) || !/^[A-Z]X?\d{4}[A-Z]{2}\d+$/.test(c) || p === c || !/^[^|]{1,30}\|[A-Z0-9]{4,20}$/.test(fam)) { gas(); return; }
+-      pjDirect("apiBomSetCompOff", [p, c, fam, !!args[3], String(args[4] || "")], function () {
++      var oldC = function () {
++        pjDirect("apiBomSetCompOff", [p, c, fam, !!args[3], String(args[4] || "")], function () {
++          delete BV_GETC[p];
++          ok({ direct: 1, code: p, compOff: Object.assign({}, BV_COMPOFF[p] || {}) });
++        }, fail, gas);
++      };
++      cfBomDirect("apiBomSetCompOff", { product: p, comp: c, fam: fam, off: !!args[3], why: String(args[4] || "") }, p, ok, fail, gas, oldC, function (v) {      // f497: 그 자리에서(rb_bom_cfset)
+         delete BV_GETC[p];
+-        ok({ direct: 1, code: p, compOff: Object.assign({}, BV_COMPOFF[p] || {}) });
+-      }, fail, gas);
++        var d = bvDirectOut(p, v); d.compOff = v.compOff || {}; d.direct = 1; return d;
++      });
+     },
+     // f371: 자재 구분 추가(속성 bom:types) — 할 일. 서버와 같은 검사(이름 · 약호 겹침 · 이미 자재코드에 쓰인 약호)를 화면이 먼저 — 구분 표 · 쓰인 코드를 모르면 서버 길
+     apiBomAddType: function (args, ok, fail, gas) {
+@@ -14367,18 +14369,25 @@
+       ITEMDB.forEach(function (it) { add(it.code); });
+       Object.keys(BV_ALL).forEach(function (p) { add(p); (BV_ALL[p] || []).forEach(function (x) { add(x.code); }); });
+       if (used.length) { fail(new Error("약호 " + cd + " 는 이미 자재코드에 쓰였습니다(" + used.slice(0, 3).join(", ") + "). 다른 약호를 넣어 주세요.")); return; }
+-      pjDirect("apiBomAddType", [nm, cd], function () { var m = Object.assign({}, BV_TCODE); m[nm] = cd; ok(m); }, fail, gas);
++      var oldT = function () { pjDirect("apiBomAddType", [nm, cd], function () { var m = Object.assign({}, BV_TCODE); m[nm] = cd; ok(m); }, fail, gas); };
++      cfBomDirect("apiBomAddType", { name: args[0], code: args[1] }, "", ok, fail, gas, oldT, function (v) { return v.types || Object.assign({}, BV_TCODE); });      // f497: 그 자리에서(rb_bom_cfset — 서버와 같은 검사 · 진짜 구분표)
+     },
+     // f371: 반제품 차수 고르기(속성 rb.semipin) — 할 일. 화면은 이미 BV.semiPin 을 바꿨다(그 값을 돌려줌 · BV_PINS 도)
+     apiSemiPin: function (args, ok, fail, gas) {
+       var p = String(args[0] || "").toUpperCase(), sc = String(args[1] || "").toUpperCase(), r = Number(args[2]) || 1, sr = Number(args[3]) || 0;
+       if (!p || !/^[A-Z]X\d{4}[A-Z]{2}\d+$/.test(sc)) { gas(); return; }
+-      pjDirect("apiSemiPin", [p, sc, r, sr, String(args[4] || "")], function () {
+-        var base = Object.assign({}, (BV.code === p ? BV.semiPin : BV_PINS[p]) || {}), L = (base[sc] || []).filter(function (x) { return x[0] !== r; });
+-        L.push([r, sr]); L.sort(function (a, b) { return a[0] - b[0]; }); base[sc] = L;
+-        BV_PINS[p] = base; delete BV_GETC[p];
+-        ok({ direct: 1, code: p, semiPin: base });
+-      }, fail, gas);
++      var oldS = function () {
++        pjDirect("apiSemiPin", [p, sc, r, sr, String(args[4] || "")], function () {
++          var base = Object.assign({}, (BV.code === p ? BV.semiPin : BV_PINS[p]) || {}), L = (base[sc] || []).filter(function (x) { return x[0] !== r; });
++          L.push([r, sr]); L.sort(function (a, b) { return a[0] - b[0]; }); base[sc] = L;
++          BV_PINS[p] = base; delete BV_GETC[p];
++          ok({ direct: 1, code: p, semiPin: base });
++        }, fail, gas);
++      };
++      cfBomDirect("apiSemiPin", { product: args[0], semi: args[1], fromRound: args[2], semiRound: args[3], why: String(args[4] || "") }, p, ok, fail, gas, oldS, function (v) {      // f497: 그 자리에서(rb_bom_cfset)
++        var base = v.semiPin || {}; BV_PINS[p] = base; delete BV_GETC[p];
++        var d = bvDirectOut(p, v); d.semiPin = base; d.direct = 1; return d;
++      });
+     },
+     apiBomGet: function (args, ok, fail, gas) {
+       var code = String(args[0] || "").toUpperCase(), srv = null, sd = null, n = 0, eS = null;
+@@ -14394,7 +14403,17 @@
+     },
+     // f336: 발주 수정 — 글자 칸만(rb_od_edit · 세션 od). 함수는 규칙만 보고 일로 넣고, 시트는 바로 '지금 맞추기'(apiOrderKick — 그동안 다시 읽기가 옛 값으로 덮지 않게 저장 중 표시 유지) · 1분 작업.
+     // 수량 · 단가 · 날짜 · 결재번호 · 사유 · 종결/취소 건은 함수가 RB_FALLBACK → 서버 길
++    // f497: 발주 수정 — Supabase 함수(rb_od_save)가 발주 DB 사본 칸을 그 자리에서 바꾸고 진짜 결과(row · n)를 준다. 시트 · 이력 · 지급 줄 따라 고치기(수량 · 단가)는 서버가 뒤에서(pjKick 이 알림까지).
++    // RB_FALLBACK(꺼짐 · 같은 건 앞선 저장 · 흔치 않은 모양 — 아무것도 안 들어감)이면 예전 길(_odQueue — rb_od_edit 할 일)로
+     apiEditOrder: function (args, ok, fail, gas) {
++      var ex = args[1] || {}, patch = args[2] || {}, qp = ("qty" in patch) || ("price" in patch);
++      if (!ex.id) { gas(); return; }
++      odDirect("rb_od_save", "apiEditOrder", { p_args: args }, function (v) {
++        ok(v);
++        if (qp) [4000, 15000].forEach(function (t) { setTimeout(function () { try { delete LN_CACHE[ex.id]; var rq = rowById(ex.id); if (rq && currentId === ex.id && typeof lnLoad === "function") lnLoad(rq); } catch (eL) { /* 다음 읽기 때 */ } }, t); });      // 지급 줄은 서버(_odLines)가 따라 고침 — 다시 읽기
++      }, fail, gas, function () { RB_DIRECT._odQueue(args, ok, fail, gas); });
++    },
++    _odQueue: function (args, ok, fail, gas) {
+       if (typeof noteRpc !== "function" || typeof noteSess !== "function") { gas(); return; }
+       var ex = args[1] || {}, patch = args[2] || {}, r0 = (typeof rowById === "function" && ex.id) ? rowById(ex.id) : null;
+       var TXT = { name: 1, code: 1, batch: 1, cat: 1, brand: 1, channel: 1, vendor: 1, memo: 1, owner: 1, team: 1, reqOwner: 1, link: 1, qty: 1, price: 1, pre: 1, bal: 1, due: 1, useBy: 1, approvalNo: 1, reason: 1 };      // f347: 수량 · 단가 · 날짜 · 결재번호도
+@@ -14469,17 +14488,19 @@
+         var it = ITEMDB.filter(function (x) { return String(x.code || "").toUpperCase() === code; })[0];
+         if (it && it.name && nmS && nz(it.name) !== nz(nmS) && nz(it.name).indexOf(nz(nmS)) < 0 && nz(nmS).indexOf(nz(it.name)) < 0) { fail(new Error("CODE_TAKEN:" + it.name)); return; }
+       }
+-      pjDirect("apiSetCode", [args[0], ex, code, bc, true], function () { ok({ ok: true, code: code, direct: 1 }); }, fail, gas);
++      var oldSC = function () { pjDirect("apiSetCode", [args[0], ex, code, bc, true], function () { ok({ ok: true, code: code, direct: 1 }); }, fail, gas); };
++      odDirect("rb_od_bulk", "apiSetCode", { p_fn: "apiSetCode", p_args: [args[0], ex, code, bc, true] }, ok, fail, gas, oldSC);      // f497(g1): 같은 코드 다른 이름 검사(CODE_TAKEN)는 위에서 화면이 · 저장은 Supabase 함수가 바로(before · code 진짜 값)
+     },
+     apiSetState: function (args, ok, fail, gas) { if (!(Number(args[0]) >= 2) || !(args[1] && args[1].id)) { gas(); return; } pdDirect("rb_od_state", "apiSetState", args, ok, fail, gas); },      // f491: Supabase 가 바로 바꿈(할 일 대기열 아님)
+-    apiSetCur: function (args, ok, fail, gas) { pjDirect("apiSetCur", args, ok, fail, gas); },
+-    apiSetFlag: function (args, ok, fail, gas) { pjDirect("apiSetFlag", args, ok, fail, gas); },
++    apiSetCur: function (args, ok, fail, gas) { pgMore("apiSetCur", args, ok, fail, gas, function () { pjDirect("apiSetCur", args, ok, fail, gas); }); },      // f497: Supabase 함수(rb_pg_more)가 바로 — RB_FALLBACK 이면 예전 할 일 길
++    apiSetFlag: function (args, ok, fail, gas) { pgMore("apiSetFlag", args, ok, fail, gas, function () { pjDirect("apiSetFlag", args, ok, fail, gas); }); },
+     apiSampleStatus: function (args, ok, fail, gas) { if (!(args[3] && args[3].sid)) { gas(); return; } pjDirect("apiSampleStatus", args, ok, fail, gas); },
+-    apiBulkHide: function (args, ok, fail, gas) { pjDirect("apiBulkHide", args, function () { ok({ direct: 1, n: (args[0] || []).length }); }, fail, gas); },
++    apiBulkHide: function (args, ok, fail, gas) { pgMore("apiBulkHide", args, ok, fail, gas, function () { pjDirect("apiBulkHide", args, function () { ok({ direct: 1, n: (args[0] || []).length }); }, fail, gas); }); },
+     // f347: 여러 건 날짜 · 단계 처리 · 품의 취소(응답은 화면이 센 건수 — 못 한 건은 맞추기 뒤 알림)
+     // f352: 일괄 품의번호 · 결재번호 · 발주일(화면이 먼저 바꿈 · 못 한 건은 맞추기 뒤 알림 · 그 뒤 다시 읽기로 맞춤)
+     // f497: 서버 apiBulkDoc0_ 와 같은 검사 · 건너뜀(취소 · 종결 건 — '이미 다른 품의번호'는 화면이 [확인]으로 이미 고름) — 예전엔 항상 skipped: [] 라 'N개 못 넣음' 알림이 사라졌다
+-    apiBulkDoc: function (args, ok, fail, gas) {
++    apiBulkDoc: function (args, ok, fail, gas) { odDirect("rb_od_bulk", "apiBulkDoc", { p_fn: "apiBulkDoc", p_args: args }, function (r) { ok(r); lastSync = 0; setTimeout(revalidate, 4000); }, fail, gas, function () { RB_DIRECT._BulkDocQ(args, ok, fail, gas); }); },      // f497(g1): Supabase 함수가 바로 · 진짜 결과(RB_FALLBACK 이면 아래 예전 길)
++    _BulkDocQ: function (args, ok, fail, gas) {
+       var doc = String(args[1] == null ? "" : args[1]).trim().slice(0, 60);
+       if (!doc) { fail(new Error("품의번호(엑셀 품의서 번호, MTB2C-…)를 넣어주세요.")); return; }
+       if (doc.indexOf("메디테라피") > -1) { fail(new Error("결재문서번호(" + doc + ")는 품의번호가 아닙니다. 엑셀 품의서의 품의번호(MTB2C-…)를 넣어주세요.")); return; }
+@@ -14490,7 +14511,8 @@
+       pjDirect("apiBulkDoc", [S0.keep].concat(args.slice(1)), function () { ok(out); lastSync = 0; setTimeout(revalidate, 4000); }, fail, gas);
+     },
+     // f497: 서버 podbBulkApprovalNo_ 와 같게 — 종결 · 취소 건은 '실패'(그 문구)
+-    apiBulkApprovalNo: function (args, ok, fail, gas) {
++    apiBulkApprovalNo: function (args, ok, fail, gas) { odDirect("rb_od_bulk", "apiBulkApprovalNo", { p_fn: "apiBulkApprovalNo", p_args: args }, function (r) { ok(r); }, fail, gas, function () { RB_DIRECT._BulkApprovalNoQ(args, ok, fail, gas); }); },      // f497(g1): Supabase 함수가 바로 · 진짜 결과(RB_FALLBACK 이면 아래 예전 길)
++    _BulkApprovalNoQ: function (args, ok, fail, gas) {
+       var L = (args[0] || []).filter(function (x) { return x && String(x.approvalNo == null ? "" : x.approvalNo).trim(); }), fails = [], failIds = [], keep = [];
+       L.forEach(function (x) {
+         var ex = x.expect || {}, r = ex.id ? rowById(ex.id) : null, s0 = r ? String(r.state || "") : "";
+@@ -14503,7 +14525,8 @@
+       pjDirect("apiBulkApprovalNo", [keep], function () { ok(out); }, fail, gas);
+     },
+     // 발주일 — 수식 칸(건너뜀)은 화면이 모른다: 1분 작업 결과로 '지금 맞추기'가 알린다(f448). col 은 열 글자 대신 칸 이름(화면 문구가 'direct' 면 칸 이름으로)
+-    apiBulkOrderDate: function (args, ok, fail, gas) {
++    apiBulkOrderDate: function (args, ok, fail, gas) { odDirect("rb_od_bulk", "apiBulkOrderDate", { p_fn: "apiBulkOrderDate", p_args: args }, function (r) { ok(r); lastSync = 0; setTimeout(revalidate, 4000); }, fail, gas, function () { RB_DIRECT._BulkOrderDateQ(args, ok, fail, gas); }); },      // f497(g1): Supabase 함수가 바로 · 진짜 결과(RB_FALLBACK 이면 아래 예전 길)
++    _BulkOrderDateQ: function (args, ok, fail, gas) {
+       if (!/^\d{4}-\d{1,2}-\d{1,2}$/.test(String(args[1] || "").trim())) { fail(new Error("발주일을 넣어주세요.")); return; }
+       pjDirect("apiBulkOrderDate", args, function () { ok({ direct: 1, n: (args[0] || []).filter(function (x) { return Number(x && x.statusRow) >= 2; }).length, col: "발주일", skipped: [] }); lastSync = 0; setTimeout(revalidate, 4000); }, fail, gas);
+     },
+@@ -14512,15 +14535,23 @@
+       var c = String(args[0] || "").toUpperCase().replace(/\s/g, ""), nm = String(args[1] || "").trim();
+       if (!/^[A-Z0-9-]{4,30}$/.test(c) || !nm || !ITEMDB || !ITEMDB.length) { gas(); return; }
+       var ex = ITEMDB.some(function (x) { return String(x.code || "").toUpperCase() === c; });
+-      pjDirect("apiItemRegister", [c, nm, args[2] || "", args[3] || "", args[4] || ""], function () {
+-        try { if (!ex && typeof bvPendReg === "function") bvPendReg([c]); } catch (eP) { /* 넘어간다 */ }
+-        ok({ code: c, name: nm, brand: String(args[2] || ""), vendor: String(args[3] || ""), spec: String(args[4] || ""), exists: ex || undefined, direct: 1 });
+-      }, fail, gas);
++      var a5 = [c, nm, args[2] || "", args[3] || "", args[4] || ""];
++      poDirect("rb_item_reg", "apiItemRegister", a5, function (r) {      // f497: Supabase 가 바로 등록(이미 있음은 품목 DB 사본으로 판단)
++        try { if (!r.exists && typeof bvPendReg === "function") bvPendReg([r.code || c]); } catch (eP) { /* 넘어간다 */ }
++        ok(r);
++      }, fail, gas, function () {
++        pjDirect("apiItemRegister", a5, function () {
++          try { if (!ex && typeof bvPendReg === "function") bvPendReg([c]); } catch (eP) { /* 넘어간다 */ }
++          ok({ code: c, name: nm, brand: String(args[2] || ""), vendor: String(args[3] || ""), spec: String(args[4] || ""), exists: ex || undefined, direct: 1 });
++        }, fail, gas);
++      });
+     },
+     apiVendorAdd: function (args, ok, fail, gas) {
+       var v = String(args[0] || "").replace(/\s+/g, " ").trim().slice(0, 80);
+       if (!v) { gas(); return; }
+-      pjDirect("apiVendorAdd", [v], function () { ok({ direct: 1, list: (typeof VENDORS !== "undefined" && VENDORS) ? VENDORS.slice() : [v], name: v }); }, fail, gas);
++      poDirect("rb_vendor_add", "apiVendorAdd", [v], ok, fail, gas, function () {      // f497: 진짜 목록 · 같은 업체(표기만 다름)면 그 이름
++        pjDirect("apiVendorAdd", [v], function () { ok({ direct: 1, list: (typeof VENDORS !== "undefined" && VENDORS) ? VENDORS.slice() : [v], name: v }); }, fail, gas);
++      });
+     },
+     // f354: 발주 등록 — Supabase 에 접수되면 저장됨(행은 '저장 중' 표시 그대로) · 반영(pjKick) 뒤 다시 읽어 진짜 행(행 번호)으로
+     apiCreateOrder: function (args, ok, fail, gas) {
+@@ -14530,12 +14561,13 @@
+       var num0 = function (v) { return Number(String(v == null ? "" : v).replace(/,/g, "")) || 0; };
+       var preAmt = num0(p0.pre), balAmt = num0(p0.bal);      // 환율(중국 × 200)은 0 보다 큰지에 상관없다
+       var missed = (preAmt > 0 && !rbPayYm(String(p0.preAt || "").slice(0, 40)) ? ["선금 지급예정을 날짜로 못 읽음"] : []).concat(balAmt > 0 && !rbPayYm(String(p0.balAt || "").slice(0, 40)) ? ["잔금 지급예정을 날짜로 못 읽음"] : []);
+-      pjDirect("apiCreateOrder", [p0], function () {
++      // f497: Supabase 가 바로 발주 DB · 지급 줄 · 품목 DB 에 넣고 진짜 행 번호 · pay.missed 를 준다(저장 중 표시 없이 바로 진짜 행). 안 되면(RB_FALLBACK) 예전 할 일 길
++      poDirect("rb_co_create", "apiCreateOrder", [p0], function (r) { try { delete PROV_KEEP[p0.id]; } catch (eK) { /* 넘어간다 */ } ok(r); }, fail, gas, function () { pjDirect("apiCreateOrder", [p0], function () {
+         var rq = rowById(p0.id); if (rq) PROV_KEEP[p0.id] = { row: rq, until: Date.now() + 900000 };      // f485: 3분 → 15분(1분 작업이 밀리면 3분 넘게 걸려 목록에서 사라졌고, 다시 등록해 두 건이 됐다) — 시트에 들어오면 바로 진짜 행으로
+         CREATE_DIRECT[p0.id] = { p: JSON.parse(JSON.stringify(p0)), until: Date.now() + 3600000 }; rbNoteSeen(missed);      // f497: 1분 작업이 못 넣으면(jobErr) 목록에서 빼고 입력을 되살린다
+         ok({ queued: 1, statusRow: 0, pay: { missed: missed } });
+         [8000, 20000, 45000, 90000, 180000, 300000].forEach(function (ms) { setTimeout(function () { if (PROV_KEEP[p0.id]) { lastSync = 0; revalidate(); } }, ms); });
+-      }, fail, gas);
++      }, fail, gas); });
+     },
+     // f359: 샘플 프로젝트 비고 · 프로젝트 정보 — 서버(Samples.js apiSampleProjMemo · apiSampleProjInfo)와 같은 규칙으로 화면이 결과를 만들고 저장은 할 일로
+     apiSampleProjMemo: function (args, ok, fail, gas) {
+@@ -14575,7 +14607,8 @@
+       var L = Object.keys(DLY_HIDE || {}), on = !!args[2];
+       (args[1] || []).map(function (k) { return String(k).slice(0, 40); }).filter(String).forEach(function (k) { var i = L.indexOf(k); if (on && i < 0) L.push(k); if (!on && i > -1) L.splice(i, 1); });
+       while (L.length && JSON.stringify(L).length > 8500) L.shift();
+-      pjDirect("apiDailyHide", args, function () { ok(L); }, fail, gas);
++      cfDirect("rb_dly_save", "apiDailyHide", [args[0], args[1] || [], !!args[2]], function (r) { ok(Array.isArray(r) ? r : L); }, fail, gas,
++        function () { pjDirect("apiDailyHide", args, function () { ok(L); }, fail, gas); }, cfKick);      // f497: 그 자리에서(rb_dly_save) — 안 되면 예전 길
+     },
+     // f369: 할 일 길(rb_pj_add) — 화면이 서버와 같은 결과를 만들어 돌려준다(반영은 1분 작업 · pjKick)
+     // f394: 샘플 회차 지우기 — 할 일 길(rb_pj_add): 누르면 바로 끝, 시트 · 보관 탭은 1분 작업(샘플ID 로 그 줄을 찾아 지움). 샘플ID 없는 옛 줄은 서버 길
+@@ -14597,6 +14630,7 @@
+     apiPoSubmit: function (args, ok, fail, gas) {
+       var no = String(args[0] || ""), ap = String(args[1] || "").trim();
+       if (!no || !ap || !/\d{4}-\d+/.test(ap)) { gas(); return; }      // 결재문서번호 형식 확인은 서버 길(오류 문구 그대로)
++      poDirect("rb_po_submit", "apiPoSubmit", [no, ap, args[2] || ""], function (r) { delete PO_SUBMIT_WAS[no]; ok(r); }, fail, gas, function () {      // f497: Supabase 가 바로 — 진짜 결과(넣은 건 · 못 넣은 건 · 남은 상신 대기). 안 되면 아래 예전 할 일 길
+       // f497: 서버 apiPoSubmit → apiBulkDoc(덮어쓰지 않음) 와 같은 건너뜀 — 화면이 바꾸기 전 값(PO_SUBMIT_WAS)으로: 취소 · 종결 건, 이미 다른 품의번호가 있는 건.
+       //       예전엔 skipped: [] 라 그런 건도 화면에 '상신'으로 남았다(1분 뒤 알림 · 다시 읽기 전까지)
+       var WS = PO_SUBMIT_WAS[no] || {}, W = WS.w || {}, skipped = [], skippedIds = [];
+@@ -14610,22 +14644,26 @@
+       pjDirect("apiPoSubmit", args, function () {
+         ok({ n: Object.keys(W).length - skippedIds.length, states: 0, checked: 0, ap: 1, skipped: skipped, skippedIds: skippedIds, pend: (PO_PEND || []).filter(function (p) { return p.no !== no; }).concat(skippedIds.length && WS.pg ? [Object.assign({}, WS.pg, { rows: (WS.pg.rows || []).filter(function (q) { return skippedIds.indexOf(String(q.id)) > -1; }) })] : []), direct: 1 });      // 서버처럼 못 넣은 건만 상신 대기에 남김
+       }, fail, gas);
++      });
+     },
+     apiSampleProject: function (args, ok, fail, gas) {
+       var f0 = args[1] || {}, ks = Object.keys(f0);
+       if (!args[0] || ks.length !== 1 || ks[0] !== "owner") { gas(); return; }      // 담당자만(브랜드 · 코드는 서버 길 — 프로젝트 열쇠가 바뀔 수 있음)
+       pjDirect("apiSampleProject", args, function () { ok({ direct: 1, n: 1 }); }, fail, gas);
+     },
+-    apiCloseExpSet: function (args, ok, fail, gas) {
++    apiCloseExpSet: function (args, ok, fail, gas) { odDirect("rb_kv_set", "apiCloseExpSet", { p_fn: "apiCloseExpSet", p_args: args }, function (r) { ok(r); }, fail, gas, function () { RB_DIRECT._CloseExpSetQ(args, ok, fail, gas); }); },      // f497(g1): Supabase 함수가 바로 · 진짜 결과(RB_FALLBACK 이면 아래 예전 길)
++    _CloseExpSetQ: function (args, ok, fail, gas) {
+       if (!String(args[0] || "")) { gas(); return; }
+       pjDirect("apiCloseExpSet", args, function () { ok({ id: String(args[0]), on: !!args[1], by: DATA && DATA.me ? String(DATA.me).split("@")[0] : "", at: rbNowFmt("yyyy-MM-dd HH:mm") }); }, fail, gas);
+     },
+-    apiOldAck: function (args, ok, fail, gas) {
++    apiOldAck: function (args, ok, fail, gas) { odDirect("rb_kv_set", "apiOldAck", { p_fn: "apiOldAck", p_args: args }, function (r) { ok(r); }, fail, gas, function () { RB_DIRECT._OldAckQ(args, ok, fail, gas); }); },      // f497(g1): Supabase 함수가 바로 · 진짜 결과(RB_FALLBACK 이면 아래 예전 길)
++    _OldAckQ: function (args, ok, fail, gas) {
+       var id = String(args[0] || "").trim(), to = String(args[1] || "").trim().toUpperCase();
+       if (!id || !to || typeof OLD_ACK === "undefined") { gas(); return; }
+       pjDirect("apiOldAck", args, function () { var o = Object.assign({}, OLD_ACK || {}); o[id] = to; ok(o); }, fail, gas);
+     },
+-    apiNegoQtySet: function (args, ok, fail, gas) {
++    apiNegoQtySet: function (args, ok, fail, gas) { odDirect("rb_kv_set", "apiNegoQtySet", { p_fn: "apiNegoQtySet", p_args: args }, function (r) { ok(r); }, fail, gas, function () { RB_DIRECT._NegoQtySetQ(args, ok, fail, gas); }); },      // f497(g1): Supabase 함수가 바로 · 진짜 결과(RB_FALLBACK 이면 아래 예전 길)
++    _NegoQtySetQ: function (args, ok, fail, gas) {
+       var q = String(args[1] == null ? "" : args[1]).replace(/,/g, "").trim();
+       if (!String(args[0] || "").trim() || (q !== "" && !(Number(q) >= 0)) || typeof NEGO === "undefined") { gas(); return; }
+       pjDirect("apiNegoQtySet", args, function () { ok(Object.assign({}, NEGO.qty || {})); }, fail, gas);
+@@ -14633,18 +14671,21 @@
+     apiPoPendDrop: function (args, ok, fail, gas) {
+       var no = String(args[0] || "");
+       if (!no || typeof PO_PEND === "undefined") { gas(); return; }
+-      pjDirect("apiPoPendDrop", args, function () { ok((PO_PEND || []).filter(function (p) { return String(p.no) !== no; })); }, fail, gas);
++      poDirect("rb_po_pend_drop", "apiPoPendDrop", [no], ok, fail, gas, function () { pjDirect("apiPoPendDrop", args, function () { ok((PO_PEND || []).filter(function (p) { return String(p.no) !== no; })); }, fail, gas); });
+     },
+     apiDailyIssues: function (args, ok, fail, gas) {
+-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(args[0] || "")) || (typeof DLY_LOCK !== "undefined" && DLY_LOCK)) { gas(); return; }      // 저장한 날짜(잠김) 검사는 서버 길
++      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(args[0] || ""))) { gas(); return; }
++      if (typeof DLY_LOCK !== "undefined" && DLY_LOCK) { cfDirect("rb_dly_save", "apiDailyIssues", [args[0], args[1] || []], ok, fail, gas, gas, cfKick); return; }      // 잠긴 날짜 — Supabase 가 같은 문구로 막음(안 되면 서버 길)
+       var clean = (args[1] || []).map(function (r) { return (r || []).slice(0, 7).map(function (x) { return String(x == null ? "" : x).trim().slice(0, 500); }); })
+         .filter(function (r) { return r.some(function (x) { return x; }); }).slice(0, 50);
+-      pjDirect("apiDailyIssues", [args[0], clean], function () { ok({ issues: clean }); }, fail, gas);
++      cfDirect("rb_dly_save", "apiDailyIssues", [args[0], args[1] || []], ok, fail, gas,
++        function () { pjDirect("apiDailyIssues", [args[0], clean], function () { ok({ issues: clean }); }, fail, gas); }, cfKick);      // f497: 그 자리에서(rb_dly_save · 잠긴 날짜도 Supabase 가 봄)
+     },
+-    apiBulkDate: function (args, ok, fail, gas) { pjDirect("apiBulkDate", args, function () { ok({ direct: 1, n: (args[0] || []).length }); }, fail, gas); },
++    apiBulkDate: function (args, ok, fail, gas) { pgMore("apiBulkDate", args, ok, fail, gas, function () { pjDirect("apiBulkDate", args, function () { ok({ direct: 1, n: (args[0] || []).length }); }, fail, gas); }); },      // f497(g1): Supabase 함수(rb_pg_more)가 바로 · RB_FALLBACK 이면 예전 할 일 길
+     // f497: 서버 apiBulkStep 과 같게 — 날짜가 없어 체크 안 한 항목(miss · 같은 문구) · 건너뛰기에서 체크가 있어 남긴 건(kept). 예전엔 miss: [] 라 '날짜가 없어 체크하지 않은 항목' 알림이 사라졌다.
+     //       화면은 부르기 전에 같은 규칙(ckNeedMiss · stepHasCheck)으로 이미 바꿔 뒀다 — 바뀐 뒤 값으로 센다(빠진 항목은 체크가 안 붙어 있음)
+-    apiBulkStep: function (args, ok, fail, gas) {
++    apiBulkStep: function (args, ok, fail, gas) { pgMore("apiBulkStep", args, ok, fail, gas, function () { RB_DIRECT._bulkStepQ(args, ok, fail, gas); }); },      // f497(g1): 진짜 n · kept · miss(rb_pg_more) — RB_FALLBACK 이면 아래 예전 길
++    _bulkStepQ: function (args, ok, fail, gas) {
+       var items = args[0] || [], skip = args[2] === "skip", step = ((DATA && DATA.steps) || []).filter(function (s) { return s.id === args[1]; })[0];
+       if (!step || (args[3] || mode) !== mode) { gas(); return; }
+       if (skip && !step.skippable) { fail(new Error("이 단계는 건너뛸 수 없습니다.")); return; }
+@@ -14661,11 +14702,13 @@
+     // f396: 기안 원복 — 할 일 길(품의 취소와 같은 일).
+     // f497: 서버 poCancel_(withOrdered) 와 같게 — 계획 · 상신 · 승인 · 발주만, 나머지(입고 · 종결 · 취소)는 그 자리에서 건너뜀(문구 같음). 예전엔 늘 n = 건수라 못 한 건도 '원복했습니다'로 보였다
+     apiPoRedraft: function (args, ok, fail, gas) {
++      poDirect("rb_po_redraft", "apiPoRedraft", args, ok, fail, gas, function () {      // f497: Supabase 가 바로(진짜 결과) — 안 되면 아래 예전 할 일 길
+       var S0 = rbStateSplit(args[0], function (r) { var s = String(r.state || ""); return ["", "계획", "상신", "승인", "발주"].indexOf(s) < 0 ? " — 진행상태 " + s + "(계획 · 상신 · 승인만 취소)" : ""; });
+       var out = { direct: 1, n: S0.n, skippedIds: S0.skippedIds, skipped: S0.skipped };
+       rbNoteSeen(S0.skipped);
+       if (!S0.n) { ok(out); return; }
+       pjDirect("apiPoRedraft", [S0.keep, args[1]], function () { ok(out); }, fail, gas);
++      });
+     },
+     // f396: 일일보고 회신 받음 — 할 일 길(화면이 먼저 그림)
+     apiWaitReply: function (args, ok, fail, gas) {
+@@ -14694,7 +14737,7 @@
+         return again ? again.no : String(g.no).slice(0, 60);
+       });
+       var send = G.map(function (g, k) { return Object.assign({}, g, { no: nos[k] }); });
+-      pjDirect("apiPoPendAdd", [send], function () {
++      poDirect("rb_po_pend_add", "apiPoPendAdd", [send], ok, fail, gas, function () { pjDirect("apiPoPendAdd", [send], function () {
+         var today = rbNowFmt("yyyy-MM-dd"), me = String((DATA && DATA.me) || "");
+         // f431: 서버(f430)와 같이 — 같은 건이 겹치는 옛 상신 대기는 이번 품의가 갈아 끼운다
+         var ov = function (p) { return send.some(function (g) { var pre = String(g.no).replace(/\d+$/, ""), ids = (g.rows || []).map(function (x) { return String(x.id || ""); }); return String(p.no).indexOf(pre) === 0 && (p.rows || []).some(function (x) { return ids.indexOf(String(x.id || "")) > -1; }); }); };
+@@ -14702,7 +14745,7 @@
+         send.forEach(function (g) { L.push({ no: g.no, at: today, by: me, bucket: g.bucket || "", type: g.type || "", base: g.base || "", rows: g.rows || [] }); });
+         L.sort(function (a, b) { return String(a.no) < String(b.no) ? -1 : 1; });
+         ok({ list: L, nos: nos, direct: 1 });
+-      }, fail, gas);
++      }, fail, gas); });
+     },
+     // f412: 단계 항목 일괄 처리 — 할 일 길. 되돌리기 정보(서버 apiBulkItems 의 undo 와 같은 칸)는 화면이 바꾸기 전 값으로 만든다. 건너뛸 건은 '지금 맞추기' 오류로
+     apiBulkItems: function (args, ok, fail, gas) {
+@@ -14720,8 +14763,10 @@
+       pjDirect("apiBulkItems", [items, ops, args[2] || mode], function () { ok({ n: items.length, undo: undo, skipped: [], direct: 1 }); }, fail, gas);
+     },
+     apiBulkItemsUndo: function (args, ok, fail, gas) { if (!(args[0] || []).length) { gas(); return; } pjDirect("apiBulkItemsUndo", [args[0], args[1] || mode], function () { ok({ n: (args[0] || []).length, direct: 1 }); }, fail, gas); },
+-    apiDailyUnlock: function (args, ok, fail, gas) { gas(); },      // f485: 서버 길로(바로 다시 읽는 보고서가 아직 잠긴 채로 와 풀기가 안 된 것처럼 보였다)
+-    apiNegoPick: function (args, ok, fail, gas) { if (!args[0]) { gas(); return; } pjDirect("apiNegoPick", args, function () { ok({ direct: 1 }); }, fail, gas); },
++    // f485: 서버 길이었다(바로 다시 읽는 보고서가 아직 잠긴 채로 와 풀기가 안 된 것처럼 보였다 — 1분 대기열). f497: Supabase 원본(rb_dly_save)에서 풀고, 서버는 일일보고를 읽기 전에 남은 일을 먼저 옮긴다
++    apiDailyUnlock: function (args, ok, fail, gas) { cfDirect("rb_dly_save", "apiDailyUnlock", [args[0]], ok, fail, gas, gas, cfKick); },
++    apiNegoPick: function (args, ok, fail, gas) { odDirect("rb_kv_set", "apiNegoPick", { p_fn: "apiNegoPick", p_args: args }, function (r) { ok(r); }, fail, gas, function () { RB_DIRECT._NegoPickQ(args, ok, fail, gas); }); },      // f497(g1): Supabase 함수가 바로 · 진짜 결과(RB_FALLBACK 이면 아래 예전 길)
++    _NegoPickQ: function (args, ok, fail, gas) { if (!args[0]) { gas(); return; } pjDirect("apiNegoPick", args, function () { ok({ direct: 1 }); }, fail, gas); },
+     // f413: 목록 비고(메모) 칸 고치기 — 발주 수정 직접(rb_od_edit)과 같은 길(비고만). 다른 칸 · 줄ID 없는 건은 서버 길
+     apiWriteStatus: function (args, ok, fail, gas) {
+       var ex = args[5] || {};
+@@ -14798,10 +14843,15 @@
+     apiDailySaveRep: function (args, ok, fail, gas) {
+       var dt = String(args[0] || ""), rep = args[1];
+       if (!/^\d{4}-\d\d-\d\d$/.test(dt) || !rep || typeof rep !== "object" || !(rep.v >= 7) || !rep.asOf || JSON.stringify(rep).length > 400000) { gas(); return; }
+-      var tdy = rbNowFmt("yyyy-MM-dd");      // f497: 서버와 같은 날짜 검사를 그 자리에서(예전엔 할 일에 넣고 1분 뒤 실패 — 화면은 '저장됨')
+-      if (dt < tdy) { fail(new Error("지난 날짜는 이 방식으로 저장하지 않습니다 — 새로고침 후 다시 해 주세요.")); return; }
+-      if (dt > tdy) { gas(); return; }      // 다음 날 미리 저장(dailyAhead_)은 서버가 정한다
+-      pjDirect("apiDailySaveRep", [dt, rep], function () { ok({ date: dt, saved: true, savedAt: rbNowFmt("yyyy-MM-dd HH:mm"), savedBy: String((DATA && DATA.me) || "").split("@")[0], direct: 1 }); }, fail, gas);
++      var r1 = JSON.parse(JSON.stringify(rep)); delete r1.issues; delete r1.author; delete r1.weekMode;
++      // 예전 길(직접이 안 될 때) — f497 대조: 지난 날짜는 그 자리에서 같은 문구 · 다음 날 미리 저장은 서버 길 · 오늘은 할 일 길
++      var oldR = function () {
++        var tdy = rbNowFmt("yyyy-MM-dd");
++        if (dt < tdy) { fail(new Error("지난 날짜는 이 방식으로 저장하지 않습니다 — 새로고침 후 다시 해 주세요.")); return; }
++        if (dt > tdy) { gas(); return; }
++        pjDirect("apiDailySaveRep", [dt, rep], function () { ok({ date: dt, saved: true, savedAt: rbNowFmt("yyyy-MM-dd HH:mm"), savedBy: String((DATA && DATA.me) || "").split("@")[0], direct: 1 }); }, fail, gas);
++      };
++      cfDirect("rb_dly_save", "apiDailySaveRep", [dt, JSON.stringify(r1)], ok, fail, gas, oldR, cfKick);      // f497: 그 자리에서(rb_dly_save — 진짜 저장 시각 · 이미 저장 · 지난/다음 날 날짜 검사 모두 SQL 이 서버와 같은 문구로)
+     },
+     apiSaveLinks: function (args, ok, fail, gas) {
+       var seen = {}, bad = "", rid = function () { return "lk" + Math.random().toString(16).slice(2, 10); };
+@@ -14832,7 +14882,7 @@
+     apiSampleRemap: function (args, ok, fail, gas) { if (!args[0]) { gas(); return; } pjDirect("apiSampleRemap", args, function () { ok({ n: -1, direct: 1 }); }, fail, gas); },
+     apiSampleViewsRebuild: function (args, ok, fail, gas) { pjDirect("apiSampleViewsRebuild", ["rebuild"], function () { ok({ direct: 1 }); }, fail, gas); },
+     apiPoCancel: function (args, ok, fail, gas) { pdDirect("rb_po_cancel", "apiPoCancel", args, ok, fail, gas); },      // f491
+-    apiBulkOwner: function (args, ok, fail, gas) { pjDirect("apiBulkOwner", args, function () { ok({ direct: 1, n: (args[0] || []).length }); }, fail, gas); },
++    apiBulkOwner: function (args, ok, fail, gas) { pgMore("apiBulkOwner", args, ok, fail, gas, function () { pjDirect("apiBulkOwner", args, function () { ok({ direct: 1, n: (args[0] || []).length }); }, fail, gas); }); },
+     apiSampleDone: function (args, ok, fail, gas) { pjDirect("apiSampleDone", args, ok, fail, gas); },
+     apiSampleWaitDone: function (args, ok, fail, gas) {
+       // 이 저장은 화면이 먼저 그리지 않는다 — 서버와 같은 규칙으로 화면 기록을 고쳐 notes 로 돌려준다
+@@ -14882,7 +14932,7 @@
+         if (!ss || !ss.sm) { rbWhy("rb_sm_add", !ss ? "세션 없음" : "세션 sm 꺼짐"); gas(); return; }
+         noteRpc("rb_sm_add", { p_args: { srcRow: Number(args[0]) || 0, closeRow: Number(args[1]) || 0, patch: pa } }, function (v) {
+           var r0 = pa.meta && pa.meta.id ? rowById(pa.meta.id) : null;
+-          if (r0 && r0.checks && r0.checks._done) { v.reopened = r0.checks._drop ? "드롭" : "완료"; try { pjDirect("apiSampleDone", [r0.id, pa.meta, false], function () {}, function () {}, function () { gsr().withSuccessHandler(function () {}).withFailureHandler(function () {}).apiSampleDone(r0.id, pa.meta, false); }); } catch (eR) { /* 다음 읽기 때 */ } }
++          if (r0 && r0.checks && r0.checks._done) { v.reopened = r0.checks._drop ? "드롭" : "완료"; try { RB_DIRECT.apiSampleDone([r0.id, pa.meta, false], function () {}, function () {}, function () { gsr().withSuccessHandler(function () {}).withFailureHandler(function () {}).apiSampleDone(r0.id, pa.meta, false); }); } catch (eR) { /* 다음 읽기 때 */ } }
+           ok(v);
+         }, function (e, useGas) { if (useGas || !e || /RB_FALLBACK|function rb_sm_add/.test(String(e.message || ""))) gas(); else fail(e); });
+       });
+@@ -14896,7 +14946,7 @@
+         var send = {}; Object.keys(p0).forEach(function (k) { if (k !== "req") send[k] = p0[k]; });
+         noteRpc("rb_sm_new", { p_args: { p: send } }, function (v) {
+           var r0 = (DATA.rows || []).filter(function (x) { return x.projKey === v.projKey && !x.pending; })[0];
+-          if (r0 && r0.checks && r0.checks._done) { v.reopened = r0.checks._drop ? "드롭" : "완료"; try { pjDirect("apiSampleDone", [r0.id, metaOf(r0), false], function () {}, function () {}, function () {}); } catch (eR) { /* 다음 읽기 때 */ } }
++          if (r0 && r0.checks && r0.checks._done) { v.reopened = r0.checks._drop ? "드롭" : "완료"; try { RB_DIRECT.apiSampleDone([r0.id, metaOf(r0), false], function () {}, function () {}, function () {}); } catch (eR) { /* 다음 읽기 때 */ } }
+           ok(v);
+         }, function (e, useGas) { if (useGas || !e || /RB_FALLBACK|function rb_sm_new/.test(String(e.message || ""))) gas(); else fail(e); });
+       });
+@@ -14914,6 +14964,32 @@
+   /* f355: BOM 직접 저장 뒤 3분 — 그동안 apiBomGet 은 서버 값(1분 작업 전 시트 캐시)의 줄 · 이력을 Supabase 것으로(bvRowsSame 비교 · 미리 받기 · 단가 확인 모두) */
+   var BV_DIRECT_AT = {};
+   RB_DIRECT.apiBomPriceSpread.when = function (args) { return !!SB_TOK && typeof bvSbLoad === "function" && Array.isArray(args[3]) && args[3].length > 0; };      // f371: 받은 토큰이 없으면 예전 서버 한 번
++  /* f497: 샘플 저장(진행 메모 · 완료 · 회신 받음 · 회차 상태 · 프로젝트 담당자/브랜드/코드 · 프로젝트 비고 · 프로젝트 정보 · 프로젝트 수정 · 회차 지우기)은
++   * 할 일 대기열(가짜 응답) 대신 Supabase 함수 rb_sm2_save 가 그 자리에서 저장하고 예전 서버와 같은 응답(__j 글자 — 열쇠 순서까지)을 준다.
++   * RB_FALLBACK(꺼짐 · 같은 건 앞선 저장 · 샘플ID 없음 · 흔치 않은 모양 — 아무것도 안 들어감)이면 예전 길(old) 그대로. 연결 · 세션 문제는 서버 길(gas).
++   * 값 정리(apiSampleRemap) · 요청서/견적 탭 다시 만들기(apiSampleViewsRebuild)는 관리자 작업이라 서버 길로 바로(진짜 응답). */
++  var SM2_KICK = { apiSampleLog: 1, apiSampleDone: 1, apiSampleWaitDone: 1, apiSampleProjMemo: 1, apiSampleProjInfo: 1, apiSampleProjEdit: 1, apiSampleDeleteRow: 1 };
++  function sm2Direct(fn, args, ok, fail, gas, old) {
++    if (typeof noteRpc !== "function" || typeof noteSess !== "function") { old(); return; }
++    noteSess(function (ss) {
++      if (!ss || !ss.sm2) { old(); return; }
++      noteRpc("rb_sm2_save", { p_fn: fn, p_argj: JSON.stringify(args || []) }, function (r) {
++        var v = r;
++        if (r && r.__j != null) { try { v = JSON.parse(r.__j); } catch (eJ) { fail(new Error("저장은 됐습니다 — 응답을 읽지 못했습니다. 새로고침해 주세요.")); return; } }
++        ok(v);
++        if (SM2_KICK[fn]) sm2Kick();
++      }, function (e, useGas) {
++        var m = String((e && e.message) || "");
++        if (/RB_FALLBACK/.test(m)) { rbWhy(fn, m); old(); return; }
++        if (useGas || !e) gas(); else fail(e);      // 규칙 오류(서버와 같은 문구)
++      });
++    });
++  }
++  ["apiSampleLog", "apiSampleDone", "apiSampleWaitDone", "apiSampleStatus", "apiSampleProject", "apiSampleProjMemo", "apiSampleProjInfo", "apiSampleProjEdit", "apiSampleDeleteRow"].forEach(function (fn) {
++    var old = RB_DIRECT[fn];
++    RB_DIRECT[fn] = function (args, ok, fail, gas) { sm2Direct(fn, args, ok, fail, gas, function () { if (old) old(args, ok, fail, gas); else gas(); }); };
++  });
++  delete RB_DIRECT.apiSampleRemap; delete RB_DIRECT.apiSampleViewsRebuild;      // f497: 서버 길(그 자리에서 · 진짜 바꾼 칸 수)
+   RB_DIRECT.apiBomGet.when = function (args) { var t = BV_DIRECT_AT[String(args[0] || "").toUpperCase()]; return !!t && Date.now() - t < 180000 && !!SB_TOK && typeof bvSbLoad === "function"; };
+   /** bom_log 한 줄 → 화면 이력 모양(서버 bomLogRead_ 와 같은 칸) */
+   function bvSbLogRow(l) {
+@@ -14975,6 +15051,30 @@
+       noteRpc(rpc, body, done, function (e, useGas) { bad(e, useGas, false); });
+     });
+   }
++  /** f497: 일일보고 · BOM 설정 — Supabase 함수(rb_dly_save · rb_bom_cfset)가 그 자리에서 바꾸고 진짜 결과를 준다(세션 cf).
++   *  RB_FALLBACK(꺼짐 · 앞선 저장이 대기열에 · 흔치 않은 모양 — 아무것도 안 들어감) · 세션 없음 · 이주 전 → old()(예전 길 그대로) / 연결 끊김 → 서버 길 / 규칙 오류는 그대로 */
++  function cfDirect(rpc, fn, pargs, ok, fail, gas, old, after) {
++    if (typeof noteRpc !== "function" || typeof noteSess !== "function") { old(); return; }
++    noteSess(function (ss) {
++      if (!ss || !ss.cf || (rpc === "rb_bom_cfset" && !ss.bom)) { rbWhy(fn, !ss ? "세션 없음" : "세션 cf 꺼짐"); old(); return; }
++      noteRpc(rpc, { p_fn: fn, p_args: pargs }, function (r) { ok(r); if (after) after(r); },
++        function (e, useGas) {
++          var m = String((e && e.message) || "");
++          if (/RB_FALLBACK|Could not find the function|schema cache/.test(m)) { rbWhy(fn, m); old(); return; }
++          if (useGas || !e) gas(); else fail(e);
++        });
++    });
++  }
++  /** 일일보고 직접 저장 뒤 시트 줄 · 머리 캐시 맞추기(기다리지 않음 — 서버가 일일보고를 읽을 때도 먼저 맞춘다) */
++  function cfKick() { try { gsr().withSuccessHandler(function () {}).withFailureHandler(function () {}).apiCfKick(); } catch (e) { /* 1분 작업이 */ } }
++  /** BOM 설정 직접(rb_bom_cfset) — 응답 줄로 apiBomGet 모양(bvDirectOut) · 시트 · 이력 맞추기(bomKick) */
++  function cfBomDirect(fn, a, code, ok, fail, gas, old, shape) {
++    a.op = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
++    cfDirect("rb_bom_cfset", fn, a, function (v) {
++      if (code) BV_DIRECT_AT[code] = Date.now();
++      ok(shape(v || {}));
++    }, fail, gas, old, function () { bomKick(); });
++  }
+   /** f338: 진행 기록 직접 — 품의 상신(날짜 submitted) 항목을 켜는 체크는 서버 길(BOM 확인 검사) */
+   function pjGated(fn, args) {
+     if (fn !== "apiSetChecks" || (args[3] || mode) === "sample") return false;
+@@ -14982,6 +15082,21 @@
+     ((DATA && DATA.steps) || []).forEach(function (st) { (st.items || []).forEach(function (it, i) { if (it && it.d === "submitted" && ch[itemKey(st, i)]) hit = true; }); });
+     return hit;
+   }
++  /** f497: 발주 수정 · 진행 기록 묶음 — Supabase 함수(rb_od_save · rb_pg_more)가 바로 바꾸고 진짜 결과를 준다. 시트 · 이력 · 지급 줄은 서버가 뒤에서(pjKick — 뒷정리 알림 · 남은 일 · 다시 읽기).
++   *  세션 ods 가 없거나 RB_FALLBACK(아무것도 안 들어감)이면 old(예전 길) · 연결/세션 문제는 gas · 규칙 오류(필수 칸 · 목록 밖 · 종결 건 등)는 그대로 fail */
++  function odDirect(rpc, fn, body, ok, fail, gas, old) {
++    if (typeof noteRpc !== "function" || typeof noteSess !== "function") { old(); return; }
++    noteSess(function (ss) {
++      if (!ss || !ss.ods) { old(); return; }
++      noteRpc(rpc, body, function (r) { ok(r || { direct: 1 }); pjKick(); },
++        function (e, useGas) {
++          var m = String((e && e.message) || "");
++          if (/RB_FALLBACK/.test(m)) { rbWhy(fn, m); old(); return; }
++          if (useGas || !e) gas(); else fail(e);
++        });
++    });
++  }
++  function pgMore(fn, args, ok, fail, gas, old) { odDirect("rb_pg_more", fn, { p_fn: fn, p_args: args }, ok, fail, gas, old); }
+   function pjDirect(fn, args, ok, fail, gas) {
+     if (typeof noteRpc !== "function" || typeof noteSess !== "function" || pjGated(fn, args)) { gas(); return; }
+     noteSess(function (ss) {
+@@ -15009,7 +15124,9 @@
+   }
+   /** 직접 저장 뒤 시트 줄 · 첫 화면 캐시 · 이력 맞추기(기다리지 않음 · 1.2초 모아 한 번). 그동안 다시 읽기가 옛 캐시를 받지 않게 '저장 중'.
+    *  내 뒷정리가 남았으면(left) 8초마다 다시(12번까지 — f490 과 같은 틀) */
+-  var PGK = { t: null, on: false, again: false, n: 0 };
++  var PGK = { t: null, on: false, again: false, n: 0, s: false };
++  /** f497: 샘플 직접 저장 2 뒤 — 진행 기록 시트 · 뒷정리 + 요청서/견적 보기 탭 · 지운 회차 보관(apiSm2Kick) */
++  function sm2Kick() { PGK.s = true; pgKick(); }
+   function pgKick() {
+     if (PGK.on) { PGK.again = true; return; }
+     if (PGK.t) return;
+@@ -15024,7 +15141,8 @@
+         lastSync = 0; setTimeout(revalidate, 300);
+       };
+       setTimeout(function () { end(null); }, 60000);
+-      try { gsr().withSuccessHandler(end).withFailureHandler(function () { end(null); }).apiPgKick(); } catch (e) { end(null); }
++      var useS = PGK.s; PGK.s = false;
++      try { var g0 = gsr().withSuccessHandler(end).withFailureHandler(function () { end(null); }); if (useS) g0.apiSm2Kick(); else g0.apiPgKick(); } catch (e) { end(null); }
+     }, 1200);
+   }
+   /** f491: 진행상태 · 품의 취소 — Supabase 함수가 바로 바꾸고 진짜 결과(before · n · skipped · skippedIds)를 준다. 시트 · 이력 · AP 는 서버가 뒤에서.
+@@ -15063,6 +15181,34 @@
+     setTimeout(end, 30000);
+     try { gsr().withSuccessHandler(end).withFailureHandler(end).apiPdKick(); } catch (e) { end(); }
+   }
++  /** f497: 발주 등록 · 품목코드 등록 · 업체 추가 · 기안 원복 · 상신 대기 · 상신 완료 — Supabase 함수(rb_co_create …)가 바로 저장하고 진짜 결과를 준다.
++   *  시트 · 지급 줄 · 품목 DB · 이력 · AP 는 서버가 뒤에서(poKick). RB_FALLBACK(꺼짐 · 앞선 저장 · 흔치 않은 모양 — 아무것도 안 들어감)은 예전 할 일 길(old) */
++  function poDirect(rpc, fn, args, ok, fail, gas, old) {
++    if (typeof noteRpc !== "function" || typeof noteSess !== "function") { old(); return; }
++    noteSess(function (ss) {
++      if (!ss || !ss.pos) { old(); return; }
++      noteRpc(rpc, { p_args: args }, function (r) { ok(r || {}); poKick(); },
++        function (e, useGas) {
++          var m = String((e && e.message) || "");
++          if (/RB_FALLBACK/.test(m)) { rbWhy(fn, m); old(); return; }
++          if (useGas || !e) gas(); else fail(e);      // 세션 · 연결 → 서버 길 · 규칙 오류(서버와 같은 문구)는 그대로
++        });
++    });
++  }
++  var POK = { on: false, again: false, n: 0 };
++  function poKick() {
++    if (POK.on) { POK.again = true; return; }
++    POK.on = true; busy(true, true);
++    var done = false, end = function (k) {
++      if (done) return; done = true; POK.on = false; busy(false);
++      if (k && k.left > 0 && POK.n < 6) { POK.n++; setTimeout(poKick, 8000); return; }
++      POK.n = 0;
++      if (POK.again) { POK.again = false; poKick(); return; }
++      lastSync = 0; setTimeout(revalidate, 300);
++    };
++    setTimeout(function () { end(null); }, 60000);
++    try { gsr().withSuccessHandler(end).withFailureHandler(function () { end(null); }).apiPoKick(); } catch (e) { end(null); }
++  }
+   /** 진행 기록 '지금 맞추기' — 연달아 누르면 한 번으로(1.2초 모았다가) · 그동안 다시 읽기가 옛 값으로 덮지 않게 저장 중 표시 */
+   var PJK = { t: null, on: false, again: false };
+   function pjKick() {
+@@ -15076,9 +15222,9 @@
+       try {
+         gsr().withSuccessHandler(function (k) {
+           var errs = (k && k.errs) || [];
+-          errs.forEach(function (x) { var rr = rowById(x.id); toast("[" + ((rr && rr.name) || x.id) + "] 진행 기록 저장 실패: " + x.err + " — 새로고침 뒤 다시 해 주세요"); });
++          errs.forEach(function (x) { var rr = rowById(x.id), PJN = { apiPoPendAdd: "상신 대기", apiPoSubmit: "상신 완료", apiPoRedraft: "기안 원복", apiSampleDeleteRow: "샘플 회차 지우기", apiSampleProjEdit: "프로젝트 수정", apiWaitReply: "회신 받음", apiBomReviewRegAll: "BOM 검사 품목 DB 등록", apiBomReviewFix: "BOM 검사 품목 DB 등록", apiBulkItems: "단계 항목 일괄 처리", apiBulkItemsUndo: "일괄 처리 되돌리기", apiDailyUnlock: "일일보고 저장 풀기", apiNegoPick: "네고 집계", apiCloseRemain: "입고 완료 처리", apiSetChoices: "목록 설정", apiSetSampleChoices: "샘플 목록 설정", _odLines: "발주 수정(지급 줄 따라 고치기)", _pgPost: "직접 저장 뒷정리", apiItemDelete: "품목 삭제", apiSaveSteps: "단계 설정", apiSaveLinks: "링크 설정", apiSampleRemap: "샘플 값 정리", apiSampleViewsRebuild: "요청서 · 견적 탭 다시 만들기" }; var lb = (rr && rr.name) || (/^\[object|^[\[{]/.test(String(x.id)) ? (PJN[x.fn] || x.fn) : x.id); if (PJN[x.fn]) alert("[" + lb + "] " + PJN[x.fn] + " 저장 실패: " + x.err); else toast("[" + lb + "] 진행 기록 저장 실패: " + x.err + " — 새로고침 뒤 다시 해 주세요"); });
+           // f448: 할 일 길 결과 중 예전에 화면이 알려 주던 것(건너뛴 건 · 경고 · 못 한 건 · 메모 · 다시 연 회차)을 이제 알린다 — 저장 순간엔 '완료'만 받았다
+-          var notes = (k && k.notes) || [], NN = { apiPoSubmit: "상신 완료", apiPoPendAdd: "상신 대기", apiBulkDoc: "품의번호 넣기", apiBulkApprovalNo: "결재문서번호", apiSetState: "진행상태", apiWriteSheet: "발주 정보", apiCreateOrder: "발주 등록", apiBulkItems: "항목 처리", apiBulkItemsUndo: "항목 처리 되돌리기", apiSampleAdd: "샘플 추가", apiSampleNew: "샘플 등록", apiSampleEditRow: "샘플 수정", apiSampleDeleteRow: "샘플 회차 지우기", apiCloseRemain: "잔량 마감", apiItemDelete: "품목 지우기", apiBulkStep: "단계 일괄 처리", apiPoRedraft: "기안 원복", apiPoCancel: "품의 취소", apiBulkOrderDate: "발주일", apiBulkDate: "날짜 일괄" };      // f497: 이름 없는 알림이 [apiBulkStep] 처럼 뜨던 것
++          var notes = (k && k.notes) || [], NN = { _odLines: "발주 수정 · 지급 줄", apiPoSubmit: "상신 완료", apiPoPendAdd: "상신 대기", apiBulkDoc: "품의번호 넣기", apiBulkApprovalNo: "결재문서번호", apiSetState: "진행상태", apiWriteSheet: "발주 정보", apiCreateOrder: "발주 등록", apiBulkItems: "항목 처리", apiBulkItemsUndo: "항목 처리 되돌리기", apiSampleAdd: "샘플 추가", apiSampleNew: "샘플 등록", apiSampleEditRow: "샘플 수정", apiSampleDeleteRow: "샘플 회차 지우기", apiCloseRemain: "잔량 마감", apiItemDelete: "품목 지우기", apiBulkStep: "단계 일괄 처리", apiPoRedraft: "기안 원복", apiPoCancel: "품의 취소", apiBulkOrderDate: "발주일", apiBulkDate: "날짜 일괄" };      // f497: 이름 없는 알림이 [apiBulkStep] 처럼 뜨던 것
+           var sh = function (v) { return (Array.isArray(v) ? v : [v]).map(function (x) { return x && typeof x === "object" ? (x.name || x.code || x.id || x.why || JSON.stringify(x)).toString().slice(0, 80) + (x.why && (x.name || x.code) ? " (" + x.why + ")" : "") : String(x).slice(0, 120); }).join(", "); };
+           var hard = [], soft = [], bad = [];
+           notes.forEach(function (o) {
+@@ -22769,9 +22915,11 @@
+       var inp = function (f, ph, num) { return '<td' + (num ? ' class="n"' : "") + '><input data-nm="' + i + '" data-f="' + f + '" value="' + esc(m[f] == null ? "" : m[f]) + '" placeholder="' + (ph || "") + '"' + (num ? ' inputmode="decimal"' : "") + "></td>"; };
+       return '<tr><td><select data-nm="' + i + '" data-f="type">' + opts + "</select></td>" +
+         '<td class="c">' + (main ? '<span class="newc">' + esc(pred || "코드 계산 중") + "</span>"
++          // f498: 이미 있는 코드를 고른 줄은 그 코드를 한 번만(예전엔 '쓸 코드' 칸 + '코드 찾기' 칸에 같은 코드가 두 번 보여 무슨 칸인지 헷갈렸다) · [✕ 새 코드로]로 풂
++          : (m.picked ? '<span class="newc" title="이미 있는 코드를 그대로 씁니다">' + esc(m.want) + '</span> <span class="commontag">' + (m.type === "구성제품" ? "기존 완제품" : (m.type === "반제품" ? "기존 반제품" : "공용")) + '</span> <button type="button" class="btn btn-sm" data-nmunpick="' + i + '" title="고른 코드를 빼고 새 코드(번호 규칙)로" style="padding:0 6px;font-size:11px">✕ 새 코드로</button>'
+           : '<input class="wantcode" data-nm="' + i + '" data-f="want" value="' + esc(code) + '" placeholder="' + (pred ? esc(pred) : (m.type === "구성제품" ? "완제품 이름 · 코드로 찾기" : (m.type ? "코드 만들기 먼저" : "구분을 고르면"))) + '" title="' + (m.picked ? "이미 있는 코드를 그대로 씁니다 — 새 코드로 바꾸려면 [기존 코드 찾기]를 지우세요" : "번호 규칙대로 만든 추천 코드 — 고칠 수 있습니다") + '"' + (m.picked ? " readonly" : "") + ">" +
+             (m.picked ? ' <span class="commontag">' + (m.type === "구성제품" ? "기존 완제품" : (m.type === "반제품" ? "기존 반제품" : "공용")) + "</span>" : "") +
+-            '<div class="bfpick"><input data-nmpick="' + i + '" autocomplete="off" value="' + esc(m.picked ? m.want : "") + '" placeholder="🔍 코드 찾기" title="이미 있는 자재(공용) · 반제품 · 완제품을 골라 그 코드를 그대로 씁니다 — 비워 두면 새 코드"></div>') + "</td>" +
++            '<div class="bfpick"><input data-nmpick="' + i + '" autocomplete="off" value="" placeholder="🔍 코드 찾기" title="이미 있는 자재(공용) · 반제품 · 완제품을 골라 그 코드를 그대로 씁니다 — 비워 두면 새 코드"></div>')) + "</td>" +
+         '<td><input data-nm="' + i + '" data-f="name" value="' + esc(nm) + '" placeholder="' + (m.type === "구성제품" ? "구성 완제품 이름" : "품목명") + '"></td>' +
+         '<td><select data-nm="' + i + '" data-f="buy">' + ["턴키", "사급"].map(function (o) { return "<option" + (o === m.buy ? " selected" : "") + ">" + o + "</option>"; }).join("") + "</select></td>" +
+         inp("vendor", main || m.type === "구성제품" ? "제조사" : "업체명") + inp("spec", "사양") + inp("moq", "MOQ", 1) + inp("qty", "1", 1) + inp("unit", "단가", 1) +
+@@ -23020,6 +23168,7 @@
+     }
+     if ((x = t.closest("[data-bfpick]"))) { bvPickSet(x.dataset.bfpick); return; }
+     if ((x = t.closest("[data-nmpicked]"))) { bomnPickSet(Number($("bomn-picks").dataset.i), x.dataset.nmpicked); return; }
++    if ((x = t.closest("[data-nmunpick]"))) { var mU = BV.newMats[Number(x.dataset.nmunpick)]; if (mU) { mU.picked = 0; mU.want = ""; bomnMatsRender(); } return; }      // f498
+     if (!t.closest("#bomn-picks") && !t.closest("[data-nmpick]") && !t.closest(".wantcode")) { var npb = $("bomn-picks"); if (npb) npb.hidden = true; }
+     if ((x = t.closest("[data-bomundo]"))) { delete BV.mods[x.dataset.bomundo]; bomShow(); return; }
+     if ((x = t.closest("[data-bomundoadd]"))) { BV.adds.splice(Number(x.dataset.bomundoadd), 1); bvShowKeep(); return; }
+@@ -25211,7 +25360,7 @@
+    * 그래도 안 되면 서버 길로 다시 하지 않고 '저장됐는지 알 수 없음'으로 알린다. ok · fail 은 promise 밖에서(화면 처리 오류가 '저장 실패'로 바뀌지 않게). */
+   /** f486: 직접 저장을 안 하고 서버 길로 간 까닭(속도 기록 → 요약 파일) — 조용히 넘어가던 것 */
+   function rbWhy(fn, why) { try { PERF_Q.push({ n: "직접→서버(조건) " + String(fn).slice(0, 20) + " " + String(why).slice(0, 30), ms: 99999, ok: true, at: new Date().toISOString().slice(0, 19), t: String(why).slice(0, 200) }); } catch (e) { /* 넘어간다 */ } }
+-  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_(edit|state)|pg_save|pj_add|po_cancel|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
++  var RB_ONCE_FN = /^rb_(bom_(ckset|codeset|common|fixmany|fixonly|fmshare|hfset|nv|reorder|review_apply|save|semilink|semimake|undo)|close_save|iss_save|item_save|link_save|ln_inb|ln_save|note_save|od_(edit|state|save|bulk)|pg_(save|more)|kv_set|co_create|item_reg|vendor_add|po_(cancel|redraft|submit|pend_add|pend_drop)|sm2_save|dly_save|bom_cfset|pj_add|qual_save|sm_(add|bulk|edit|new))$/, RB_ONCE_OFF = 0;
+   function noteRpc(fn, args, ok, fail, again, rq, tries) {
+     noteSess(function (ss) {
+       if (!ss) { fail(null, true); return; }

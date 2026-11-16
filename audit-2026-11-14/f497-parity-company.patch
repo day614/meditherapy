@@ -1,0 +1,450 @@
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/BomLinks.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/BomLinks.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/BomLinks.js	2026-11-15 01:58:33.079433373 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/BomLinks.js	2026-11-16 00:16:12.105298316 +0000
+@@ -18,6 +18,9 @@
+ function bomLinksAll_() {
+   if (RB_BLINK_ALL) return RB_BLINK_ALL;
+   var c = null;
++  // f497(읽기 대조): 화면이 Supabase 에 직접 저장한 링크(rb_link_save)가 시트에 아직 안 옮겨졌으면 캐시(6시간)를 버리고 옮긴 뒤 읽는다 — 예전(시트에 바로 저장)엔 저장 때 캐시를 버렸다.
++  //   안 그러면 1분 동안 BOM 보기(apiBomGet) · 단계 '포장물 사양서'(apiItemLinks)가 방금 넣은 · 지운 링크를 옛 목록으로 되돌렸다(이슈 · 품질 f485 와 같은 틀)
++  try { if (typeof linkDbOn_ === 'function' && linkDbOn_() && (sbFetch_('get', '/rest/v1/rb_tab_job?select=id&tab=eq.lk&done_at=is.null&limit=1') || []).length) { cacheDrop_('blink:v1'); if (typeof bomHoldsLock_ === 'function' && bomHoldsLock_()) tabJobDrainIn_('lk'); else if (typeof issJobDrain_ === 'function') issJobDrain_(); RB_BLINK_ALL = null; } } catch (eLp) { /* 캐시로 */ }      // 잠금을 쥔 채 불렸으면 그 잠금으로(issJobDrain_ 은 잠금을 놓는다)
+   try { c = cacheGet_('blink:v1'); } catch (e0) { c = null; }
+   if (c) return (RB_BLINK_ALL = c);
+   var sh = sheet_(RB_BLINK.TAB), v = [];
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/Code.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/Code.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/Code.js	2026-11-15 10:39:55.457370313 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/Code.js	2026-11-16 00:15:51.988278172 +0000
+@@ -1985,7 +1985,7 @@
+ }
+ /** p = 진행 기록(체크 · 날짜) · l = 지급 줄 · r = 발주 DB(시트) — 화면은 바뀐 것만 다시 읽는다 */
+ /** 화면 코드 판 번호. 화면(브라우저 쪽) 코드를 바꿔 배포할 때마다 올린다 — 열어 둔 옛 화면에 새로고침 안내가 뜬다. */
+-var RB_BUILD = '2026-11-15f496';
++var RB_BUILD = '2026-11-16f497';
+ /** f189: Supabase 사본(지급 · 샘플 · 마감 · 이슈 등)은 사본 칸 모양이 바뀐 판 뒤에 만든 것이면 믿는다 — 예전엔 배포마다(판이 바뀌면) 사본을 버려
+  *  누가 화면을 다시 열고 1분 작업이 전체 맞추기를 할 때까지 저장이 느린 예전 길로 갔다(하루 배포가 잦아 5~9초 저장이 이어짐). 시트가 앞섰는지는 dirty · 지문이 따로 본다. */
+ var RB_MIRROR_MIN_N = 150;
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/Daily.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/Daily.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/Daily.js	2026-11-15 01:58:33.079559926 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/Daily.js	2026-11-16 00:16:12.108939732 +0000
+@@ -166,8 +166,11 @@
+   if (typeof issDbOn_ === 'function' && issDbOn_()) {
+     try {
+       sbIss = {};
+-      (sbFetch_('get', '/rest/v1/sheet_rows?select=cells&tab=eq.' + encodeURIComponent(RB_ISS_TAB) + '&limit=1000') || []).forEach(function (r) {
+-        var c = r.cells || []; if (str_(c[0])) sbIss[str_(c[0])] = { id: str_(c[0]), st: str_(c[8]) || '열림', fb: str_(c[9]), fbBy: str_(c[10]), fbAt: str_(c[11]) };
++      // f497(읽기 대조): 1000줄 넘게도(Supabase 한 번 1000줄) · 피드백 시각은 서버 issTime_ 과 같게(사본엔 시트 날짜가 ISO 로 — 예전엔 '2026-11-02T02:00:00.000Z' 그대로 보냈다)
++      var path = '/rest/v1/sheet_rows?select=cells&tab=eq.' + encodeURIComponent(RB_ISS_TAB) + '&row=gt.1&order=row';
++      var tmS = function (v) { var s = str_(v); if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) { var d = new Date(s); if (!isNaN(d.getTime())) return Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd HH:mm'); } return s; };
++      ((typeof sbGetAllRaw_ === 'function' ? sbGetAllRaw_(path) : sbFetch_('get', path + '&limit=1000')) || []).forEach(function (r) {
++        var c = r.cells || []; if (str_(c[0])) sbIss[str_(c[0])] = { id: str_(c[0]), st: str_(c[8]) || '열림', fb: str_(c[9]), fbBy: str_(c[10]), fbAt: tmS(c[11]) };
+       });
+     } catch (eSb) { sbIss = null; }
+   }
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/IssueDb.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/IssueDb.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/IssueDb.js	2026-11-15 01:58:33.098348865 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/IssueDb.js	2026-11-16 00:15:51.986449904 +0000
+@@ -515,9 +515,11 @@
+   if (!rv || typeof rv !== 'object' || !str_(j.who)) return;
+   var pick = function (v) { if (v == null || v === '' || v === false) return null; if (Array.isArray(v)) return v.length ? v.slice(0, 20) : null; return v; };
+   var o = {}, any = false;
+-  ['jobErr', 'skipped', 'fails', 'warn', 'warning', 'notes', 'reopened', 'stateDown', 'migNote', 'closedStatus', 'need', 'linesQtyNeed', 'linesError', 'apError'].forEach(function (k) { var v = pick(rv[k]); if (v != null) { o[k] = v; any = true; } });
++  ['jobErr', 'skipped', 'fails', 'miss', 'warn', 'warning', 'notes', 'reopened', 'stateDown', 'migNote', 'closedStatus', 'need', 'linesQtyNeed', 'linesError', 'apError'].forEach(function (k) { var v = pick(rv[k]); if (v != null) { o[k] = v; any = true; } });      // f497: miss(apiBulkStep 날짜 없는 항목)
++  try { var pm = pick(rv.pay && rv.pay.missed); if (pm != null) { o.payMissed = pm; any = true; } } catch (ePm) { /* 넘어간다 */ }      // f497: 새 발주 지급월에 못 넣은 금액
+   if (!any) return;
+-  o.fn = str_(j.fn); o.id = str_((j.args || [])[0] && typeof (j.args || [])[0] !== 'object' ? (j.args || [])[0] : ''); o.at = Utilities.formatDate(new Date(), 'Asia/Seoul', 'MM/dd HH:mm');
++  var a0 = (j.args || [])[0];
++  o.fn = str_(j.fn); o.id = str_(a0 && typeof a0 === 'object' ? (Array.isArray(a0) ? '' : (a0.id || '')) : a0);      o.at = Utilities.formatDate(new Date(), 'Asia/Seoul', 'MM/dd HH:mm');      // f497: 새 발주(apiCreateOrder)는 인자 객체의 id — 화면이 실패한 줄을 빼고 입력을 되살린다
+   var P = PropertiesService.getScriptProperties(), key = 'rb.pjNote.' + str_(j.who).toLowerCase();
+   var L = []; try { L = JSON.parse(P.getProperty(key) || '[]'); } catch (e) { L = []; }
+   L.push(o); while (JSON.stringify(L).length > 8000 && L.length > 1) L.shift();
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/ItemInfo.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/ItemInfo.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/ItemInfo.js	2026-11-15 01:58:33.082221459 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/ItemInfo.js	2026-11-16 00:16:12.112727789 +0000
+@@ -21,6 +21,8 @@
+ var RB_II_CACHE = 'iilist:v1';     // 품목 DB 줄(6시간) — 품목 DB 를 고치는 곳마다 RB_ITEM.CACHE 와 같이 버린다
+ var RB_II_REF = 'iiref:v1';        // 최근 업체 · 단가(30분) — 발주 DB · BOM 전체를 읽어 무겁다. 목록과 따로 받아 화면은 먼저 뜬다
+ function apiItemDbList(withRef) {
++  // f497(읽기 대조): 품목 정보 창도 직접 저장한 값이 시트에 안 옮겨졌으면 먼저(예전엔 저장 때 캐시를 버렸는데 직접 저장은 1분 뒤에야 — 그동안 창을 다시 열면 옛 값)
++  if (typeof itemPendFlush_ === 'function') itemPendFlush_();
+   var list = cacheGet_(RB_II_CACHE);
+   if (!list) {
+     list = [];
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/Keys.js /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/Keys.js
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/Keys.js	2026-11-15 01:58:33.082283899 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/Keys.js	2026-11-16 00:16:12.116730465 +0000
+@@ -519,14 +519,18 @@
+ }
+ 
+ /** 화면: 새 발주 검색용 품목 목록 */
+-function apiItems() {
+-  // f485: 화면이 직접 저장한 품목 정보(rb_item_save)가 시트에 아직 안 옮겨졌으면 먼저 옮긴다(5초 안에 잠금을 못 잡으면 그냥 읽음) — 예전엔 1분 넘게 옛 이름 · 업체가 화면 목록을 덮었다
++/** f485 · f497: 화면이 직접 저장한 품목 정보(rb_item_save)가 시트에 아직 안 옮겨졌으면 먼저 옮긴다(5초 안에 잠금을 못 잡으면 그냥 읽음) — 품목 목록(apiItems) · 품목 정보 창(apiItemDbList) 공통 */
++function itemPendFlush_() {
+   try {
+     if (typeof itemDbOn_ === 'function' && itemDbOn_() && (sbFetch_('get', '/rest/v1/rb_tab_job?select=id&tab=eq.it&done_at=is.null&limit=1') || []).length) {
+       if (bomHoldsLock_()) itemJobDrainIn_();
+       else { var lI = pdLock_(); if (lI.tryLock(5000)) { var pvI = RB_LOCK_OBJ; RB_LOCK_OBJ = lI; try { itemJobDrainIn_(); } finally { lI.releaseLock(); RB_LOCK_OBJ = pvI; } } }
+     }
+   } catch (eIt) { /* 캐시로 */ }
++}
++function apiItems() {
++  // f485: 예전엔 1분 넘게 옛 이름 · 업체가 화면 목록을 덮었다
++  itemPendFlush_();
+   var list = readItems_().slice(), have = {};
+   list.forEach(function (it) { have[it.code] = 1; });
+   try { bomIndex_().forEach(function (x) { if (x.code && !have[x.code]) { have[x.code] = 1; list.push({ code: x.code, name: x.name || x.code, brand: x.brand || '', channel: '', vendor: '', price: '', bom: 1 }); } }); } catch (e) { /* BOM 없이 */ }
+diff -ruN '--exclude=.clasp.json' /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/PageHtml.html /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/PageHtml.html
+--- /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn494/PageHtml.html	2026-11-15 10:39:29.241368754 +0000
++++ /tmp/claude-0/-home-user-meditherapy/6efaa76e-feff-567e-905e-d4f75ec9b4d0/scratchpad/cn497/PageHtml.html	2026-11-16 00:16:12.150594275 +0000
+@@ -6483,7 +6483,8 @@
+         .withSuccessHandler(function (res) {
+           busy(false);
+           if (res.skipped && res.skipped.length) {
+-            var NL = String.fromCharCode(10);
++            var NL = String.fromCharCode(10), skI = res.skippedIds || [];
++            if (skI.length) { undo.forEach(function (u) { if (skI.indexOf(u.r.id) > -1) { u.r.doc = u.doc; u.r.state = u.state; } }); renderBoard(); if (currentId && !$("view-run").hidden) renderRun(); }      // f497: 못 넣은 건은 화면도 바로 되돌림(다시 읽기가 저장 중이라 늦어도)
+             alert("시트에 못 넣은 건 " + res.skipped.length + "개" + NL + res.skipped.join(NL));
+             lastSync = 0; revalidate();         // 못 넣은 건은 화면에 먼저 넣은 값을 시트대로 되돌린다
+           }
+@@ -6513,11 +6514,11 @@
+           busy(false);
+           if (res.skipped && res.skipped.length) {
+             var NL = String.fromCharCode(10);
+-            alert(res.n + "건 발주일을 " + res.col + "열에 적었습니다." + NL + NL +
++            alert(res.n + "건 발주일을 " + (res.direct ? "발주 DB [발주일] 칸에" : res.col + "열에") + " 적었습니다." + NL + NL +
+               "못 쓴 건 " + res.skipped.length + "개" + NL + res.skipped.join(NL));
+             lastSync = 0; revalidate();         // 못 쓴 건은 화면에 먼저 넣은 발주일 · 상태를 되돌린다
+           } else {
+-            toast(res.n + "건 발주일을 " + res.col + "열에 적었습니다");
++            toast(res.n + "건 발주일을 " + (res.direct ? "발주 DB [발주일] 칸에 적었습니다(시트에는 1분 안에)" : res.col + "열에 적었습니다"));
+           }
+           renderBoard();
+         })
+@@ -14052,13 +14053,14 @@
+         var wasS = {};
+         ((pg0 && pg0.rows) || []).forEach(function (q) {
+           var row = rowById(q.id); if (!row) return;
+-          wasS[q.id] = { doc: row.doc, approvalNo: row.approvalNo, state: row.state, dates: JSON.parse(JSON.stringify(row.dates || {})), checks: JSON.parse(JSON.stringify(row.checks || {})), sel: !!selected[q.id] };
++          wasS[q.id] = { doc: row.doc, approvalNo: row.approvalNo, state: row.state, dates: JSON.parse(JSON.stringify(row.dates || {})), checks: JSON.parse(JSON.stringify(row.checks || {})), sel: !!selected[q.id], nm: String((q.expect && q.expect.name) || row.name || "") };
+           row.doc = no; if (ap) row.approvalNo = ap;
+           if (["계획", ""].indexOf(String(row.state || "")) > -1) row.state = "상신";
+           row.dates = row.dates || {}; row.dates.submitted = day; markSubmittedLocal(row);
+           delete selected[q.id];
+         });
+         var backS = function (id) { var row = rowById(id), w = wasS[id]; if (!row || !w) return; row.doc = w.doc; row.approvalNo = w.approvalNo; row.state = w.state; row.dates = w.dates; row.checks = w.checks; if (w.sel) selected[id] = 1; };
++        PO_SUBMIT_WAS[no] = { w: wasS, pg: pg0 };      // f497: 할 일 길 응답이 서버와 같은 건너뜀을 세게(바꾸기 전 값)
+         PO_PEND = (PO_PEND || []).filter(function (p) { return p.no !== no; }); poPendShow();
+         renderBoard(); if (!$("view-run").hidden) renderRun();
+         toast(no + " 상신 완료 — " + Object.keys(wasS).length + "건(시트에 저장하는 중…)");
+@@ -14069,7 +14071,7 @@
+           var skip = r.skippedIds || [];
+           skip.forEach(backS);
+           if (skip.length) { renderBoard(); if (!$("view-run").hidden) renderRun(); }
+-          if (r.direct) toast(no + " 상신 완료 — " + Object.keys(wasS).length + "건 저장했습니다(시트에는 1분 안에)");
++          if (r.direct) toast(no + " 상신 완료 — " + (Object.keys(wasS).length - skip.length) + "건 저장했습니다(시트에는 1분 안에)" + (skip.length ? " (못 넣은 건 " + skip.length + ")" : ""));
+           else toast(no + " 상신 완료 — " + r.n + "건 품의번호 · 상신 · 상신일" + (r.ap ? " · 결재문서번호" : "") + (r.skipped && r.skipped.length ? " (못 넣은 건 " + r.skipped.length + ")" : ""));
+           if (r.skipped && r.skipped.length) alert(no + " — 못 넣은 건은 화면을 되돌렸습니다:" + String.fromCharCode(10) + r.skipped.join(String.fromCharCode(10)));
+           lastSync = 0; setTimeout(revalidate, 300);
+@@ -14428,6 +14430,35 @@
+     };
+   }
+   var ITEMDEL_PREV = {};
++  /* f497: 할 일 길(rb_pj_add) 응답을 서버와 같게 — 서버가 건너뛸 건(진행상태 · 이미 다른 품의번호 등)은 화면이 같은 규칙 · 같은 문구로 먼저 세서
++     돌려주고(예전처럼 그 자리에서 'N건 건너뜀'), 할 일에는 넣을 건만 보낸다(1분 뒤 같은 알림이 또 뜨지 않게) */
++  var RB_NOTE_SEEN = {};      // 화면이 이미 알린 건너뜀 문구 — '지금 맞추기' 알림에서 뺀다(10분)
++  function rbNoteSeen(list) { var t = Date.now() + 600000; (list || []).forEach(function (s) { RB_NOTE_SEEN[String(s)] = t; }); }
++  function rbNoteUnseen(list) { var now = Date.now(); return (list || []).filter(function (s) { var t = RB_NOTE_SEEN[String(s)]; return !(t && t > now); }); }
++  /** list = [{statusRow, expect:{id,name}}…] · why(row) = 건너뛸 까닭(서버 문구) 또는 "" → { keep, n(넣을 건 수), skipped, skippedIds } — 화면에 없는 건은 서버에 맡긴다 */
++  function rbStateSplit(list, why, label) {
++    var keep = [], n = 0, skipped = [], skippedIds = [];
++    (list || []).forEach(function (x) {
++      if (!x) return;
++      var ex = x.expect || {}, id = String(ex.id || x.id || ""), r = id ? rowById(id) : null, w = (r && Number(x.statusRow) >= 2) ? why(r, x) : "";
++      if (w) { skipped.push((label ? label(x, r) : String(ex.name || "")) + w); skippedIds.push(id); return; }
++      keep.push(x); if (Number(x.statusRow) >= 2) n++;
++    });
++    return { keep: keep, n: n, skipped: skipped, skippedIds: skippedIds };
++  }
++  var PO_SUBMIT_WAS = {};      // 상신 완료 — 화면이 바꾸기 전 값(품의번호 · 진행상태 · 이름) — 서버 apiBulkDoc 건너뜀 규칙을 세려고
++  var CREATE_DIRECT = {};      // 할 일 길로 접수한 새 발주 — 1분 작업이 못 넣으면(jobErr) 목록에서 빼고 새 발주 표에 다시 채운다
++  /** 서버 payYm_ 와 같은 규칙(지급예정 글자 → 연 · 월) */
++  function rbPayYm(v) {
++    var s = String(v == null ? "" : v).replace(/\s/g, "");
++    if (!s) return null;
++    var raw = s.replace(/[년월]/g, ".").replace(/일$/, ""), m = raw.match(/^(\d{4}|\d{2})[.\-\/](\d{1,2})[.\-\/](\d{1,2})\.?$/);
++    if (m) { var mo = Number(m[2]), dd = Number(m[3]); if (mo >= 1 && mo <= 12 && dd >= 1 && dd <= 31) return { y: Number(m[1]) < 100 ? 2000 + Number(m[1]) : Number(m[1]), m: mo }; }
++    var mm = s.match(/^(?:(\d{2})['’])?(\d{1,2})월/);
++    if (!mm) return null;
++    var mn = Number(mm[2]); if (mn < 1 || mn > 12) return null;
++    return { y: mm[1] ? 2000 + Number(mm[1]) : new Date().getFullYear(), m: mn };
++  }
+   /** 서버 splitList_ 와 같게: 쉼표 · 줄바꿈으로 나누고 앞뒤 빈칸 · 겹침 빼기 */
+   function rbSplitList(v) { var seen = {}, out = []; String(v == null ? "" : v).split(/[,\n]/).forEach(function (x) { x = x.trim(); if (x && !seen[x]) { seen[x] = 1; out.push(x); } }); return out; }
+   var RB_DIRECT = {
+@@ -14797,9 +14828,35 @@
+     apiBulkHide: function (args, ok, fail, gas) { pjDirect("apiBulkHide", args, function () { ok({ direct: 1, n: (args[0] || []).length }); }, fail, gas); },
+     // f347: 여러 건 날짜 · 단계 처리 · 품의 취소(응답은 화면이 센 건수 — 못 한 건은 맞추기 뒤 알림)
+     // f352: 일괄 품의번호 · 결재번호 · 발주일(화면이 먼저 바꿈 · 못 한 건은 맞추기 뒤 알림 · 그 뒤 다시 읽기로 맞춤)
+-    apiBulkDoc: function (args, ok, fail, gas) { pjDirect("apiBulkDoc", args, function () { ok({ direct: 1, n: (args[0] || []).length, skipped: [] }); lastSync = 0; setTimeout(revalidate, 4000); }, fail, gas); },
+-    apiBulkApprovalNo: function (args, ok, fail, gas) { pjDirect("apiBulkApprovalNo", args, function () { ok({ direct: 1, n: (args[0] || []).length, fails: [] }); }, fail, gas); },
+-    apiBulkOrderDate: function (args, ok, fail, gas) { pjDirect("apiBulkOrderDate", args, function () { ok({ direct: 1, n: (args[0] || []).length, col: "발주일", skipped: [] }); lastSync = 0; setTimeout(revalidate, 4000); }, fail, gas); },
++    // f497: 서버 apiBulkDoc0_ 와 같은 검사 · 건너뜀(취소 · 종결 건 — '이미 다른 품의번호'는 화면이 [확인]으로 이미 고름) — 예전엔 항상 skipped: [] 라 'N개 못 넣음' 알림이 사라졌다
++    apiBulkDoc: function (args, ok, fail, gas) {
++      var doc = String(args[1] == null ? "" : args[1]).trim().slice(0, 60);
++      if (!doc) { fail(new Error("품의번호(엑셀 품의서 번호, MTB2C-…)를 넣어주세요.")); return; }
++      if (doc.indexOf("메디테라피") > -1) { fail(new Error("결재문서번호(" + doc + ")는 품의번호가 아닙니다. 엑셀 품의서의 품의번호(MTB2C-…)를 넣어주세요.")); return; }
++      var S0 = rbStateSplit(args[0], function (r) { var s = String(r.state || ""); return (s === "취소" || s === "종결") ? " — " + s + "된 건" : (!args[2] && String(r.doc || "") && String(r.doc) !== doc ? " — 이미 품의번호 " + r.doc : ""); });      // 화면은 부르기 전에 품의번호를 바꿔 둬 둘째 규칙은 대개 안 걸린다(서버와 같은 규칙만 남김)
++      var out = { direct: 1, n: S0.n, skipped: S0.skipped, skippedIds: S0.skippedIds };
++      rbNoteSeen(S0.skipped);
++      if (!S0.n) { ok(out); return; }
++      pjDirect("apiBulkDoc", [S0.keep].concat(args.slice(1)), function () { ok(out); lastSync = 0; setTimeout(revalidate, 4000); }, fail, gas);
++    },
++    // f497: 서버 podbBulkApprovalNo_ 와 같게 — 종결 · 취소 건은 '실패'(그 문구)
++    apiBulkApprovalNo: function (args, ok, fail, gas) {
++      var L = (args[0] || []).filter(function (x) { return x && String(x.approvalNo == null ? "" : x.approvalNo).trim(); }), fails = [], failIds = [], keep = [];
++      L.forEach(function (x) {
++        var ex = x.expect || {}, r = ex.id ? rowById(ex.id) : null, s0 = r ? String(r.state || "") : "";
++        if (s0 === "종결" || s0 === "취소") { fails.push((ex.name || x.statusRow) + ": " + s0 + "된 건은 고칠 수 없습니다 — 먼저 " + (s0 === "종결" ? "[종결 풀기]" : "[취소 풀기]") + "를 해 주세요."); failIds.push(String(ex.id || "")); return; }
++        keep.push(x);
++      });
++      var out = { direct: 1, n: keep.length, fails: fails, failIds: failIds };
++      rbNoteSeen(fails);
++      if (!keep.length) { ok(out); return; }
++      pjDirect("apiBulkApprovalNo", [keep], function () { ok(out); }, fail, gas);
++    },
++    // 발주일 — 수식 칸(건너뜀)은 화면이 모른다: 1분 작업 결과로 '지금 맞추기'가 알린다(f448). col 은 열 글자 대신 칸 이름(화면 문구가 'direct' 면 칸 이름으로)
++    apiBulkOrderDate: function (args, ok, fail, gas) {
++      if (!/^\d{4}-\d{1,2}-\d{1,2}$/.test(String(args[1] || "").trim())) { fail(new Error("발주일을 넣어주세요.")); return; }
++      pjDirect("apiBulkOrderDate", args, function () { ok({ direct: 1, n: (args[0] || []).filter(function (x) { return Number(x && x.statusRow) >= 2; }).length, col: "발주일", skipped: [] }); lastSync = 0; setTimeout(revalidate, 4000); }, fail, gas);
++    },
+     // f353: 품목코드 등록 · 업체 추가 — 화면은 같은 규칙으로 결과를 만들고(이미 있음 판단은 품목 목록) 등록은 할 일로
+     apiItemRegister: function (args, ok, fail, gas) {
+       var c = String(args[0] || "").toUpperCase().replace(/\s/g, ""), nm = String(args[1] || "").trim();
+@@ -14819,9 +14876,14 @@
+     apiCreateOrder: function (args, ok, fail, gas) {
+       var p0 = args[0] || {};
+       if (!p0.id || !p0.name) { gas(); return; }
++      // f497: 서버 apiCreateOrder0_ 의 pay.missed(지급예정을 날짜로 못 읽음 — 지급월에 못 넣은 금액)를 같은 규칙으로 — 예전엔 할 일 길에서 이 알림이 사라졌다
++      var num0 = function (v) { return Number(String(v == null ? "" : v).replace(/,/g, "")) || 0; };
++      var preAmt = num0(p0.pre), balAmt = num0(p0.bal);      // 환율(중국 × 200)은 0 보다 큰지에 상관없다
++      var missed = (preAmt > 0 && !rbPayYm(String(p0.preAt || "").slice(0, 40)) ? ["선금 지급예정을 날짜로 못 읽음"] : []).concat(balAmt > 0 && !rbPayYm(String(p0.balAt || "").slice(0, 40)) ? ["잔금 지급예정을 날짜로 못 읽음"] : []);
+       pjDirect("apiCreateOrder", [p0], function () {
+         var rq = rowById(p0.id); if (rq) PROV_KEEP[p0.id] = { row: rq, until: Date.now() + 900000 };      // f485: 3분 → 15분(1분 작업이 밀리면 3분 넘게 걸려 목록에서 사라졌고, 다시 등록해 두 건이 됐다) — 시트에 들어오면 바로 진짜 행으로
+-        ok({ queued: 1, statusRow: 0 });
++        CREATE_DIRECT[p0.id] = { p: JSON.parse(JSON.stringify(p0)), until: Date.now() + 3600000 }; rbNoteSeen(missed);      // f497: 1분 작업이 못 넣으면(jobErr) 목록에서 빼고 입력을 되살린다
++        ok({ queued: 1, statusRow: 0, pay: { missed: missed } });
+         [8000, 20000, 45000, 90000, 180000, 300000].forEach(function (ms) { setTimeout(function () { if (PROV_KEEP[p0.id]) { lastSync = 0; revalidate(); } }, ms); });
+       }, fail, gas);
+     },
+@@ -14885,8 +14947,18 @@
+     apiPoSubmit: function (args, ok, fail, gas) {
+       var no = String(args[0] || ""), ap = String(args[1] || "").trim();
+       if (!no || !ap || !/\d{4}-\d+/.test(ap)) { gas(); return; }      // 결재문서번호 형식 확인은 서버 길(오류 문구 그대로)
++      // f497: 서버 apiPoSubmit → apiBulkDoc(덮어쓰지 않음) 와 같은 건너뜀 — 화면이 바꾸기 전 값(PO_SUBMIT_WAS)으로: 취소 · 종결 건, 이미 다른 품의번호가 있는 건.
++      //       예전엔 skipped: [] 라 그런 건도 화면에 '상신'으로 남았다(1분 뒤 알림 · 다시 읽기 전까지)
++      var WS = PO_SUBMIT_WAS[no] || {}, W = WS.w || {}, skipped = [], skippedIds = [];
++      delete PO_SUBMIT_WAS[no];
++      Object.keys(W).forEach(function (id) {
++        var w = W[id] || {}, s = String(w.state || ""), nm = String(w.nm || "");
++        if (s === "취소" || s === "종결") { skipped.push(nm + " — " + s + "된 건"); skippedIds.push(id); }
++        else if (String(w.doc || "") && String(w.doc) !== no) { skipped.push(nm + " — 이미 품의번호 " + w.doc); skippedIds.push(id); }
++      });
++      rbNoteSeen(skipped);
+       pjDirect("apiPoSubmit", args, function () {
+-        ok({ n: -1, states: 0, checked: 0, ap: 1, skipped: [], skippedIds: [], pend: (PO_PEND || []).filter(function (p) { return p.no !== no; }), direct: 1 });
++        ok({ n: Object.keys(W).length - skippedIds.length, states: 0, checked: 0, ap: 1, skipped: skipped, skippedIds: skippedIds, pend: (PO_PEND || []).filter(function (p) { return p.no !== no; }).concat(skippedIds.length && WS.pg ? [Object.assign({}, WS.pg, { rows: (WS.pg.rows || []).filter(function (q) { return skippedIds.indexOf(String(q.id)) > -1; }) })] : []), direct: 1 });      // 서버처럼 못 넣은 건만 상신 대기에 남김
+       }, fail, gas);
+     },
+     apiSampleProject: function (args, ok, fail, gas) {
+@@ -14920,9 +14992,31 @@
+       pjDirect("apiDailyIssues", [args[0], clean], function () { ok({ issues: clean }); }, fail, gas);
+     },
+     apiBulkDate: function (args, ok, fail, gas) { pjDirect("apiBulkDate", args, function () { ok({ direct: 1, n: (args[0] || []).length }); }, fail, gas); },
+-    apiBulkStep: function (args, ok, fail, gas) { pjDirect("apiBulkStep", args, function () { ok({ direct: 1, n: (args[0] || []).length, miss: [] }); }, fail, gas); },
+-    // f396: 기안 원복 — 할 일 길(품의 취소와 같은 일). 못 한 건(입고 시작 등)은 '지금 맞추기' 오류로 알림
+-    apiPoRedraft: function (args, ok, fail, gas) { pjDirect("apiPoRedraft", args, function () { ok({ direct: 1, n: (args[0] || []).length, skippedIds: [], skipped: [] }); }, fail, gas); },
++    // f497: 서버 apiBulkStep 과 같게 — 날짜가 없어 체크 안 한 항목(miss · 같은 문구) · 건너뛰기에서 체크가 있어 남긴 건(kept). 예전엔 miss: [] 라 '날짜가 없어 체크하지 않은 항목' 알림이 사라졌다.
++    //       화면은 부르기 전에 같은 규칙(ckNeedMiss · stepHasCheck)으로 이미 바꿔 뒀다 — 바뀐 뒤 값으로 센다(빠진 항목은 체크가 안 붙어 있음)
++    apiBulkStep: function (args, ok, fail, gas) {
++      var items = args[0] || [], skip = args[2] === "skip", step = ((DATA && DATA.steps) || []).filter(function (s) { return s.id === args[1]; })[0];
++      if (!step || (args[3] || mode) !== mode) { gas(); return; }
++      if (skip && !step.skippable) { fail(new Error("이 단계는 건너뛸 수 없습니다.")); return; }
++      var miss = [], kept = 0;
++      items.forEach(function (x) {
++        var r = rowById(x.id); if (!r) return;
++        var c = r.checks || {};
++        if (skip) { if (stepHasCheck(r, step)) kept++; return; }
++        (step.items || []).forEach(function (it, j) { var kk = itemKey(step, j), ms = c[kk] ? "" : ckNeedMiss(r, kk); if (ms) miss.push(String((x.meta || {}).name || x.id) + " · " + String((it && it.t) || "") + " — " + ms + " 없음"); });
++      });
++      rbNoteSeen(miss);
++      pjDirect("apiBulkStep", args, function () { ok({ direct: 1, n: items.length - kept, kept: kept, miss: miss }); }, fail, gas);
++    },
++    // f396: 기안 원복 — 할 일 길(품의 취소와 같은 일).
++    // f497: 서버 poCancel_(withOrdered) 와 같게 — 계획 · 상신 · 승인 · 발주만, 나머지(입고 · 종결 · 취소)는 그 자리에서 건너뜀(문구 같음). 예전엔 늘 n = 건수라 못 한 건도 '원복했습니다'로 보였다
++    apiPoRedraft: function (args, ok, fail, gas) {
++      var S0 = rbStateSplit(args[0], function (r) { var s = String(r.state || ""); return ["", "계획", "상신", "승인", "발주"].indexOf(s) < 0 ? " — 진행상태 " + s + "(계획 · 상신 · 승인만 취소)" : ""; });
++      var out = { direct: 1, n: S0.n, skippedIds: S0.skippedIds, skipped: S0.skipped };
++      rbNoteSeen(S0.skipped);
++      if (!S0.n) { ok(out); return; }
++      pjDirect("apiPoRedraft", [S0.keep, args[1]], function () { ok(out); }, fail, gas);
++    },
+     // f396: 일일보고 회신 받음 — 할 일 길(화면이 먼저 그림)
+     apiWaitReply: function (args, ok, fail, gas) {
+       if (!args[0] || !args[0].pj) { gas(); return; }
+@@ -15054,6 +15148,9 @@
+     apiDailySaveRep: function (args, ok, fail, gas) {
+       var dt = String(args[0] || ""), rep = args[1];
+       if (!/^\d{4}-\d\d-\d\d$/.test(dt) || !rep || typeof rep !== "object" || !(rep.v >= 7) || !rep.asOf || JSON.stringify(rep).length > 400000) { gas(); return; }
++      var tdy = rbNowFmt("yyyy-MM-dd");      // f497: 서버와 같은 날짜 검사를 그 자리에서(예전엔 할 일에 넣고 1분 뒤 실패 — 화면은 '저장됨')
++      if (dt < tdy) { fail(new Error("지난 날짜는 이 방식으로 저장하지 않습니다 — 새로고침 후 다시 해 주세요.")); return; }
++      if (dt > tdy) { gas(); return; }      // 다음 날 미리 저장(dailyAhead_)은 서버가 정한다
+       pjDirect("apiDailySaveRep", [dt, rep], function () { ok({ date: dt, saved: true, savedAt: rbNowFmt("yyyy-MM-dd HH:mm"), savedBy: String((DATA && DATA.me) || "").split("@")[0], direct: 1 }); }, fail, gas);
+     },
+     apiSaveLinks: function (args, ok, fail, gas) {
+@@ -15170,7 +15267,9 @@
+   RB_DIRECT.apiBomGet.when = function (args) { var t = BV_DIRECT_AT[String(args[0] || "").toUpperCase()]; return !!t && Date.now() - t < 180000 && !!SB_TOK && typeof bvSbLoad === "function"; };
+   /** bom_log 한 줄 → 화면 이력 모양(서버 bomLogRead_ 와 같은 칸) */
+   function bvSbLogRow(l) {
+-    var at = String(l.at || ""), d = new Date(at), atS = isNaN(d) ? at : String(d.getFullYear()).slice(2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + ("0" + d.getDate()).slice(-2) + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
++    // f497(읽기 대조): 서버 bomLogOf_ 와 같게 — 시트가 날짜로 둔 칸(사본엔 ISO)만 'yy/MM/dd HH:mm'(서울), 글자로 적힌 시각은 그대로(예전엔 브라우저 시간대로 모든 글자를 다시 썼다)
++    var at = String(l.at == null ? "" : l.at).trim(), atS = at;
++    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(at)) { var d = new Date(at); if (!isNaN(d)) { var k = new Date(d.getTime() + 9 * 3600000), z = function (n) { return ("0" + n).slice(-2); }; atS = String(k.getUTCFullYear()).slice(2) + "/" + z(k.getUTCMonth() + 1) + "/" + z(k.getUTCDate()) + " " + z(k.getUTCHours()) + ":" + z(k.getUTCMinutes()); } }
+     return { at: atS, who: String(l.who || "").split("@")[0], round: l.round || "", kind: l.kind || "", type: l.type || "", codeA: l.code_a || "", codeB: l.code_b || "", before: l.before || "", after: l.after || "", why: l.why || "", order: l.order_ref || "", state: l.state || "", id: l.change_id || "" };
+   }
+   /** rb_bom_save 응답 → apiBomSave 응답 모양(apiBomGet + made · saved · logTag · splitMap …). 링크 · 구성 BOM 은 열려 있던 것 그대로(세트 · 반제품은 서버 길이라 안 바뀜) */
+@@ -15297,7 +15396,16 @@
+   function pdDirect(rpc, fn, args, ok, fail, gas) {
+     var viaPj = function (why) {
+       if (why) rbWhy(fn, why);
+-      pjDirect(fn, args, fn === "apiPoCancel" ? function () { ok({ direct: 1, skippedIds: [], skipped: [] }); } : ok, fail, gas);
++      if (fn === "apiPoCancel") {      // f497: 할 일 길로 갈 때도 서버 poCancel_ 와 같은 결과(n · 건너뛴 건) — 예전엔 n 이 없어 'undefined건 취소' · 못 한 건도 취소로 보였다
++        if (!String(args[1] == null ? "" : args[1]).trim()) { fail(new Error("취소 사유를 적어 주세요.")); return; }
++        var S0 = rbStateSplit(args[0], function (r) { var s = String(r.state || ""); return ["", "계획", "상신", "승인"].indexOf(s) < 0 ? " — 진행상태 " + s + "(계획 · 상신 · 승인만 취소)" : ""; });
++        var out = { direct: 1, n: S0.n, skippedIds: S0.skippedIds, skipped: S0.skipped };
++        rbNoteSeen(S0.skipped);
++        if (!S0.n) { ok(out); return; }
++        pjDirect(fn, [S0.keep, args[1]], function () { ok(out); }, fail, gas);
++        return;
++      }
++      pjDirect(fn, args, ok, fail, gas);
+     };
+     if (typeof noteRpc !== "function" || typeof noteSess !== "function") { gas(); return; }
+     noteSess(function (ss) {
+@@ -15334,14 +15442,22 @@
+           var errs = (k && k.errs) || [];
+           errs.forEach(function (x) { var rr = rowById(x.id), PJN = { apiPoPendAdd: "상신 대기", apiPoSubmit: "상신 완료", apiPoRedraft: "기안 원복", apiSampleDeleteRow: "샘플 회차 지우기", apiSampleProjEdit: "프로젝트 수정", apiWaitReply: "회신 받음", apiBomReviewRegAll: "BOM 검사 품목 DB 등록", apiBomReviewFix: "BOM 검사 품목 DB 등록", apiBulkItems: "단계 항목 일괄 처리", apiBulkItemsUndo: "일괄 처리 되돌리기", apiDailyUnlock: "일일보고 저장 풀기", apiNegoPick: "네고 집계", apiCloseRemain: "입고 완료 처리", apiSetChoices: "목록 설정", apiSetSampleChoices: "샘플 목록 설정", apiItemDelete: "품목 삭제", apiSaveSteps: "단계 설정", apiSaveLinks: "링크 설정", apiSampleRemap: "샘플 값 정리", apiSampleViewsRebuild: "요청서 · 견적 탭 다시 만들기" }; var lb = (rr && rr.name) || (/^\[object|^[\[{]/.test(String(x.id)) ? (PJN[x.fn] || x.fn) : x.id); if (PJN[x.fn]) alert("[" + lb + "] " + PJN[x.fn] + " 저장 실패: " + x.err); else toast("[" + lb + "] 진행 기록 저장 실패: " + x.err + " — 새로고침 뒤 다시 해 주세요"); });
+           // f448: 할 일 길 결과 중 예전에 화면이 알려 주던 것(건너뛴 건 · 경고 · 못 한 건 · 메모 · 다시 연 회차)을 이제 알린다 — 저장 순간엔 '완료'만 받았다
+-          var notes = (k && k.notes) || [], NN = { apiPoSubmit: "상신 완료", apiPoPendAdd: "상신 대기", apiBulkDoc: "품의번호 넣기", apiBulkApprovalNo: "결재문서번호", apiSetState: "진행상태", apiWriteSheet: "발주 정보", apiCreateOrder: "발주 등록", apiBulkItems: "항목 처리", apiBulkItemsUndo: "항목 처리 되돌리기", apiSampleAdd: "샘플 추가", apiSampleNew: "샘플 등록", apiSampleEditRow: "샘플 수정", apiSampleDeleteRow: "샘플 회차 지우기", apiCloseRemain: "잔량 마감", apiItemDelete: "품목 지우기" };
++          var notes = (k && k.notes) || [], NN = { apiPoSubmit: "상신 완료", apiPoPendAdd: "상신 대기", apiBulkDoc: "품의번호 넣기", apiBulkApprovalNo: "결재문서번호", apiSetState: "진행상태", apiWriteSheet: "발주 정보", apiCreateOrder: "발주 등록", apiBulkItems: "항목 처리", apiBulkItemsUndo: "항목 처리 되돌리기", apiSampleAdd: "샘플 추가", apiSampleNew: "샘플 등록", apiSampleEditRow: "샘플 수정", apiSampleDeleteRow: "샘플 회차 지우기", apiCloseRemain: "잔량 마감", apiItemDelete: "품목 지우기", apiBulkStep: "단계 일괄 처리", apiPoRedraft: "기안 원복", apiPoCancel: "품의 취소", apiBulkOrderDate: "발주일", apiBulkDate: "날짜 일괄" };      // f497: 이름 없는 알림이 [apiBulkStep] 처럼 뜨던 것
+           var sh = function (v) { return (Array.isArray(v) ? v : [v]).map(function (x) { return x && typeof x === "object" ? (x.name || x.code || x.id || x.why || JSON.stringify(x)).toString().slice(0, 80) + (x.why && (x.name || x.code) ? " (" + x.why + ")" : "") : String(x).slice(0, 120); }).join(", "); };
+           var hard = [], soft = [], bad = [];
+           notes.forEach(function (o) {
++            // f497: 화면이 저장 순간 같은 규칙으로 이미 알린 건너뜀(rbNoteSeen)은 다시 띄우지 않는다
++            ["skipped", "fails", "miss", "payMissed"].forEach(function (k) { if (Array.isArray(o[k])) { o[k] = rbNoteUnseen(o[k]); if (!o[k].length) delete o[k]; } });
++            // f497: 할 일 길로 접수한 새 발주를 1분 작업이 못 넣었으면 — 목록의 '저장 중' 줄을 빼고 새 발주 표에 입력을 되살린다(예전 서버 길 실패와 같게)
++            if (o.jobErr && o.fn === "apiCreateOrder" && o.id && CREATE_DIRECT[o.id]) {
++              try { var cp = CREATE_DIRECT[o.id].p; delete CREATE_DIRECT[o.id]; delete PROV_KEEP[o.id]; DATA.rows = (DATA.rows || []).filter(function (x) { return x.id !== o.id; }); renderBoard(); ngRefill(cp); } catch (eRf) { /* 알림은 아래 */ }
++            }
+             var lab = "[" + (NN[o.fn] || o.fn) + (o.at ? " " + o.at : "") + "] ", parts = [];
+-            if (o.jobErr) parts.push("저장하지 못했습니다 — " + sh(o.jobErr) + " (다시 해 주세요)");      // f485: 1분 작업이 옮기다 실패한 저장
++            if (o.jobErr) parts.push("저장하지 못했습니다 — " + sh(o.jobErr) + (o.fn === "apiCreateOrder" ? " (새 발주 표에 다시 채워 두었습니다 — 고친 뒤 [저장])" : " (다시 해 주세요)"));      // f485: 1분 작업이 옮기다 실패한 저장
+             if (o.skipped) parts.push("건너뛴 건: " + sh(o.skipped));
+             if (o.fails) parts.push("못 한 건: " + sh(o.fails));
++            if (o.miss) parts.push("날짜가 없어 체크하지 않은 항목: " + sh(o.miss));
++            if (o.payMissed) parts.push("지급월에 못 넣은 금액: " + sh(o.payMissed));
+             if (o.linesError) parts.push("지급 줄 못 고침: " + sh(o.linesError));
+             if (o.linesQtyNeed || o.need) parts.push("고칠 예정 줄이 없어 지급 줄은 그대로 — 지급 줄 표에서 고쳐 주세요");
+             if (o.warn || o.warning) parts.push("확인: " + sh(o.warn || o.warning));
+@@ -15350,7 +15466,7 @@
+             if (o.reopened) parts.push("마감했던 회차를 다시 열었습니다");
+             if (o.notes && !Array.isArray(o.notes)) parts.push(sh(o.notes));
+             if (!parts.length) return;
+-            (o.jobErr ? bad : o.skipped || o.fails || o.linesError || o.linesQtyNeed || o.need ? hard : soft).push(lab + parts.join(" · "));
++            (o.jobErr ? bad : o.skipped || o.fails || o.miss || o.payMissed || o.linesError || o.linesQtyNeed || o.need ? hard : soft).push(lab + parts.join(" · "));
+           });
+           if (bad.length) alert("저장하지 못한 것이 있습니다:" + String.fromCharCode(10) + bad.join(String.fromCharCode(10)));
+           if (hard.length) alert("저장은 됐지만 확인할 것이 있습니다:" + String.fromCharCode(10) + hard.join(String.fromCharCode(10)));
+@@ -15881,7 +15997,7 @@
+   /* f316(속도 B): 품목 DB 를 Supabase 사본(바뀌면 1분 안에 맞춤)에서 바로 — 서버 apiItems(3~6초)는 뒤에서 그대로 받아 맞춘다 */
+   function sbItemsLoad() {
+     var t = function (x) { return x == null ? "" : String(x).trim(); }, key = function (x) { return t(x).toUpperCase().replace(/\s/g, ""); };
+-    return Promise.all([sbTabRows("_실행판_품목"), sbGetAll("/rest/v1/bom_rows?select=product,code,type,name,brand&order=sheet_row")]).then(function (res) {
++    return Promise.all([sbTabRows("_실행판_품목"), sbGetAll("/rest/v1/bom_rows?select=product,code,type,name,brand,product_name&order=sheet_row,id")]).then(function (res) {
+       var out = [], have = {};
+       res[0].forEach(function (r) {
+         var code = key(r[0]); if (!code || /미사용/.test(t(r[11]))) return;
+@@ -15896,8 +16012,10 @@
+         var b = B[p]; if (!b) { b = B[p] = { code: p, name: "", brand: t(x.brand) }; order.push(p); }
+         if (!b.brand && t(x.brand)) b.brand = t(x.brand);
+         if ((t(x.type) === "제품" || key(x.code) === p) && !b._pn && t(x.name)) { b.name = t(x.name); b._pn = 1; }
++        if (!b.name && t(x.product_name)) b.name = t(x.product_name);      // f497: 서버 bomIdxAdd_ 와 같게 — 제품 줄이 없으면 제품명(검색) 칸
+       });
+-      order.forEach(function (p) { if (have[p]) return; have[p] = 1; var b = B[p]; out.push({ code: p, name: b.name || p, brand: b.brand || "", channel: "", vendor: "", price: "", bom: 1 }); });
++      // f497: 브랜드가 빈 품목은 서버처럼 코드 첫 글자로 짐작(bomBrandOf_ — H 히디프 · M 메디테라피)
++      order.forEach(function (p) { if (have[p]) return; have[p] = 1; var b = B[p]; out.push({ code: p, name: b.name || p, brand: b.brand || ({ H: "히디프", M: "메디테라피" })[p.charAt(0)] || "", channel: "", vendor: "", price: "", bom: 1 }); });
+       return out;
+     });
+   }
+@@ -18935,7 +19053,7 @@
+   var SB_BOMALL = null;
+   function sbBomAll() {
+     if (SB_BOMALL && Date.now() - SB_BOMALL.t < 3000) return SB_BOMALL.p;
+-    var p = sbGetAll("/rest/v1/bom_rows?select=*&order=sheet_row").then(function (L) {
++    var p = sbGetAll("/rest/v1/bom_rows?select=*&order=sheet_row,id").then(function (L) {
+       var byP = {}, P = [], M = {};
+       (L || []).forEach(function (x) {
+         var pr = String(x.product || "").trim().toUpperCase(); if (!pr) return;
+@@ -18965,7 +19083,7 @@
+   function sbIssAll() {
+     if (SB_ISS && Date.now() - SB_ISS_AT < 3000) return Promise.resolve(SB_ISS);      // 목록 · 건 상세가 같이 부를 때 한 번만
+     return sbTabRows("_실행판_이슈").then(function (R) {
+-      var t = function (x) { return x == null ? "" : String(x).trim(); };
++      var t = function (x) { return x == null || x === true || x === false ? "" : String(x).trim(); };      // f497: 서버 str_ 와 같게(체크 칸 true/false = 빈칸)
+       SB_ISS = R.map(function (v) {
+         return { id: t(v[0]), kind: t(v[1]), ref: t(v[2]), name: t(v[3]), vendor: t(v[4]), text: t(v[5]), at: sbKst(v[6]), by: t(v[7]), st: t(v[8]) || "열림", fb: t(v[9]), fbBy: t(v[10]), fbAt: sbKst(v[11]) };
+       }).filter(function (x) { return x.id; });
+@@ -18975,7 +19093,7 @@
+   }
+   /** 품목 링크(서버 bomLinksOf_ 와 같은 규칙 — 이 코드 것, 없으면 같은 줄기 다른 버전) */
+   function sbLinksOf(code) {
+-    var key = function (c) { return String(c == null ? "" : c).trim().toUpperCase(); };
++    var key = function (c) { return String(c == null ? "" : c).toUpperCase().replace(/\s/g, ""); };      // f497: 서버 itemCodeKey_ 와 같게(가운데 띄어쓰기도 뺀다)
+     code = key(code);
+     return sbTabRows("_실행판_품목링크").then(function (R) {
+       var stem = /^[A-Z][XP]?\d{4}[A-Z]{2}\d+$/.test(code) ? code.replace(/\d+$/, "") : "", mine = [], others = [];
+@@ -19005,14 +19123,22 @@
+   function bvSbLoad(code) {
+     var q = encodeURIComponent(code);
+     return Promise.all([
+-      sbGet("/rest/v1/bom_rows?select=*&product=eq." + q + "&order=sheet_row"),
+-      sbGet("/rest/v1/bom_log?select=*&product=eq." + q + "&order=sheet_row.desc&limit=50").catch(function () { return []; })
++      sbGet("/rest/v1/bom_rows?select=*&product=eq." + q + "&order=sheet_row,id"),
++      sbGet("/rest/v1/bom_log?select=*&product=eq." + q + "&order=sheet_row.desc,id.desc&limit=50").catch(function () { return []; })
+     ]).then(function (res) {
+       var rows = (res[0] || []).map(bvSbRow);
+       if (!rows.length) return null;
+       var log = (res[1] || []).map(bvSbLogRow);
+-      var nm = (res[0][0] || {}).product_name || code;
+-      var out = { code: code, name: nm, rows: rows, log: log, links: BV_LINKC[code] || [], compBom: {}, _snap: 1, _sb: 1 };
++      // f497(읽기 대조): 이름 · 브랜드는 서버 apiBomGet(bomIdxAdd_)과 같은 규칙 — 제품 줄 품목명 먼저, 없으면 제품명(검색) 칸. 예전엔 첫 줄 제품명 칸이라 목록 · 서버와 이름이 달랐다(그 뒤 서버 값이 와도 이름은 안 바뀜)
++      var tt = function (x) { return x == null ? "" : String(x).trim(); }, nm = "", pn = 0, br = "";
++      (res[0] || []).forEach(function (x) {
++        var pc = tt(x.product).toUpperCase(), cc = tt(x.code).toUpperCase();
++        if (!br && tt(x.brand)) br = tt(x.brand);
++        if ((tt(x.type) === "제품" || cc === pc) && !pn && tt(x.name)) { nm = tt(x.name); pn = 1; }
++        if (!nm && tt(x.product_name)) nm = tt(x.product_name);
++      });
++      if (!br) br = ({ H: "히디프", M: "메디테라피" })[String(code).toUpperCase().charAt(0)] || "";
++      var out = { code: code, name: nm, brand: br, rows: rows, log: log, links: BV_LINKC[code] || [], compBom: {}, _snap: 1, _sb: 1 };
+       if (BV_PINS[String(code).toUpperCase()]) out.semiPin = BV_PINS[String(code).toUpperCase()];
+       var lkP = sbTabOk("lk") ? sbLinksOf(code).then(function (L) { out.links = L; }).catch(function () { /* 서버 값으로 */ }) : Promise.resolve();
+       // f314: 구성 완제품 · 반제품 BOM 도 같이(서버 apiBomGet 의 compBom · compMats 와 같은 규칙) — 바로 고칠 수 있게
+@@ -19020,7 +19146,7 @@
+       var L = Object.keys(cc);
+       if (!L.length) { out._comp = 1; return lkP.then(function () { return out; }); }
+       var inq = encodeURIComponent("(" + L.map(function (c) { return '"' + c.replace(/["\\]/g, "") + '"'; }).join(",") + ")");
+-      return sbGet("/rest/v1/bom_rows?select=*&product=in." + inq + "&order=sheet_row").then(function (cr) {
++      return sbGet("/rest/v1/bom_rows?select=*&product=in." + inq + "&order=sheet_row,id").then(function (cr) {
+         (cr || []).forEach(function (x) { var p = String(x.product || "").toUpperCase(); (out.compBom[p] = out.compBom[p] || []).push(bvSbRow(x)); });
+         if (rows.some(function (v) { return v.type === "세트"; })) {
+           out.compMats = {};
